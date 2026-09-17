@@ -1,0 +1,11 @@
+@Master_HostAddress = http://localhost:5166
+
+GET {{Master_HostAddress}}/openapi/v1.json
+Accept: application/json
+
+###
+
+GET {{Master_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

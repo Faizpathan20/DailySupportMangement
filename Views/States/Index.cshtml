@@ -1,0 +1,1624 @@
+@model Master.Models.StateMasterViewModel
+
+@{
+    ViewData["Title"] = "State Master";
+    int totalRecords = Model.States.Count;
+}
+
+
+<div class="page-header">
+
+    <div>
+
+        <h1>
+            State Master
+        </h1>
+
+        <p>
+            Manage all states
+        </p>
+
+    </div>
+
+</div>
+
+
+<!-- ================= KPI CARDS ================= -->
+
+<div class="dashboard-cards">
+
+
+    <!-- TOTAL -->
+
+    <div class="dashboard-card">
+
+        <div class="card-content">
+
+            <p>
+                Total Records
+            </p>
+
+            <h2 data-kpi="total">
+                @Model.TotalRecords
+            </h2>
+
+        </div>
+
+        <div class="card-icon">
+            📊
+        </div>
+
+    </div>
+
+
+    <!-- LAST WEEK -->
+
+    @if (Model.HasLastWeekKpi)
+    {
+        <div class="dashboard-card">
+
+            <div class="card-content">
+
+                <p>
+                    Last Week Records
+                </p>
+
+                <h2 data-kpi="last-week">
+                    @Model.LastWeekRecords
+                </h2>
+
+            </div>
+
+            <div class="card-icon">
+                📅
+            </div>
+
+        </div>
+    }
+
+
+    <!-- ACTIVE -->
+
+    @if (Model.HasActiveKpi)
+    {
+        <div class="dashboard-card">
+
+            <div class="card-content">
+
+                <p>
+                    Active
+                </p>
+
+                <h2 data-kpi="active">
+                    @Model.ActiveRecords
+                </h2>
+
+            </div>
+
+            <div class="card-icon">
+                ✅
+            </div>
+
+        </div>
+
+
+        <!-- NON ACTIVE -->
+
+        <div class="dashboard-card">
+
+            <div class="card-content">
+
+                <p>
+                    Non Active
+                </p>
+
+                <h2 data-kpi="non-active">
+                    @Model.NonActiveRecords
+                </h2>
+
+            </div>
+
+            <div class="card-icon">
+                ⏸️
+            </div>
+
+        </div>
+    }
+
+
+</div>
+
+
+<!-- ================= MESSAGES ================= -->
+
+@if (TempData["Success"] != null)
+{
+    <div class="success-message">
+
+        @TempData["Success"]
+
+    </div>
+}
+
+
+@if (TempData["Error"] != null)
+{
+    <div class="error-message">
+
+        @TempData["Error"]
+
+    </div>
+}
+
+
+<!-- ================= STATE SECTION ================= -->
+
+<div class="state-section">
+
+
+
+
+    <!-- ================= TABLE TOOLBAR ================= -->
+
+    <div class="table-toolbar">
+
+        <div class="toolbar-left">
+
+            <select id="recordsPerPage"
+                    onchange="changeRecordsPerPage()">
+
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+
+            </select>
+
+            <span class="toolbar-label">
+                records per page
+            </span>
+
+        </div>
+
+
+        <div class="toolbar-center">
+
+            <button type="button"
+                    class="export-btn excel-btn"
+                    onclick="exportExcel()">
+
+                Excel
+
+            </button>
+
+            <button type="button"
+                    class="export-btn csv-btn"
+                    onclick="exportCSV()">
+
+                CSV
+
+            </button>
+
+            <button type="button"
+                    class="export-btn print-btn"
+                    onclick="printTable()">
+
+                Print
+
+            </button>
+
+        </div>
+
+
+        <div class="toolbar-right">
+
+            <span class="toolbar-label">
+                Search:
+            </span>
+
+            <input type="text"
+                   id="tableSearch"
+                   placeholder="Search..."
+                   oninput="filterTable()" />
+
+            <button type="button"
+                    class="primary-btn"
+                    onclick="openAddModal()">
+
+                + Add State
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- ================= TABLE ================= -->
+
+    <div class="table-container master-table">
+
+        <table id="dataTable">
+
+            <thead>
+
+                <tr>
+
+                    @{
+                        double totalWeight =
+                            Model.Fields.Sum(
+                                f => f.Width) + 10;
+
+                        double actionWidthPct =
+                            Math.Round(
+                                10.0 / totalWeight * 100,
+                                2);
+                    }
+
+                    @for (int i = 0; i < Model.Fields.Count; i++)
+                    {
+                        var field = Model.Fields[i];
+
+                        double fieldWidthPct =
+                            Math.Round(
+                                field.Width / totalWeight * 100,
+                                2);
+
+                        <th class="sortable"
+                            data-sort="@field.SortType"
+                            style="width: @(fieldWidthPct)%;"
+                            onclick="sortTable(this)">
+
+                            <span class="th-text">
+                                @field.Display
+                            </span>
+
+                            <span class="sort-indicator">
+                                <span class="sort-up"></span>
+                                <span class="sort-down"></span>
+                            </span>
+
+                        </th>
+                    }
+
+                    <th class="actions-col"
+                        style="width: @(actionWidthPct)%;">
+                        Actions
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                @if (Model.States.Count == 0)
+                {
+                    <tr class="no-data-row"
+                        data-search="">
+
+                        <td colspan="@(Model.Fields.Count + 1)"
+                            class="empty-state">
+
+                            No Records Found on this filter.
+
+                        </td>
+
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var state in Model.States)
+                    {
+                        var searchText = string.Join(
+                            " ",
+                            Model.Fields.Select(
+                                f => state.Get(f.Name)));
+
+                        <tr data-search="@searchText">
+
+                            @foreach (var field in Model.Fields)
+                            {
+                                <td>
+
+                                    @if (field.Type == "status")
+                                    {
+                                        if (state.Get(field.Name) == "Active")
+                                        {
+                                            <span class="status-active">
+                                                @state.Get(field.Name)
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="status-inactive">
+                                                @state.Get(field.Name)
+                                            </span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        @state.Get(field.Name)
+                                    }
+
+                                </td>
+                            }
+
+                            <td>
+
+                                <div class="action-cell">
+
+                                    @{
+                                        var rowJson =
+                                            System.Text.Json
+                                                .JsonSerializer
+                                                .Serialize(
+                                                    state.Values);
+                                    }
+
+                                    <button type="button"
+                                            class="edit-btn action-btn"
+                                            title="Edit"
+                                            data-json="@rowJson"
+                                            onclick="openEditModal(this)">
+
+                                        ✎
+
+                                    </button>
+
+                                    <form asp-controller="States"
+                                          asp-action="Delete"
+                                          method="post"
+                                          onsubmit="return masterConfirmAndSubmit(
+                                              this,
+                                              'Are you sure you want to delete this state?'
+                                          );">
+
+                                        @Html.AntiForgeryToken()
+
+                                        <input type="hidden"
+                                               name="id"
+                                               value="@state.Get("Id")" />
+
+                                        <button type="submit"
+                                                class="delete-btn action-btn"
+                                                title="Delete">
+
+                                            ✕
+
+                                        </button>
+
+                                    </form>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+                    }
+                }
+
+                <!-- Client-side empty row: shown when the
+                     search filter matches no rows. -->
+                <tr id="noRecordsRow"
+                    class="no-data-row"
+                    data-search=""
+                    style="display: none;">
+
+                    <td colspan="@(Model.Fields.Count + 1)"
+                        class="empty-state">
+
+                        No Records Found on this filter.
+
+                    </td>
+
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <!-- ================= TABLE FOOTER ================= -->
+
+    <div class="table-footer">
+
+        <div class="footer-left"
+             id="tableInfo">
+
+            Showing 1 to 10 of @totalRecords entries
+
+        </div>
+
+
+        <div class="footer-right"
+             id="pagination">
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ================= ADD / EDIT MODAL ================= -->
+
+<div id="stateModal"
+     class="modal">
+
+
+    <div class="modal-content modal-compact">
+
+        <div class="modal-header">
+
+            <h2 id="modalTitle">
+                Add State
+            </h2>
+
+            <button type="button"
+                    class="modal-close"
+                    onclick="closeModal()">
+
+                &times;
+
+            </button>
+
+        </div>
+
+
+        <form id="stateForm"
+              method="post"
+              action="@Url.Action("Create", "States")">
+
+            @Html.AntiForgeryToken()
+
+            <input type="hidden"
+                   id="editId"
+                   name="id" />
+
+
+            <div class="form-grid form-grid-single">
+
+                @foreach (var field in Model.FormFields)
+                {
+                    string groupClass =
+                        field.Control == "textarea"
+                            ? "form-group form-group-full"
+                            : "form-group";
+
+                    <div class="@groupClass"
+                         data-createonly="@(field.CreateOnly)">
+
+                        <label>
+                            @field.Display
+                        </label>
+
+                        @if (field.Control == "select")
+                        {
+                            var dropdown =
+                                ((Dictionary<
+                                    string,
+                                    List<LookupOptionViewModel>>)
+                                    ViewBag.Dropdowns)[
+                                        field.LookupKey!];
+
+                            <select name="@field.Name"
+                                    id="edit_@field.Name"
+                                    @(field.Required
+                                        ? "required"
+                                        : null)>
+
+                                <option value=""
+                                        disabled
+                                        selected>
+                                    -- Select @field.Display --
+                                </option>
+
+                                @foreach (var option in dropdown)
+                                {
+                                    <option value="@option.Id">
+                                        @option.Name
+                                    </option>
+                                }
+
+                            </select>
+                        }
+                        else if (field.Control == "textarea")
+                        {
+                            <textarea id="edit_@field.Name"
+                                      name="@field.Name"
+                                      rows="2"
+                                      @(field.Required
+                                          ? "required"
+                                          : null)></textarea>
+                        }
+                        else
+                        {
+                            <input type="@field.InputType"
+                                   id="edit_@field.Name"
+                                   name="@field.Name"
+                                   @(field.Required
+                                       ? "required"
+                                       : null) />
+                        }
+
+                    </div>
+                }
+
+            </div>
+
+
+            <div class="modal-actions">
+
+                <button type="submit"
+                        id="btnSubmit"
+                        class="save-btn">
+
+                    Save
+
+                </button>
+
+                <button type="button"
+                        class="cancel-btn"
+                        onclick="closeModal()">
+
+                    Cancel
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+@section Scripts
+{
+    <script>
+
+        // ==========================================
+        // STATE
+        // ==========================================
+
+        var currentPage = 1;
+        var recordsPerPage = 10;
+        var totalRecords = @totalRecords;
+
+        var createUrl =
+            "@Url.Action("Create", "States")";
+
+        var editUrl =
+            "@Url.Action("Edit", "States")";
+
+
+        // ==========================================
+        // FILTER TABLE
+        // ==========================================
+
+        function filterTable() {
+
+            currentPage = 1;
+
+            renderTable();
+
+        }
+
+
+        // ==========================================
+        // CHANGE RECORDS PER PAGE
+        // ==========================================
+
+        function changeRecordsPerPage() {
+
+            recordsPerPage = parseInt(
+                document.getElementById(
+                    "recordsPerPage"
+                ).value
+            );
+
+            currentPage = 1;
+
+            renderTable();
+
+        }
+
+
+        // ==========================================
+        // GO TO PAGE
+        // ==========================================
+
+        function goToPage(page) {
+
+            currentPage = page;
+
+            renderTable();
+
+        }
+
+
+        // ==========================================
+        // RENDER TABLE
+        // ==========================================
+
+        function renderTable() {
+
+            var searchValue =
+                document.getElementById(
+                    "tableSearch"
+                ).value
+                .toLowerCase()
+                .trim();
+
+
+            var rows =
+                document.querySelectorAll(
+                    "#dataTable tbody tr"
+                );
+
+
+            var filteredRows = [];
+
+
+            for (var i = 0; i < rows.length; i++) {
+
+                // Skip the "no records" placeholder rows;
+                // they are never real data rows.
+                if (
+                    rows[i].classList.contains(
+                        "no-data-row"
+                    )
+                ) {
+                    continue;
+                }
+
+                var searchData =
+                    rows[i]
+                        .getAttribute(
+                            "data-search"
+                        )
+                        .toLowerCase();
+
+
+                if (
+                    searchData.indexOf(
+                        searchValue
+                    ) !== -1
+                ) {
+                    filteredRows.push(rows[i]);
+                }
+
+            }
+
+
+            totalRecords = filteredRows.length;
+
+
+            var totalPages =
+                Math.ceil(
+                    totalRecords / recordsPerPage
+                );
+
+
+            if (currentPage > totalPages) {
+                currentPage =
+                    totalPages > 0
+                        ? totalPages
+                        : 1;
+            }
+
+
+            var startIndex =
+                (currentPage - 1)
+                * recordsPerPage;
+
+
+            var endIndex =
+                startIndex + recordsPerPage;
+
+
+            if (endIndex > totalRecords) {
+                endIndex = totalRecords;
+            }
+
+
+            for (var j = 0; j < rows.length; j++) {
+                rows[j].style.display = "none";
+            }
+
+
+            for (
+                var k = startIndex;
+                k < endIndex;
+                k++
+            ) {
+                filteredRows[k].style.display = "";
+            }
+
+
+            // "No Records Found on this filter" message
+            // when the search filter matches nothing.
+
+            var noRecordsRow =
+                document.getElementById(
+                    "noRecordsRow"
+                );
+
+            if (noRecordsRow) {
+
+                noRecordsRow.style.display =
+                    filteredRows.length === 0
+                        ? ""
+                        : "none";
+
+            }
+
+
+            updateTableInfo(
+                startIndex + 1,
+                endIndex,
+                totalRecords
+            );
+
+
+            renderPagination(totalPages);
+
+        }
+
+
+        // ==========================================
+        // UPDATE TABLE INFO
+        // ==========================================
+
+        function updateTableInfo(
+            start,
+            end,
+            total
+        ) {
+
+            var infoElement =
+                document.getElementById(
+                    "tableInfo"
+                );
+
+
+            if (total === 0) {
+                infoElement.innerText =
+                    "Showing 0 to 0 of 0 entries";
+            } else {
+                infoElement.innerText =
+                    "Showing "
+                    + start
+                    + " to "
+                    + end
+                    + " of "
+                    + total
+                    + " entries";
+            }
+
+        }
+
+
+        // ==========================================
+        // RENDER PAGINATION
+        // ==========================================
+
+        function renderPagination(
+            totalPages
+        ) {
+
+            var paginationElement =
+                document.getElementById(
+                    "pagination"
+                );
+
+
+            var html = "";
+
+
+            // PREVIOUS BUTTON
+
+            if (currentPage === 1) {
+                html +=
+                    '<button class="page-btn" disabled>← Previous</button>';
+            } else {
+                html +=
+                    '<button class="page-btn" onclick="goToPage('
+                    + (currentPage - 1)
+                    + ')">← Previous</button>';
+            }
+
+
+            // PAGE NUMBERS
+
+            for (
+                var i = 1;
+                i <= totalPages;
+                i++
+            ) {
+
+                if (i === currentPage) {
+                    html +=
+                        '<button class="page-btn active">'
+                        + i
+                        + '</button>';
+                } else {
+                    html +=
+                        '<button class="page-btn" onclick="goToPage('
+                        + i
+                        + ')">'
+                        + i
+                        + '</button>';
+                }
+
+            }
+
+
+            // NEXT BUTTON
+
+            if (
+                currentPage === totalPages
+                || totalPages === 0
+            ) {
+                html +=
+                    '<button class="page-btn" disabled>Next →</button>';
+            } else {
+                html +=
+                    '<button class="page-btn" onclick="goToPage('
+                    + (currentPage + 1)
+                    + ')">Next →</button>';
+            }
+
+
+            paginationElement.innerHTML = html;
+
+        }
+
+
+        // ==========================================
+        // SORT TABLE
+        // ==========================================
+
+        var sortColumn = -1;
+        var sortDirection = "asc";
+
+
+        function sortTable(th) {
+
+            var headers =
+                Array.from(
+                    th.parentNode.children
+                );
+
+            var colIndex =
+                headers.indexOf(th);
+
+            var type =
+                th.getAttribute("data-sort")
+                || "text";
+
+
+            if (sortColumn === colIndex) {
+                sortDirection =
+                    sortDirection === "asc"
+                        ? "desc"
+                        : "asc";
+            } else {
+                sortDirection = "asc";
+                sortColumn = colIndex;
+            }
+
+
+            var tbody =
+                document.querySelector(
+                    "#dataTable tbody"
+                );
+
+
+            var rows =
+                Array.from(tbody.querySelectorAll("tr"));
+
+
+            rows.sort(function (a, b) {
+
+                var aVal =
+                    a.querySelectorAll("td")[
+                        colIndex
+                    ].innerText.trim();
+
+                var bVal =
+                    b.querySelectorAll("td")[
+                        colIndex
+                    ].innerText.trim();
+
+
+                var aNum, bNum;
+
+
+                if (type === "num") {
+
+                    aNum =
+                        parseInt(aVal) || 0;
+                    bNum =
+                        parseInt(bVal) || 0;
+
+                    return sortDirection === "asc"
+                        ? aNum - bNum
+                        : bNum - aNum;
+
+                } else if (type === "date") {
+
+                    aNum =
+                        new Date(aVal).getTime() || 0;
+                    bNum =
+                        new Date(bVal).getTime() || 0;
+
+                    return sortDirection === "asc"
+                        ? aNum - bNum
+                        : bNum - aNum;
+
+                } else if (type === "status") {
+
+                    aNum =
+                        aVal === "Active" ? 1 : 0;
+                    bNum =
+                        bVal === "Active" ? 1 : 0;
+
+                    return sortDirection === "asc"
+                        ? aNum - bNum
+                        : bNum - aNum;
+
+                } else {
+
+                    return sortDirection === "asc"
+                        ? aVal.localeCompare(bVal)
+                        : bVal.localeCompare(aVal);
+
+                }
+
+            });
+
+
+            for (
+                var i = 0;
+                i < rows.length;
+                i++
+            ) {
+                tbody.appendChild(rows[i]);
+            }
+
+
+            updateSortArrows(colIndex);
+
+
+            currentPage = 1;
+
+            renderTable();
+
+        }
+
+
+        function updateSortArrows(colIndex) {
+
+            var headers =
+                document.querySelectorAll(
+                    "#dataTable th"
+                );
+
+
+            for (
+                var i = 0;
+                i < headers.length;
+                i++
+            ) {
+
+                headers[i].classList.remove(
+                    "sort-asc",
+                    "sort-desc"
+                );
+
+            }
+
+
+            headers[colIndex].classList.add(
+                sortDirection === "asc"
+                    ? "sort-asc"
+                    : "sort-desc"
+            );
+
+        }
+
+
+        // ==========================================
+        // INIT
+        // ==========================================
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            function () {
+                renderTable();
+            }
+        );
+
+
+        // ==========================================
+        // EXPORT EXCEL
+        // ==========================================
+
+        function exportExcel() {
+
+            var table =
+                document.getElementById(
+                    "dataTable"
+                );
+
+            var rows =
+                table.querySelectorAll("tr");
+
+            var data = [];
+
+
+            for (var i = 0; i < rows.length; i++) {
+
+                if (
+                    rows[i].style.display === "none"
+                ) {
+                    continue;
+                }
+
+
+                var cells =
+                    rows[i].querySelectorAll(
+                        "th, td"
+                    );
+
+                var rowData = [];
+
+
+                for (
+                    var j = 0;
+                    j < cells.length;
+                    j++
+                ) {
+
+if (
+                    j === cells.length - 1
+                ) {
+                    continue;
+                }
+
+
+                rowData.push(
+                    cells[j].innerText.trim()
+                );
+
+                }
+
+
+                if (rowData.length > 0) {
+                    data.push(rowData);
+                }
+
+            }
+
+
+            var worksheet =
+                XLSX.utils.aoa_to_sheet(data);
+
+
+            var workbook =
+                XLSX.utils.book_new();
+
+
+            XLSX.utils.book_append_sheet(
+                workbook,
+                worksheet,
+                "States"
+            );
+
+
+            XLSX.writeFile(
+                workbook,
+                "States_Data.xlsx"
+            );
+
+        }
+
+
+        // ==========================================
+        // EXPORT CSV
+        // ==========================================
+
+        function exportCSV() {
+
+            var table =
+                document.getElementById(
+                    "dataTable"
+                );
+
+            var rows =
+                table.querySelectorAll("tr");
+
+            var csvContent = "";
+
+
+            for (var i = 0; i < rows.length; i++) {
+
+                if (
+                    rows[i].style.display === "none"
+                ) {
+                    continue;
+                }
+
+
+                var cells =
+                    rows[i].querySelectorAll(
+                        "th, td"
+                    );
+
+                var rowData = [];
+
+
+                for (
+                    var j = 0;
+                    j < cells.length;
+                    j++
+                ) {
+
+if (
+                    j === cells.length - 1
+                ) {
+                    continue;
+                }
+
+
+                var text =
+                    cells[j].innerText
+                        .trim();
+
+                text = text.replace(
+                    /"/g,
+                    '""'
+                );
+
+                rowData.push(
+                    '"' + text + '"'
+                );
+
+                }
+
+
+                if (rowData.length > 0) {
+                    csvContent +=
+                        rowData.join(",")
+                        + "\r\n";
+                }
+
+            }
+
+
+            var blob = new Blob(
+                [csvContent],
+                {
+                    type:
+                        "text/csv;charset=utf-8;"
+                }
+            );
+
+
+            var link =
+                document.createElement("a");
+
+
+            link.href =
+                URL.createObjectURL(blob);
+
+
+            link.download =
+                "States_Data.csv";
+
+
+            link.click();
+
+        }
+
+
+        // ==========================================
+        // PRINT TABLE
+        // ==========================================
+
+        function printTable() {
+
+            var table =
+                document.getElementById(
+                    "dataTable"
+                );
+
+
+            var printWindow =
+                window.open("", "_blank");
+
+
+            printWindow.document.write(
+                '<html><head>'
+                + '<title>States Data</title>'
+                + '<style>'
+                + 'body { font-family: Arial, sans-serif; padding: 20px; }'
+                + 'h1 { font-size: 22px; margin-bottom: 15px; }'
+                + 'table { width: 100%; border-collapse: collapse; }'
+                + 'th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }'
+                + 'th { background: #f3f4f6; font-size: 13px; }'
+                + 'td { font-size: 13px; }'
+                + '.status-active { color: #16a34a; font-weight: bold; }'
+                + '.status-inactive { color: #dc2626; font-weight: bold; }'
+                + '</style>'
+                + '</head><body>'
+            );
+
+
+            printWindow.document.write(
+                '<h1>States Data</h1>'
+            );
+
+
+            printWindow.document.write(
+                '<table>'
+            );
+
+
+            // THEAD
+
+            var thead =
+                table.querySelector("thead");
+
+
+            if (thead) {
+
+                printWindow.document.write(
+                    "<thead>"
+                    + thead.innerHTML
+                    + "</thead>"
+                );
+
+            }
+
+
+            // TBODY - only visible rows
+
+            printWindow.document.write(
+                "<tbody>"
+            );
+
+
+            var tbodyRows =
+                table.querySelectorAll(
+                    "tbody tr"
+                );
+
+
+            for (
+                var i = 0;
+                i < tbodyRows.length;
+                i++
+            ) {
+
+                if (
+                    tbodyRows[i].style.display
+                    !== "none"
+                ) {
+
+                    var cells =
+                        tbodyRows[i]
+                            .querySelectorAll("td");
+
+                    var filteredCells = [];
+
+
+                    for (
+                        var j = 0;
+                        j < cells.length;
+                        j++
+                    ) {
+
+                        var cellButtons =
+                            cells[j]
+                                .querySelector(
+                                    "button"
+                                );
+
+
+                        if (
+                            cellButtons === null
+                        ) {
+                            filteredCells.push(
+                                "<td>"
+                                + cells[j]
+                                    .innerHTML
+                                + "</td>"
+                            );
+                        }
+
+                    }
+
+
+                    printWindow.document.write(
+                        "<tr>"
+                        + filteredCells
+                            .join("")
+                        + "</tr>"
+                    );
+
+                }
+
+            }
+
+
+            printWindow.document.write(
+                "</tbody></table>"
+            );
+
+
+            printWindow.document.write(
+                "</body></html>"
+            );
+
+
+            printWindow.document.close();
+
+
+            printWindow.print();
+
+        }
+
+
+        // ==========================================
+        // AUTO DISMISS MESSAGES
+        // ==========================================
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            function () {
+
+                var messages =
+                    document.querySelectorAll(
+                        ".success-message, .error-message"
+                    );
+
+
+                for (
+                    var i = 0;
+                    i < messages.length;
+                    i++
+                ) {
+
+                    (function (message) {
+
+                        setTimeout(
+                            function () {
+
+                                message.style.transition =
+                                    "opacity 0.5s ease";
+
+                                message.style.opacity = "0";
+
+
+                                setTimeout(
+                                    function () {
+                                        message.remove();
+                                    },
+                                    500
+                                );
+
+                            },
+                            3000
+                        );
+
+                    })(messages[i]);
+
+                }
+
+            }
+        );
+
+
+        function setCreateOnlyGroups(visible) {
+
+            var groups =
+                document.querySelectorAll(
+                    "#stateForm .form-group[data-createonly='true']"
+                );
+
+
+            for (
+                var i = 0;
+                i < groups.length;
+                i++
+            ) {
+
+                groups[i].style.display =
+                    visible ? "" : "none";
+
+                var inputs =
+                    groups[i].querySelectorAll(
+                        "input, select, textarea"
+                    );
+
+
+                for (
+                    var j = 0;
+                    j < inputs.length;
+                    j++
+                ) {
+
+                    if (visible) {
+                        inputs[j].setAttribute(
+                            "required",
+                            "required"
+                        );
+                    } else {
+                        inputs[j].removeAttribute(
+                            "required"
+                        );
+                    }
+
+                }
+
+            }
+
+        }
+
+
+        // ==========================================
+        // MODAL
+        // ==========================================
+
+        function openAddModal() {
+
+            document.getElementById(
+                "modalTitle"
+            ).innerText = "Add State";
+
+
+            document.getElementById(
+                "btnSubmit"
+            ).innerText = "Save";
+
+
+            var form =
+                document.getElementById(
+                    "stateForm"
+                );
+
+            form.action = createUrl;
+
+            form.reset();
+
+            setCreateOnlyGroups(true);
+
+
+            document.getElementById(
+                "stateModal"
+            ).style.display = "flex";
+        }
+
+
+        function openEditModal(btn) {
+
+            var data =
+                JSON.parse(
+                    btn.getAttribute("data-json")
+                );
+
+
+            document.getElementById(
+                "modalTitle"
+            ).innerText = "Edit State";
+
+
+            document.getElementById(
+                "btnSubmit"
+            ).innerText = "Update";
+
+
+            var form =
+                document.getElementById(
+                    "stateForm"
+                );
+
+            form.action = editUrl;
+
+            form.reset();
+
+            setCreateOnlyGroups(false);
+
+
+            var elements =
+                form.querySelectorAll(
+                    "input[name], select[name], textarea[name]"
+                );
+
+
+            for (
+                var i = 0;
+                i < elements.length;
+                i++
+            ) {
+
+                var element = elements[i];
+
+                var name =
+                    element.getAttribute(
+                        "name"
+                    );
+
+                if (!name) {
+                    continue;
+                }
+
+
+                var key = null;
+
+                for (var fieldName in data) {
+
+                    if (
+                        data.hasOwnProperty(fieldName)
+                        && fieldName.toLowerCase()
+                           === name.toLowerCase()
+                    ) {
+                        key = fieldName;
+                        break;
+                    }
+
+                }
+
+
+                if (key) {
+                    element.value = data[key];
+                }
+
+            }
+
+
+            document.getElementById(
+                "stateModal"
+            ).style.display = "flex";
+        }
+
+
+        function closeModal() {
+
+            document.getElementById(
+                "stateModal"
+            ).style.display = "none";
+        }
+
+
+        window.onclick = function (event) {
+
+            const modal =
+                document.getElementById(
+                    "stateModal"
+                );
+
+
+            if (event.target === modal) {
+
+                closeModal();
+
+            }
+
+        };
+
+
+        masterBindModalSubmit(
+            "stateForm",
+            closeModal
+        );
+
+    </script>
+}

@@ -1,0 +1,715 @@
+@model DashboardViewModel
+
+@{
+    var filterOptions = new[]
+    {
+        new { Key = DateFilterType.Today, Label = "Today" },
+        new { Key = DateFilterType.Last7Days, Label = "7 Days" },
+        new { Key = DateFilterType.Last30Days, Label = "30 Days" },
+        new { Key = DateFilterType.ThisMonth, Label = "This Month" },
+        new { Key = DateFilterType.LastMonth, Label = "Last Month" },
+        new { Key = DateFilterType.AllTime, Label = "All Time" },
+        new { Key = DateFilterType.Custom, Label = "Custom" }
+    };
+}
+
+
+<!-- ================= QUICK DATE FILTER ================= -->
+
+<div class="dash-filter">
+
+    <form method="get"
+          id="dashFilterForm"
+          action="@Url.Action("Index", "Dashboard")">
+
+        <input type="hidden"
+               id="dashFilterType"
+               name="filter"
+               value="@Model.DateFilter.FilterType" />
+
+        <div class="dash-pills">
+
+            @foreach (var option in filterOptions)
+            {
+                <button type="button"
+                        class="pill @(option.Key == Model.DateFilter.FilterType ? "active" : "")"
+                        data-filter="@option.Key">
+
+                    @option.Label
+
+                </button>
+            }
+
+        </div>
+
+
+        <div class="dash-custom-row @(Model.DateFilter.FilterType == DateFilterType.Custom ? "visible" : "")">
+
+            <label class="dash-field">
+
+                <span>
+                    From
+                </span>
+
+                <input type="date"
+                       name="from"
+                       value="@Model.DateFilter.CustomFromDate?.ToString("yyyy-MM-dd")" />
+
+            </label>
+
+            <label class="dash-field">
+
+                <span>
+                    To
+                </span>
+
+                <input type="date"
+                       name="to"
+                       value="@Model.DateFilter.CustomToDate?.ToString("yyyy-MM-dd")" />
+
+            </label>
+
+            <button type="submit"
+                    class="dash-apply-btn">
+
+                Apply
+
+            </button>
+
+            <span class="field-error"
+                  id="dashDateError"
+                  style="display: none;">
+
+                From date cannot be greater than To date.
+
+            </span>
+
+        </div>
+
+
+        <!-- ================= GLOBAL FILTERS ================= -->
+
+        <div class="dash-global-filters">
+
+            <label class="dash-global-field">
+
+                <span>
+                    State
+                </span>
+
+                <select name="stateId"
+                        data-searchable>
+
+                    <option value="">
+                        All States
+                    </option>
+
+                    @foreach (var state in Model.States)
+                    {
+                        <option value="@state.Id"
+                                selected="@(Model.StateId == state.Id)">
+
+                            @state.Name
+
+                        </option>
+                    }
+
+                </select>
+
+            </label>
+
+
+            <label class="dash-global-field">
+
+                <span>
+                    User
+                </span>
+
+                <select name="userId"
+                        data-searchable>
+
+                    <option value="">
+                        All Users
+                    </option>
+
+                    @foreach (var user in Model.Users)
+                    {
+                        <option value="@user.Id"
+                                selected="@(Model.UserId == user.Id)">
+
+                            @user.Name
+
+                        </option>
+                    }
+
+                </select>
+
+            </label>
+
+
+            <label class="dash-global-field">
+
+                <span>
+                    Client
+                </span>
+
+                <select name="clientId"
+                        data-searchable>
+
+                    <option value="">
+                        All Clients
+                    </option>
+
+                    @foreach (var client in Model.Clients)
+                    {
+                        <option value="@client.Id"
+                                selected="@(Model.ClientId == client.Id)">
+
+                            @client.Name
+
+                        </option>
+                    }
+
+                </select>
+
+            </label>
+
+
+            <label class="dash-global-field">
+
+                <span>
+                    Status
+                </span>
+
+                <select name="status">
+
+                    @foreach (var option in Model.StatusOptions)
+                    {
+                        <option value="@option"
+                                selected="@(Model.Status == option)">
+
+                            @option
+
+                        </option>
+                    }
+
+                </select>
+
+            </label>
+
+
+            <label class="dash-global-field">
+
+                <span>
+                    Priority
+                </span>
+
+                <select name="priority">
+
+                    @foreach (var option in Model.PriorityOptions)
+                    {
+                        <option value="@option"
+                                selected="@(Model.Priority == option)">
+
+                            @option
+
+                        </option>
+                    }
+
+                </select>
+
+            </label>
+
+
+            <div class="dash-global-actions">
+
+                <button type="submit"
+                        class="dash-apply-btn">
+
+                    Apply
+
+                </button>
+
+                <button type="button"
+                        id="dashResetBtn"
+                        class="dash-reset-btn">
+
+                    Reset
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </form>
+
+
+    <div class="dash-range-text" id="dashRangeText">
+
+        Showing:
+        @Model.DateFilter.DisplayValue
+
+    </div>
+
+</div>
+
+
+<!-- Tabs nav (Overview / Support / Visits / Clients) -->
+
+<nav class="dash-tabs" id="dashTabs">
+
+    <button class="dash-tab active"
+            data-tab="dash-overview">
+
+        <svg class="dash-tab-icon"
+             viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="2"
+             stroke-linecap="round"
+             stroke-linejoin="round"
+             aria-hidden="true">
+
+            <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+            <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+            <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+            <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+
+        </svg>
+
+        Overview
+
+    </button>
+
+    <button class="dash-tab"
+            data-tab="dash-daily-support">
+
+        <svg class="dash-tab-icon"
+             viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="2"
+             stroke-linecap="round"
+             stroke-linejoin="round"
+             aria-hidden="true">
+
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1
+                     1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94
+                     7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91
+                     a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+
+        </svg>
+
+        Support
+
+    </button>
+
+    <button class="dash-tab"
+            data-tab="dash-client-visiting">
+
+        <svg class="dash-tab-icon"
+             viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="2"
+             stroke-linecap="round"
+             stroke-linejoin="round"
+             aria-hidden="true">
+
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+
+        </svg>
+
+        Visits
+
+    </button>
+
+    <button class="dash-tab"
+            data-tab="dash-clients">
+
+        <svg class="dash-tab-icon"
+             viewBox="0 0 24 24"
+             fill="none"
+             stroke="currentColor"
+             stroke-width="2"
+             stroke-linecap="round"
+             stroke-linejoin="round"
+             aria-hidden="true">
+
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+
+        </svg>
+
+        Clients
+
+    </button>
+
+</nav>
+
+
+<!-- ================= OVERVIEW TAB ================= -->
+
+<div class="dash-tab-pane active"
+     id="dash-overview">
+
+    <div class="dash-summary-section">
+
+
+        <!-- ---- Row 1 ---- -->
+
+        <div class="dashboard-cards">
+
+            <partial name="_SummaryCard"
+                     model='new SummaryCardViewModel
+                         { Title = "TOTAL USERS",
+                           Value = Model.Summary.TotalUsers,
+                           Icon = "👥" }' />
+
+            <partial name="_SummaryCard"
+                     model='new SummaryCardViewModel
+                         { Title = "TOTAL CLIENTS",
+                           Value = Model.Summary.TotalClients,
+                           Icon = "🏢" }' />
+
+            <partial name="_SummaryCard"
+                     model='new SummaryCardViewModel
+                         { Title = "TOTAL SUPPORT",
+                           Value = Model.Summary.TotalSupport,
+                           Icon = "🛠️" }' />
+
+            <partial name="_SummaryCard"
+                     model='new SummaryCardViewModel
+                         { Title = "TOTAL VISITS",
+                           Value = Model.Summary.TotalVisits,
+                           Icon = "🚗" }' />
+
+        </div>
+
+
+        <!-- ---- Row 2 ---- -->
+
+        <div class="dashboard-cards">
+
+            <partial name="_SummaryCard"
+                     model='new SummaryCardViewModel
+                         { Title = "PENDING",
+                           Value = Model.Summary.PendingCount,
+                           Icon = "⏳" }' />
+
+            <partial name="_SummaryCard"
+                     model='new SummaryCardViewModel
+                         { Title = "IN PROGRESS",
+                           Value = Model.Summary.InProgressCount,
+                           Icon = "🔧" }' />
+
+            <partial name="_SummaryCard"
+                     model='new SummaryCardViewModel
+                         { Title = "FOLLOW-UP",
+                           Value = Model.Summary.FollowUpCount,
+                           Icon = "📅" }' />
+
+            <partial name="_SummaryCard"
+                     model='new SummaryCardViewModel
+                         { Title = "ACTIVE STATES",
+                           Value = Model.Summary.ActiveStates,
+                           Icon = "📍" }' />
+
+        </div>
+
+    </div>
+
+
+    <!-- ---- Support Status (COMPONENT 5) ---- -->
+
+    <partial name="_SupportStatus"
+             model="Model.SupportStatus" />
+
+
+    <!-- ---- Support Priority (COMPONENT 6) ---- -->
+
+    <partial name="_SupportPriority"
+             model="Model.SupportPriority" />
+
+
+    <!-- ---- Clients by State (COMPONENT 7) ---- -->
+
+    <partial name="_ClientsByState"
+             model="Model.ClientsByState" />
+
+
+    <!-- ---- Monthly Activity (COMPONENT 8) ---- -->
+
+    <partial name="_MonthlyActivity"
+             model="Model.MonthlyActivity" />
+
+
+    <!-- ---- Upcoming Follow-ups (COMPONENT 9) ---- -->
+
+    <partial name="_UpcomingFollowUps"
+             model="Model.UpcomingFollowUps" />
+
+</div>
+
+
+<!-- ================= SUPPORT TAB ================= -->
+
+<div class="dash-tab-pane"
+     id="dash-daily-support">
+
+    <!-- Toolbar -->
+
+    <div class="support-tab-toolbar">
+
+        <div class="support-tab-title">
+
+            <h2>
+                Support Overview
+            </h2>
+
+            <p>
+                Management analytics across all support records
+            </p>
+
+        </div>
+
+        <a href="@Url.Action("Index", "DailySupport")"
+           class="primary-btn support-tab-action">
+
+            Manage Daily Support
+
+        </a>
+
+    </div>
+
+
+    <!-- KPI strip (total + status counts) -->
+
+    <div class="support-kpi-strip">
+
+        <div class="support-kpi support-kpi-total">
+
+            <span class="support-kpi-dot support-kpi-dot-icon">
+
+                <svg class="kpi-icon-svg"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2"
+                     stroke-linecap="round"
+                     stroke-linejoin="round"
+                     aria-hidden="true">
+
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1
+                             1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94
+                             7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91
+                             a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+
+                </svg>
+
+            </span>
+
+            <span class="support-kpi-number">
+                @Model.SupportTab.Status.Total
+            </span>
+
+            <span class="support-kpi-label">
+                Total Support
+            </span>
+
+        </div>
+
+        <div class="support-kpi">
+
+            <span class="support-kpi-dot support-status-open"></span>
+
+            <span class="support-kpi-number">
+                @Model.SupportTab.Status.OpenCount
+            </span>
+
+            <span class="support-kpi-label">
+                Open
+            </span>
+
+        </div>
+
+        <div class="support-kpi">
+
+            <span class="support-kpi-dot support-status-inprogress"></span>
+
+            <span class="support-kpi-number">
+                @Model.SupportTab.Status.InProgressCount
+            </span>
+
+            <span class="support-kpi-label">
+                In Progress
+            </span>
+
+        </div>
+
+        <div class="support-kpi">
+
+            <span class="support-kpi-dot support-status-pending"></span>
+
+            <span class="support-kpi-number">
+                @Model.SupportTab.Status.PendingCount
+            </span>
+
+            <span class="support-kpi-label">
+                Pending
+            </span>
+
+        </div>
+
+        <div class="support-kpi">
+
+            <span class="support-kpi-dot support-status-completed"></span>
+
+            <span class="support-kpi-number">
+                @Model.SupportTab.Status.CompletedCount
+            </span>
+
+            <span class="support-kpi-label">
+                Completed
+            </span>
+
+        </div>
+
+        <div class="support-kpi">
+
+            <span class="support-kpi-dot support-status-cancelled"></span>
+
+            <span class="support-kpi-number">
+                @Model.SupportTab.Status.CancelledCount
+            </span>
+
+            <span class="support-kpi-label">
+                Cancelled
+            </span>
+
+        </div>
+
+    </div>
+
+
+    <!-- Distribution breakdowns -->
+
+    <div class="dash-support-grid">
+
+        <partial name="_SupportStatus"
+                 model="Model.SupportTab.Status" />
+
+        <partial name="_SupportPriority"
+                 model="Model.SupportTab.Priority" />
+
+    </div>
+
+
+    <!-- Recent support records -->
+
+    <partial name="_RecentSupports"
+             model="Model.SupportTab" />
+
+</div>
+
+
+<!-- ================= VISITS TAB ================= -->
+
+<div class="dash-tab-pane"
+     id="dash-client-visiting">
+
+    <!-- Toolbar -->
+
+    <div class="support-tab-toolbar">
+
+        <div class="support-tab-title">
+
+            <h2>
+                Visits Overview
+            </h2>
+
+            <p>
+                Management analytics across all client visits
+            </p>
+
+        </div>
+
+        <a href="@Url.Action("Index", "ClientVisiting")"
+           class="primary-btn support-tab-action">
+
+            Manage Client Visits
+
+        </a>
+
+    </div>
+
+
+    <!-- KPI strip (total / today / this month / upcoming) -->
+
+    <partial name="_VisitsSummary"
+             model="Model.VisitsTab" />
+
+
+    <!-- Recent visit records -->
+
+    <partial name="_RecentVisits"
+             model="Model.VisitsTab" />
+
+</div>
+
+
+<!-- ================= CLIENTS TAB ================= -->
+
+<div class="dash-tab-pane"
+     id="dash-clients">
+
+    <!-- Toolbar -->
+
+    <div class="support-tab-toolbar">
+
+        <div class="support-tab-title">
+
+            <h2>
+                Clients Overview
+            </h2>
+
+            <p>
+                Management analytics across all clients
+            </p>
+
+        </div>
+
+        <a href="@Url.Action("Index", "Clients")"
+           class="primary-btn support-tab-action">
+
+            Manage Clients
+
+        </a>
+
+    </div>
+
+
+    <!-- KPI strip (total / active / non-active / added this month) -->
+
+    <partial name="_ClientsSummary"
+             model="Model.ClientsTab" />
+
+
+    <!-- Clients overview table -->
+
+    <partial name="_ClientsOverview"
+             model="Model.ClientsTab" />
+
+
+    <!-- Clients by State (Component 7 panel) -->
+
+    <partial name="_ClientsByState"
+             model="Model.ClientsTab.ClientsByState" />
+
+</div>
+
+

@@ -1,0 +1,246 @@
+@model ReportsViewModel
+
+<!-- ================= SUMMARY CARDS ================= -->
+
+@if (Model.Summary.Count > 0)
+{
+    <div class="dashboard-cards report-summary-cards">
+
+        @foreach (var card in Model.Summary)
+        {
+            @await Html.PartialAsync("_SummaryCard", card)
+        }
+
+    </div>
+}
+
+
+<!-- ================= TOOLBAR ================= -->
+
+<div class="state-section">
+
+<div class="table-toolbar">
+
+    <div class="toolbar-left">
+
+        <select id="rptPerPage"
+                onchange="reportChangePerPage()">
+
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+
+        </select>
+
+        <span class="toolbar-label">
+            records per page
+        </span>
+
+    </div>
+
+
+    <div class="toolbar-center">
+
+        <button type="button"
+                class="export-btn excel-btn"
+                onclick="reportExportExcel()">
+
+            Excel
+
+        </button>
+
+        <button type="button"
+                class="export-btn csv-btn"
+                onclick="reportExportCSV()">
+
+            CSV
+
+        </button>
+
+        <button type="button"
+                class="export-btn print-btn"
+                onclick="reportPrintTable()">
+
+            Print
+
+        </button>
+
+    </div>
+
+
+    <div class="toolbar-right">
+
+        <span class="toolbar-label">
+            Search:
+        </span>
+
+        <input type="text"
+               id="rptSearch"
+               placeholder="Search..."
+               oninput="reportFilterTable()" />
+
+    </div>
+
+</div>
+
+
+<!-- ================= TABLE ================= -->
+
+<div class="table-container master-table">
+
+    <table id="reportTable">
+
+        <thead>
+
+            <tr>
+
+                @for (int ci = 0; ci < Model.Columns.Count; ci++)
+                {
+                    var column = Model.Columns[ci];
+
+                    var columnLower = column.ToLowerInvariant();
+
+                    string sortType =
+                        columnLower.Contains("date")
+                            ? "date"
+                            : columnLower.Contains("priority")
+                                ? "priority"
+                                : columnLower.Contains("status")
+                                    ? "status"
+                                    : columnLower.Contains("total")
+                                        || columnLower.Contains("count")
+                                        || columnLower.Contains("no.")
+                                            ? "num"
+                                            : "text";
+
+                    <th class="sortable"
+                        data-sort="@sortType"
+                        onclick="reportSortTable(this)">
+
+                        <span class="th-text">
+                            @column
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+                }
+
+            </tr>
+
+        </thead>
+
+
+        <tbody>
+
+            @for (int ri = 0; ri < Model.Rows.Count; ri++)
+            {
+                var row = Model.Rows[ri];
+
+                <tr>
+
+                    @for (int ci = 0; ci < Model.Columns.Count; ci++)
+                    {
+                        var column = Model.Columns[ci];
+
+                        var value =
+                            ci < row.Length ? row[ci] : "";
+
+                        <td>
+
+                            @if (column == "Status")
+                            {
+                                string badge =
+                                    value == "Open"
+                                        ? "badge-open"
+                                        : value == "In Progress"
+                                            ? "badge-inprogress"
+                                            : value == "Pending"
+                                                ? "badge-pending"
+                                                : value == "Completed"
+                                                    ? "badge-completed"
+                                                    : value == "Cancelled"
+                                                        ? "badge-cancelled"
+                                                        : value == "Active"
+                                                            ? "badge-active"
+                                                            : value == "Inactive"
+                                                                ? "badge-inactive"
+                                                                : "badge-default";
+
+                                <span class="status-pill @badge">
+                                    @value
+                                </span>
+                            }
+                            else if (column == "Priority")
+                            {
+                                string pill =
+                                    value == "Low"
+                                        ? "prio-low"
+                                        : value == "Medium"
+                                            ? "prio-medium"
+                                            : value == "High"
+                                                ? "prio-high"
+                                                : value == "Urgent"
+                                                    ? "prio-urgent"
+                                                    : "prio-default";
+
+                                <span class="priority-pill @pill">
+                                    @value
+                                </span>
+                            }
+                            else
+                            {
+                                @value
+                            }
+
+                        </td>
+                    }
+
+                </tr>
+            }
+
+            <tr id="rptNoRecordsRow"
+                class="no-data-row"
+                style="display: none;">
+
+                <td colspan="@Math.Max(1, Model.Columns.Count)"
+                    class="empty-state">
+
+                    No Records Found on this filter.
+
+                </td>
+
+            </tr>
+
+        </tbody>
+
+    </table>
+
+</div>
+
+
+<!-- ================= FOOTER ================= -->
+
+<div class="table-footer">
+
+    <div class="footer-left"
+         id="rptInfo">
+
+        Showing 0 to 0 of
+        @Model.TotalRecords entries
+
+    </div>
+
+
+    <div class="footer-right"
+         id="rptPagination">
+
+    </div>
+
+</div>
+
+</div>

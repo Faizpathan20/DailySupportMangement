@@ -1,0 +1,225 @@
+@model DashboardVisitsTabViewModel
+
+<!-- Recent Visits (COMPONENT 11).
+     Newest ClientVisiting rows matching every Dashboard filter
+     (Date on VisitDate, State via ClientMaster, User via
+     ClientVisiting.UserId -> LoginUsers.Id, Client, Status).
+     Sortable headers use the shared sortDashboardTable() from the
+     Dashboard scripts. Client links to the real Client Visiting
+     module (add/edit lives there, not here). -->
+
+<div class="state-section recent-support-panel">
+
+    <div class="support-analytics-header">
+
+        <h3>
+            Recent Visits
+        </h3>
+
+        <div class="recent-support-actions">
+
+            <span class="support-analytics-total">
+                @Model.Recent.Count records
+            </span>
+
+            <span class="recent-table-hint">
+                Click a column to sort
+            </span>
+
+        </div>
+
+    </div>
+
+
+    @if (Model.Recent.Count > 0)
+    {
+        <table class="recent-table"
+               id="recentVisitsTable">
+
+            <thead>
+
+                <tr>
+
+                    <th class="rv-sr">
+                        <span class="th-text">
+                            Sr No.
+                        </span>
+                    </th>
+
+                    <th class="sortable rv-date"
+                        data-sort="date"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Visit Date
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rv-client"
+                        data-sort="text"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Client
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rv-user"
+                        data-sort="text"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            User
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rv-type"
+                        data-sort="text"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Visit Type
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rv-subject"
+                        data-sort="text"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Subject
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rv-status"
+                        data-sort="text"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Status
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rv-followup"
+                        data-sort="date"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Follow-up Date
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                @{ int visitSrNo = 0; }
+
+                @foreach (var item in Model.Recent)
+                {
+                    visitSrNo++;
+
+                    <tr>
+
+                        <td class="rv-sr">
+                            @visitSrNo
+                        </td>
+
+                        <td class="rv-date">
+                            @item.VisitDateText
+                        </td>
+
+                        <td class="rv-client">
+
+                            <a class="recent-client-link"
+                               href="@Url.Action("Index", "ClientVisiting")">
+
+                                @item.ClientName
+
+                            </a>
+
+                        </td>
+
+                        <td class="rv-user">
+                            @item.UserName
+                        </td>
+
+                        <td class="rv-type">
+                            @item.VisitType
+                        </td>
+
+                        <td class="rv-subject">
+                            @item.Subject
+                        </td>
+
+                        <td class="rv-status">
+
+                            <span class="status-pill @item.StatusClass">
+                                @item.Status
+                            </span>
+
+                        </td>
+
+                        <td class="rv-followup">
+                            @item.FollowUpDateText
+                        </td>
+
+                    </tr>
+                }
+
+            </tbody>
+
+        </table>
+    }
+    else
+    {
+        <p class="recent-support-empty">
+            No Records Found on this filter.
+        </p>
+    }
+
+</div>

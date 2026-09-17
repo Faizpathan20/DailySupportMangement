@@ -1,0 +1,82 @@
+@model DashboardClientsTabViewModel
+
+<!-- Clients KPI strip (COMPONENT 12).
+     Four compact tiles reusing the support-kpi-* classes from
+     Component 10 for visual consistency. -->
+
+<div class="support-kpi-strip">
+
+    <div class="support-kpi support-kpi-total">
+
+        <span class="support-kpi-dot support-kpi-dot-icon">
+
+            <svg class="kpi-icon-svg"
+                 viewBox="0 0 24 24"
+                 fill="none"
+                 stroke="currentColor"
+                 stroke-width="2"
+                 stroke-linecap="round"
+                 stroke-linejoin="round"
+                 aria-hidden="true">
+
+                <path d="M2 7h20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2
+                         a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"></path>
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+
+            </svg>
+
+        </span>
+
+        <span class="support-kpi-number">
+            @Model.TotalClients
+        </span>
+
+        <span class="support-kpi-label">
+            Total Clients
+        </span>
+
+    </div>
+
+    <div class="support-kpi">
+
+        <span class="support-kpi-dot client-kpi-active"></span>
+
+        <span class="support-kpi-number">
+            @Model.ActiveClients
+        </span>
+
+        <span class="support-kpi-label">
+            Active Clients
+        </span>
+
+    </div>
+
+    <div class="support-kpi">
+
+        <span class="support-kpi-dot client-kpi-nonactive"></span>
+
+        <span class="support-kpi-number">
+            @Model.NonActiveClients
+        </span>
+
+        <span class="support-kpi-label">
+            Non-Active Clients
+        </span>
+
+    </div>
+
+    <div class="support-kpi">
+
+        <span class="support-kpi-dot client-kpi-month"></span>
+
+        <span class="support-kpi-number">
+            @Model.AddedThisMonth
+        </span>
+
+        <span class="support-kpi-label">
+            Added This Month
+        </span>
+
+    </div>
+
+</div>

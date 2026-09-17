@@ -1,0 +1,915 @@
+@model Master.Models.ClientVisitingViewModel
+
+@{
+    ViewData["Title"] = "Add Visit";
+
+    string[] statuses =
+    {
+        "Planned",
+        "Completed",
+        "Cancelled"
+    };
+
+    string[] visitTypes =
+    {
+        "New Client",
+        "Follow Up",
+        "Support Visit",
+        "Sales Visit",
+        "Service Visit",
+        "Collection Visit",
+        "Other"
+    };
+
+    string GetVal(string name)
+        => Model.GetFormValue(name);
+
+    string GetErr(string name)
+        => Model.FieldError(name);
+
+    bool showOtherVisitType =
+        GetVal("VisitType") == "Other";
+}
+
+
+<div class="page-header">
+
+    <a href="@Url.Action("Index", "ClientVisiting")"
+       class="back-link">
+
+        &larr; Back to Client Visiting
+
+    </a>
+
+    <div>
+
+        <h1>
+            Add Visit
+        </h1>
+
+        <p>
+            New client visit record
+        </p>
+
+    </div>
+
+</div>
+
+
+<!-- ================= MESSAGES ================= -->
+
+@if (TempData["Success"] != null)
+{
+    <div class="success-message">
+
+        @TempData["Success"]
+
+    </div>
+}
+
+
+@if (TempData["Error"] != null)
+{
+    <div class="error-message">
+
+        @Html.Raw(TempData["Error"])
+
+    </div>
+}
+
+
+<!-- ================= ADD VISIT FORM ================= -->
+
+<div class="state-section">
+
+    <form method="post"
+          id="visitCreateForm"
+          action="@Url.Action("Create", "ClientVisiting")"
+          novalidate>
+
+        @Html.AntiForgeryToken()
+
+        <div class="form-grid">
+
+            @if (Model.AvailableColumns.Contains("PreviousMeetingId"))
+            {
+                <div class="form-group form-group-full">
+
+                    <label>
+                        Meeting
+                    </label>
+
+                    <select name="MeetingMode"
+                            id="edit_MeetingMode"
+                            onchange="toggleMeetingMode()">
+
+                        <option value="New Meeting"
+                                selected="@(string.IsNullOrWhiteSpace(GetVal("MeetingMode")) || GetVal("MeetingMode") == "New Meeting")">
+                            New Meeting
+                        </option>
+
+                        <option value="Add to Existing Meeting"
+                                selected="@(GetVal("MeetingMode") == "Add to Existing Meeting")">
+                            Add to Existing Meeting
+                        </option>
+
+                    </select>
+
+                    <span class="voice-hint">
+                        New Meeting: ye visit apni nayi meeting chain start karega.
+                        Add to Existing: is visit ko pehle banaye gaye meeting ke sath link karega.
+                    </span>
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("PreviousMeetingId")))
+                    {
+                        <span class="field-error">
+                            @GetErr("PreviousMeetingId")
+                        </span>
+                    }
+
+                    <div id="existingMeetingGroup"
+                         style="@(GetVal("MeetingMode") == "Add to Existing Meeting" ? "" : "display:none")">
+
+                        <label class="sub-label">
+                            Existing Meeting
+                        </label>
+
+                        <select name="PreviousMeetingId"
+                                id="edit_PreviousMeetingId"
+                                data-searchable
+                                @(GetVal("MeetingMode") == "Add to Existing Meeting" ? "required" : null)>
+
+                            <option value="">
+                                -- Select Meeting --
+                            </option>
+
+                            @foreach (var meeting in Model.Meetings)
+                            {
+                                <option value="@meeting.Id"
+                                        selected="@(GetVal("PreviousMeetingId") == meeting.Id.ToString())">
+                                    @meeting.Name
+                                </option>
+                            }
+
+                        </select>
+
+                    </div>
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("VisitDate"))
+            {
+                <div class="form-group">
+
+                    <label>
+                        Visit Date
+                    </label>
+
+                    <input type="date"
+                           name="VisitDate"
+                           value="@(string.IsNullOrWhiteSpace(GetVal("VisitDate")) ? DateTime.Today.ToString("yyyy-MM-dd") : GetVal("VisitDate"))"
+                           required />
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("VisitDate")))
+                    {
+                        <span class="field-error">
+                            @GetErr("VisitDate")
+                        </span>
+                    }
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("ClientId"))
+            {
+                <div class="form-group">
+
+                    <label>
+                        Client
+                    </label>
+
+                    <select name="ClientId"
+                            data-searchable
+                            required>
+
+                        <option value=""
+                                disabled
+                                selected="@(string.IsNullOrWhiteSpace(GetVal("ClientId")))">
+                            -- Select Client --
+                        </option>
+
+                        @foreach (var client in Model.Clients)
+                        {
+                            <option value="@client.Id"
+                                    selected="@(GetVal("ClientId") == client.Id.ToString())">
+                                @client.Name
+                            </option>
+                        }
+
+                    </select>
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("ClientId")))
+                    {
+                        <span class="field-error">
+                            @GetErr("ClientId")
+                        </span>
+                    }
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("VisitType"))
+            {
+                <div class="form-group">
+
+                    <label>
+                        Visit Type
+                    </label>
+
+                    <select name="VisitType"
+                            id="edit_VisitType"
+                            onchange="toggleOtherVisitType()"
+                            required>
+
+                        <option value=""
+                                disabled
+                                selected="@(string.IsNullOrWhiteSpace(GetVal("VisitType")))">
+                            -- Select Visit Type --
+                        </option>
+
+                        @foreach (var visitType in visitTypes)
+                        {
+                            <option value="@visitType"
+                                    selected="@(GetVal("VisitType") == visitType)">
+                                @visitType
+                            </option>
+                        }
+
+                    </select>
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("VisitType")))
+                    {
+                        <span class="field-error">
+                            @GetErr("VisitType")
+                        </span>
+                    }
+
+                    <div id="otherVisitTypeGroup"
+                         style="@(showOtherVisitType ? "" : "display:none")">
+
+                        <label class="sub-label">
+                            Other Visit Type
+                        </label>
+
+                        <input type="text"
+                               name="OtherVisitType"
+                               id="edit_OtherVisitType"
+                               maxlength="92"
+                               placeholder="Specify other visit type"
+                               value="@GetVal("OtherVisitType")"
+                               @(showOtherVisitType ? "required" : null) />
+
+                        @if (!string.IsNullOrWhiteSpace(GetErr("OtherVisitType")))
+                        {
+                            <span class="field-error">
+                                @GetErr("OtherVisitType")
+                            </span>
+                        }
+
+                    </div>
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("PersonMet"))
+            {
+                <div class="form-group">
+
+                    <label>
+                        Person Met
+                    </label>
+
+                    <input type="text"
+                           name="PersonMet"
+                           value="@GetVal("PersonMet")"
+                           placeholder="Person met at the visit" />
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("Subject"))
+            {
+                <div class="form-group form-group-full">
+
+                    <label>
+                        Subject
+                    </label>
+
+                    <input type="text"
+                           name="Subject"
+                           value="@GetVal("Subject")"
+                           placeholder="Short subject of the visit"
+                           required />
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("Subject")))
+                    {
+                        <span class="field-error">
+                            @GetErr("Subject")
+                        </span>
+                    }
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("Status"))
+            {
+                <div class="form-group">
+
+                    <label>
+                        Status
+                    </label>
+
+                    <select name="Status"
+                            required>
+
+                        <option value=""
+                                disabled
+                                selected="@(string.IsNullOrWhiteSpace(GetVal("Status")))">
+                            -- Select Status --
+                        </option>
+
+                        @foreach (var status in statuses)
+                        {
+                            <option value="@status"
+                                    selected="@(GetVal("Status") == status)">
+                                @status
+                            </option>
+                        }
+
+                    </select>
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("Status")))
+                    {
+                        <span class="field-error">
+                            @GetErr("Status")
+                        </span>
+                    }
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("Discussion"))
+            {
+                <div class="form-group form-group-full">
+
+                    <label>
+                        Discussion
+                    </label>
+
+                    <textarea name="Discussion"
+                              rows="2"
+                              placeholder="Discussion during the visit">@GetVal("Discussion")</textarea>
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("Outcome"))
+            {
+                <div class="form-group form-group-full">
+
+                    <label>
+                        Outcome
+                    </label>
+
+                    <textarea name="Outcome"
+                              rows="2"
+                              placeholder="Result / outcome of the visit">@GetVal("Outcome")</textarea>
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("NextAction"))
+            {
+                <div class="form-group form-group-full">
+
+                    <label>
+                        Next Action
+                    </label>
+
+                    <textarea name="NextAction"
+                              rows="2"
+                              placeholder="Next action to be taken">@GetVal("NextAction")</textarea>
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("FollowUpDate"))
+            {
+                <div class="form-group">
+
+                    <label>
+                        Follow Up Date
+                    </label>
+
+                    <input type="date"
+                           name="FollowUpDate"
+                           value="@GetVal("FollowUpDate")" />
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("FollowUpDate")))
+                    {
+                        <span class="field-error">
+                            @GetErr("FollowUpDate")
+                        </span>
+                    }
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("Remarks"))
+            {
+                <div class="form-group form-group-full">
+
+                    <label>
+                        Remarks
+                    </label>
+
+                    <textarea name="Remarks"
+                              id="edit_Remarks"
+                              rows="3"
+                              placeholder="Voice to text - click Mic and speak...">@GetVal("Remarks")</textarea>
+
+                    <div class="voice-controls">
+
+                        <button type="button"
+                                class="voice-btn mic-btn"
+                                id="voiceMicBtn"
+                                onclick="startVoice()">
+
+                            Mic
+
+                        </button>
+
+                        <button type="button"
+                                class="voice-btn voice-stop"
+                                onclick="stopVoice()">
+
+                            Stop
+
+                        </button>
+
+                        <button type="button"
+                                class="voice-btn voice-reset"
+                                onclick="resetRemarks()">
+
+                            Reset
+
+                        </button>
+
+                    </div>
+
+                    <span class="voice-status"
+                          id="voiceStatus"></span>
+
+                    <span class="voice-hint">
+                        Voice to Text: Mic se bolen, text Remarks ke end me jude ga. Mic tab tak open rahega jab tak Stop nahi click karte.
+                    </span>
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("Remarks")))
+                    {
+                        <span class="field-error">
+                            @GetErr("Remarks")
+                        </span>
+                    }
+
+                </div>
+            }
+
+        </div>
+
+
+        <div class="modal-actions">
+
+            <button type="submit"
+                    class="save-btn">
+
+                Save
+
+            </button>
+
+            <a href="@Url.Action("Index", "ClientVisiting")"
+               class="cancel-btn">
+
+                Cancel
+
+            </a>
+
+        </div>
+
+    </form>
+
+</div>
+
+
+@section Scripts
+{
+    <script>
+
+        // ==========================================
+        // VOICE TO TEXT - REMARKS
+        // ==========================================
+
+        var recognition = null;
+        var isRecording = false;
+        var speechBaseText = "";
+        var speechFinal = "";
+
+
+        function speechSupported() {
+
+            return (
+                "webkitSpeechRecognition" in window
+                || "SpeechRecognition" in window
+            );
+
+        }
+
+
+        function setListening(on) {
+
+            var micBtn =
+                document.getElementById(
+                    "voiceMicBtn"
+                );
+
+            var status =
+                document.getElementById(
+                    "voiceStatus"
+                );
+
+
+            if (micBtn) {
+
+                if (on) {
+                    micBtn.classList.add(
+                        "is-recording"
+                    );
+                } else {
+                    micBtn.classList.remove(
+                        "is-recording"
+                    );
+                }
+
+            }
+
+
+            if (status) {
+
+                if (on) {
+                    status.innerText =
+                        "● Listening... Stop click karne tak mic open rahega";
+                    status.classList.add("visible");
+                } else {
+                    status.classList.remove("visible");
+                }
+
+            }
+
+        }
+
+
+        function applySpeechText(textarea, interim) {
+
+            var parts = [];
+
+            if (speechBaseText.length > 0) {
+                parts.push(speechBaseText);
+            }
+
+            if (speechFinal.trim().length > 0) {
+                parts.push(speechFinal.trim());
+            }
+
+            if (interim.trim().length > 0) {
+                parts.push(interim.trim());
+            }
+
+            textarea.value = parts.join(" ");
+
+        }
+
+
+        function toggleOtherVisitType() {
+
+            var select =
+                document.getElementById(
+                    "edit_VisitType"
+                );
+
+            var group =
+                document.getElementById(
+                    "otherVisitTypeGroup"
+                );
+
+            var input =
+                document.getElementById(
+                    "edit_OtherVisitType"
+                );
+
+            var isOther =
+                select !== null
+                    && select.value === "Other";
+
+            if (group) {
+
+                group.style.display =
+                    isOther ? "" : "none";
+
+            }
+
+            if (input) {
+
+                input.required = isOther ? true : false;
+
+            }
+
+        }
+
+
+        function toggleMeetingMode() {
+
+            var modeSelect =
+                document.getElementById(
+                    "edit_MeetingMode"
+                );
+
+            var group =
+                document.getElementById(
+                    "existingMeetingGroup"
+                );
+
+            var prevSelect =
+                document.getElementById(
+                    "edit_PreviousMeetingId"
+                );
+
+            var isExisting =
+                modeSelect !== null
+                && modeSelect.value
+                   === "Add to Existing Meeting";
+
+            if (group) {
+
+                group.style.display =
+                    isExisting ? "" : "none";
+
+            }
+
+            if (prevSelect) {
+
+                prevSelect.required =
+                    isExisting ? true : false;
+
+            }
+
+        }
+
+
+        function startVoice() {
+
+            var textarea =
+                document.getElementById(
+                    "edit_Remarks"
+                );
+
+
+            if (!speechSupported()) {
+
+                alert(
+                    "Speech Recognition is not supported in this browser. " +
+                    "Please use Google Chrome."
+                );
+
+                return;
+
+            }
+
+
+            var SpeechRecognition =
+                window.SpeechRecognition
+                || window.webkitSpeechRecognition;
+
+            recognition =
+                new SpeechRecognition();
+
+            recognition.lang = "en-IN";
+
+            recognition.interimResults = true;
+
+            recognition.continuous = true;
+
+            recognition.maxAlternatives = 1;
+
+
+            recognition.onstart = function () {
+
+                isRecording = true;
+
+                speechBaseText =
+                    textarea.value.trim();
+
+                speechFinal = "";
+
+                setListening(true);
+
+                textarea.focus();
+
+            };
+
+
+            recognition.onresult = function (event) {
+
+                var interimText = "";
+
+
+                for (
+                    var i = event.resultIndex;
+                    i < event.results.length;
+                    i++
+                ) {
+
+                    var result = event.results[i];
+
+                    if (result.isFinal) {
+                        speechFinal +=
+                            " " + result[0].transcript;
+                    } else {
+                        interimText +=
+                            result[0].transcript;
+                    }
+
+                }
+
+
+                applySpeechText(
+                    textarea,
+                    interimText
+                );
+
+            };
+
+
+            recognition.onerror = function (event) {
+
+                if (
+                    event.error === "not-allowed"
+                    || event.error ===
+                        "service-not-allowed"
+                ) {
+
+                    alert(
+                        "Microphone permission denied. " +
+                        "Please allow microphone access."
+                    );
+
+                } else if (
+                    event.error === "no-speech"
+                ) {
+
+                    alert(
+                        "No speech detected. " +
+                        "Please try again."
+                    );
+
+                } else {
+
+                    alert(
+                        "Speech recognition error: "
+                        + event.error
+                    );
+
+                }
+
+                isRecording = false;
+
+                setListening(false);
+
+            };
+
+
+            recognition.onend = function () {
+
+                isRecording = false;
+
+                setListening(false);
+
+            };
+
+
+            try {
+
+                recognition.start();
+
+            } catch (error) {
+
+                alert(
+                    "Could not start speech recognition: "
+                    + error.message
+                );
+
+            }
+
+        }
+
+
+        function stopVoice() {
+
+            if (recognition) {
+
+                recognition.stop();
+
+            }
+
+            isRecording = false;
+
+            setListening(false);
+
+        }
+
+
+        function resetRemarks() {
+
+            if (
+                !confirm(
+                    "Are you sure you want to clear remarks?"
+                )
+            ) {
+                return;
+            }
+
+            if (recognition) {
+
+                recognition.stop();
+
+            }
+
+            isRecording = false;
+
+            setListening(false);
+
+            speechBaseText = "";
+            speechFinal = "";
+
+            document.getElementById(
+                "edit_Remarks"
+            ).value = "";
+
+        }
+
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            function () {
+
+                var form =
+                    document.getElementById(
+                        "visitCreateForm"
+                    );
+
+                if (!form) {
+                    return;
+                }
+
+                form.addEventListener(
+                    "submit",
+                    function (event) {
+
+                        event.preventDefault();
+
+                        masterAjaxPost(
+                            this,
+                            function (result) {
+
+                                masterShowToast(
+                                    result.message,
+                                    "success"
+                                );
+
+                                setTimeout(function () {
+
+                                    window.location.href =
+                                        "@Url.Action("Index", "ClientVisiting")";
+
+                                }, 700);
+
+                            }
+                        );
+
+                    }
+                );
+
+            }
+        );
+
+    </script>
+}

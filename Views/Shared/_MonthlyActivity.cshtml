@@ -1,0 +1,56 @@
+@model DashboardMonthlyActivityViewModel
+
+<!-- Monthly Activity (COMPONENT 8).
+     DailySupport + ClientVisiting grouped by month behind the shared
+     DashboardFilter. One bar per month of the selected range (capped
+     to the most recent 12), heights relative to the busiest month.
+     Reuses the shared support-analytics-* header styles. -->
+
+<div class="state-section monthly-activity-panel">
+
+    <div class="support-analytics-header">
+
+        <h3>
+            Monthly Activity
+        </h3>
+
+        <span class="support-analytics-total">
+            @Model.Total activities
+        </span>
+
+    </div>
+
+
+    @if (Model.Months.Count > 0)
+    {
+        <div class="monthly-activity-chart">
+
+            @foreach (var point in Model.Months)
+            {
+                <div class="ma-col"
+                     title="@point.MonthLabel @point.YearLabel: @point.Count (@point.SupportCount support + @point.VisitingCount visits)">
+
+                    <div class="ma-track">
+
+                        <div class="ma-bar"
+                             style="height: @point.BarHeight(Model.MaxCount)%;"></div>
+
+                    </div>
+
+                    <span class="ma-label">
+                        @point.MonthLabel
+                    </span>
+
+                </div>
+            }
+
+        </div>
+    }
+    else
+    {
+        <p class="monthly-activity-empty">
+            No Records Found on this filter.
+        </p>
+    }
+
+</div>

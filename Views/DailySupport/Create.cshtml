@@ -1,0 +1,883 @@
+@model Master.Models.DailySupportViewModel
+
+@{
+    ViewData["Title"] = "Add Support";
+
+    string[] statuses =
+    {
+        "Open",
+        "In Progress",
+        "Pending",
+        "Completed",
+        "Cancelled"
+    };
+
+    string[] priorities =
+    {
+        "Low",
+        "Medium",
+        "High",
+        "Urgent"
+    };
+
+    string[] supportTypes =
+    {
+        "Software Support",
+        "Installation",
+        "Configuration",
+        "Client Query",
+        "Training",
+        "Data/Report",
+        "Technical Issue",
+        "Other"
+    };
+
+    string GetVal(string name)
+        => Model.GetFormValue(name);
+
+    string GetErr(string name)
+        => Model.FieldError(name);
+
+    bool showOtherSupportType =
+        GetVal("SupportType") == "Other";
+}
+
+
+<div class="page-header">
+
+    <a href="@Url.Action("Index", "DailySupport")"
+       class="back-link">
+
+        &larr; Back to Daily Support
+
+    </a>
+
+    <div>
+
+        <h1>
+            Add Support
+        </h1>
+
+        <p>
+            New daily support record
+        </p>
+
+    </div>
+
+</div>
+
+
+<!-- ================= MESSAGES ================= -->
+
+@if (TempData["Success"] != null)
+{
+    <div class="success-message">
+
+        @TempData["Success"]
+
+    </div>
+}
+
+
+@if (TempData["Error"] != null)
+{
+    <div class="error-message">
+
+        @Html.Raw(TempData["Error"])
+
+    </div>
+}
+
+
+<!-- ================= ADD SUPPORT FORM ================= -->
+
+<div class="state-section">
+
+    <form method="post"
+          id="supportCreateForm"
+          action="@Url.Action("Create", "DailySupport")"
+          novalidate>
+
+        @Html.AntiForgeryToken()
+
+        <div class="form-grid">
+
+            @if (Model.AvailableColumns.Contains("SupportDate"))
+            {
+                <div class="form-group">
+
+                    <label>
+                        Support Date
+                    </label>
+
+                    <input type="date"
+                           name="SupportDate"
+                           value="@(string.IsNullOrWhiteSpace(GetVal("SupportDate")) ? DateTime.Today.ToString("yyyy-MM-dd") : GetVal("SupportDate"))"
+                           required />
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("SupportDate")))
+                    {
+                        <span class="field-error">
+                            @GetErr("SupportDate")
+                        </span>
+                    }
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("ClientId"))
+            {
+                <div class="form-group">
+
+                    <label>
+                        Client
+                    </label>
+
+                    <select name="ClientId"
+                            data-searchable
+                            required>
+
+                        <option value=""
+                                disabled
+                                selected="@(string.IsNullOrWhiteSpace(GetVal("ClientId")))">
+                            -- Select Client --
+                        </option>
+
+                        @foreach (var client in Model.Clients)
+                        {
+                            <option value="@client.Id"
+                                    selected="@(GetVal("ClientId") == client.Id.ToString())">
+                                @client.Name
+                            </option>
+                        }
+
+                    </select>
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("ClientId")))
+                    {
+                        <span class="field-error">
+                            @GetErr("ClientId")
+                        </span>
+                    }
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("SupportType"))
+            {
+                <div class="form-group">
+
+                    <label>
+                        Support Type
+                    </label>
+
+                    <select name="SupportType"
+                            id="edit_SupportType"
+                            onchange="toggleOtherSupportType()"
+                            required>
+
+                        <option value=""
+                                disabled
+                                selected="@(string.IsNullOrWhiteSpace(GetVal("SupportType")))">
+                            -- Select Support Type --
+                        </option>
+
+                        @foreach (var supportType in supportTypes)
+                        {
+                            <option value="@supportType"
+                                    selected="@(GetVal("SupportType") == supportType)">
+                                @supportType
+                            </option>
+                        }
+
+                    </select>
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("SupportType")))
+                    {
+                        <span class="field-error">
+                            @GetErr("SupportType")
+                        </span>
+                    }
+
+                    <div id="otherSupportTypeGroup"
+                         style="@(showOtherSupportType ? "" : "display:none")">
+
+                        <label class="sub-label">
+                            Other Support Type
+                        </label>
+
+                        <input type="text"
+                               name="OtherSupportType"
+                               id="edit_OtherSupportType"
+                               maxlength="92"
+                               placeholder="Specify other support type"
+                               value="@GetVal("OtherSupportType")"
+                               @(showOtherSupportType ? "required" : null) />
+
+                        @if (!string.IsNullOrWhiteSpace(GetErr("OtherSupportType")))
+                        {
+                            <span class="field-error">
+                                @GetErr("OtherSupportType")
+                            </span>
+                        }
+
+                    </div>
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("Subject"))
+            {
+                <div class="form-group">
+
+                    <label>
+                        Subject
+                    </label>
+
+                    <input type="text"
+                           name="Subject"
+                           value="@GetVal("Subject")"
+                           placeholder="Short subject"
+                           required />
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("Subject")))
+                    {
+                        <span class="field-error">
+                            @GetErr("Subject")
+                        </span>
+                    }
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("Description"))
+            {
+                <div class="form-group form-group-full">
+
+                    <label>
+                        Description
+                    </label>
+
+                    <textarea name="Description"
+                              rows="2"
+                              placeholder="Client problem / request"
+                              required>@GetVal("Description")</textarea>
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("Description")))
+                    {
+                        <span class="field-error">
+                            @GetErr("Description")
+                        </span>
+                    }
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("ActionTaken"))
+            {
+                <div class="form-group form-group-full">
+
+                    <label>
+                        Action Taken
+                    </label>
+
+                    <textarea name="ActionTaken"
+                              rows="2"
+                              placeholder="Action taken by support team">@GetVal("ActionTaken")</textarea>
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("Status"))
+            {
+                <div class="form-group">
+
+                    <label>
+                        Status
+                    </label>
+
+                    <select name="Status"
+                            required>
+
+                        <option value=""
+                                disabled
+                                selected="@(string.IsNullOrWhiteSpace(GetVal("Status")))">
+                            -- Select Status --
+                        </option>
+
+                        @foreach (var status in statuses)
+                        {
+                            <option value="@status"
+                                    selected="@(GetVal("Status") == status)">
+                                @status
+                            </option>
+                        }
+
+                    </select>
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("Status")))
+                    {
+                        <span class="field-error">
+                            @GetErr("Status")
+                        </span>
+                    }
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("Priority"))
+            {
+                <div class="form-group">
+
+                    <label>
+                        Priority
+                    </label>
+
+                    <select name="Priority"
+                            required>
+
+                        <option value=""
+                                disabled
+                                selected="@(string.IsNullOrWhiteSpace(GetVal("Priority")))">
+                            -- Select Priority --
+                        </option>
+
+                        @foreach (var priority in priorities)
+                        {
+                            <option value="@priority"
+                                    selected="@(GetVal("Priority") == priority)">
+                                @priority
+                            </option>
+                        }
+
+                    </select>
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("Priority")))
+                    {
+                        <span class="field-error">
+                            @GetErr("Priority")
+                        </span>
+                    }
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("StartTime"))
+            {
+                <div class="form-group">
+
+                    <label>
+                        Start Time
+                    </label>
+
+                    <input type="time"
+                           name="StartTime"
+                           value="@GetVal("StartTime")" />
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("StartTime")))
+                    {
+                        <span class="field-error">
+                            @GetErr("StartTime")
+                        </span>
+                    }
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("EndTime"))
+            {
+                <div class="form-group">
+
+                    <label>
+                        End Time
+                    </label>
+
+                    <input type="time"
+                           name="EndTime"
+                           value="@GetVal("EndTime")" />
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("EndTime")))
+                    {
+                        <span class="field-error">
+                            @GetErr("EndTime")
+                        </span>
+                    }
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("FollowUpDate"))
+            {
+                <div class="form-group">
+
+                    <label>
+                        Follow Up Date
+                    </label>
+
+                    <input type="date"
+                           name="FollowUpDate"
+                           value="@GetVal("FollowUpDate")" />
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("FollowUpDate")))
+                    {
+                        <span class="field-error">
+                            @GetErr("FollowUpDate")
+                        </span>
+                    }
+
+                </div>
+            }
+
+            @if (Model.AvailableColumns.Contains("Remarks"))
+            {
+                <div class="form-group form-group-full">
+
+                    <label>
+                        Remarks
+                    </label>
+
+                    <textarea name="Remarks"
+                              id="edit_Remarks"
+                              rows="3"
+                              placeholder="Voice to text - click Mic and speak...">@GetVal("Remarks")</textarea>
+
+                    <div class="voice-controls">
+
+                        <button type="button"
+                                class="voice-btn mic-btn"
+                                id="voiceMicBtn"
+                                onclick="startVoice()">
+
+                            Mic
+
+                        </button>
+
+                        <button type="button"
+                                class="voice-btn voice-stop"
+                                onclick="stopVoice()">
+
+                            Stop
+
+                        </button>
+
+                        <button type="button"
+                                class="voice-btn voice-reset"
+                                onclick="resetRemarks()">
+
+                            Reset
+
+                        </button>
+
+                    </div>
+
+                    <span class="voice-status"
+                          id="voiceStatus"></span>
+
+                    <span class="voice-hint">
+                        Voice to Text: Mic se bolen, text Remarks ke end me jude ga. Mic tab tak open rahega jab tak Stop nahi click karte.
+                    </span>
+
+                    @if (!string.IsNullOrWhiteSpace(GetErr("Remarks")))
+                    {
+                        <span class="field-error">
+                            @GetErr("Remarks")
+                        </span>
+                    }
+
+                </div>
+            }
+
+        </div>
+
+
+        <span class="voice-hint auto-time-hint">
+            Status rules: Open = optional fields. In Progress = Start Time required. Pending = Start + Remarks required, End Time blank. Completed = Start + End + Remarks required. Cancelled = Remarks required.
+        </span>
+
+
+        <div class="modal-actions">
+
+            <button type="submit"
+                    class="save-btn">
+
+                Save
+
+            </button>
+
+            <a href="@Url.Action("Index", "DailySupport")"
+               class="cancel-btn">
+
+                Cancel
+
+            </a>
+
+        </div>
+
+    </form>
+
+</div>
+
+
+@section Scripts
+{
+    <script>
+
+        // ==========================================
+        // VOICE TO TEXT - REMARKS
+        // ==========================================
+
+        var recognition = null;
+        var isRecording = false;
+        var speechBaseText = "";
+        var speechFinal = "";
+
+
+        function speechSupported() {
+
+            return (
+                "webkitSpeechRecognition" in window
+                || "SpeechRecognition" in window
+            );
+
+        }
+
+
+        function setListening(on) {
+
+            var micBtn =
+                document.getElementById(
+                    "voiceMicBtn"
+                );
+
+            var status =
+                document.getElementById(
+                    "voiceStatus"
+                );
+
+
+            if (micBtn) {
+
+                if (on) {
+                    micBtn.classList.add(
+                        "is-recording"
+                    );
+                } else {
+                    micBtn.classList.remove(
+                        "is-recording"
+                    );
+                }
+
+            }
+
+
+            if (status) {
+
+                if (on) {
+                    status.innerText =
+                        "● Listening... Stop click karne tak mic open rahega";
+                    status.classList.add("visible");
+                } else {
+                    status.classList.remove("visible");
+                }
+
+            }
+
+        }
+
+
+        function applySpeechText(textarea, interim) {
+
+            var parts = [];
+
+            if (speechBaseText.length > 0) {
+                parts.push(speechBaseText);
+            }
+
+            if (speechFinal.trim().length > 0) {
+                parts.push(speechFinal.trim());
+            }
+
+            if (interim.trim().length > 0) {
+                parts.push(interim.trim());
+            }
+
+            textarea.value = parts.join(" ");
+
+        }
+
+
+        function toggleOtherSupportType() {
+
+            var select =
+                document.getElementById(
+                    "edit_SupportType"
+                );
+
+            var group =
+                document.getElementById(
+                    "otherSupportTypeGroup"
+                );
+
+            var input =
+                document.getElementById(
+                    "edit_OtherSupportType"
+                );
+
+            var isOther =
+                select !== null
+                    && select.value === "Other";
+
+            if (group) {
+
+                group.style.display =
+                    isOther ? "" : "none";
+
+            }
+
+            if (input) {
+
+                input.required = isOther ? true : false;
+
+            }
+
+        }
+
+
+        function startVoice() {
+
+            var textarea =
+                document.getElementById(
+                    "edit_Remarks"
+                );
+
+
+            if (!speechSupported()) {
+
+                alert(
+                    "Speech Recognition is not supported in this browser. " +
+                    "Please use Google Chrome."
+                );
+
+                return;
+
+            }
+
+
+            var SpeechRecognition =
+                window.SpeechRecognition
+                || window.webkitSpeechRecognition;
+
+            recognition =
+                new SpeechRecognition();
+
+            recognition.lang = "en-IN";
+
+            recognition.interimResults = true;
+
+            recognition.continuous = true;
+
+            recognition.maxAlternatives = 1;
+
+
+            recognition.onstart = function () {
+
+                isRecording = true;
+
+                speechBaseText =
+                    textarea.value.trim();
+
+                speechFinal = "";
+
+                setListening(true);
+
+                textarea.focus();
+
+            };
+
+
+            recognition.onresult = function (event) {
+
+                var interimText = "";
+
+
+                for (
+                    var i = event.resultIndex;
+                    i < event.results.length;
+                    i++
+                ) {
+
+                    var result = event.results[i];
+
+                    if (result.isFinal) {
+                        speechFinal +=
+                            " " + result[0].transcript;
+                    } else {
+                        interimText +=
+                            result[0].transcript;
+                    }
+
+                }
+
+
+                applySpeechText(
+                    textarea,
+                    interimText
+                );
+
+            };
+
+
+            recognition.onerror = function (event) {
+
+                if (
+                    event.error === "not-allowed"
+                    || event.error ===
+                        "service-not-allowed"
+                ) {
+
+                    alert(
+                        "Microphone permission denied. " +
+                        "Please allow microphone access."
+                    );
+
+                } else if (
+                    event.error === "no-speech"
+                ) {
+
+                    alert(
+                        "No speech detected. " +
+                        "Please try again."
+                    );
+
+                } else {
+
+                    alert(
+                        "Speech recognition error: "
+                        + event.error
+                    );
+
+                }
+
+                isRecording = false;
+
+                setListening(false);
+
+            };
+
+
+            recognition.onend = function () {
+
+                isRecording = false;
+
+                setListening(false);
+
+            };
+
+
+            try {
+
+                recognition.start();
+
+            } catch (error) {
+
+                alert(
+                    "Could not start speech recognition: "
+                    + error.message
+                );
+
+            }
+
+        }
+
+
+        function stopVoice() {
+
+            if (recognition) {
+
+                recognition.stop();
+
+            }
+
+            isRecording = false;
+
+            setListening(false);
+
+        }
+
+
+        function resetRemarks() {
+
+            if (
+                !confirm(
+                    "Are you sure you want to clear remarks?"
+                )
+            ) {
+                return;
+            }
+
+            if (recognition) {
+
+                recognition.stop();
+
+            }
+
+            isRecording = false;
+
+            setListening(false);
+
+            speechBaseText = "";
+            speechFinal = "";
+
+            document.getElementById(
+                "edit_Remarks"
+            ).value = "";
+
+        }
+
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            function () {
+
+                var form =
+                    document.getElementById(
+                        "supportCreateForm"
+                    );
+
+                if (!form) {
+                    return;
+                }
+
+                form.addEventListener(
+                    "submit",
+                    function (event) {
+
+                        event.preventDefault();
+
+                        masterAjaxPost(
+                            this,
+                            function (result) {
+
+                                masterShowToast(
+                                    result.message,
+                                    "success"
+                                );
+
+                                setTimeout(function () {
+
+                                    window.location.href =
+                                        "@Url.Action("Index", "DailySupport")";
+
+                                }, 700);
+
+                            }
+                        );
+
+                    }
+                );
+
+            }
+        );
+
+    </script>
+}

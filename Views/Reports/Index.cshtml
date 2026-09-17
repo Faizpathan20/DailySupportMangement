@@ -1,0 +1,964 @@
+@model ReportsViewModel
+
+@{
+    ViewData["Title"] = "Reports";
+}
+
+<div class="page-header">
+
+    <div>
+
+        <h1>Reports</h1>
+
+        <p>Generate and export filtered reports</p>
+
+    </div>
+
+</div>
+
+
+<!-- ================= FILTER SECTION ================= -->
+
+<div class="report-filters" id="reportFilters">
+
+    <div class="filter-row">
+
+        <div class="filter-group">
+
+            <label>Report Type</label>
+
+            <select id="filterReportType">
+                @foreach (var rt in Model.ReportTypes)
+                {
+                    <option value="@rt.Key"
+                            selected="@(rt.Key == Model.ReportType)">
+                        @rt.Label
+                    </option>
+                }
+            </select>
+
+        </div>
+
+        <div class="filter-group">
+
+            <label>From Date</label>
+
+            <input type="date" id="filterFromDate"
+                   value="@Model.FromDate?.ToString("yyyy-MM-dd")" />
+
+        </div>
+
+        <div class="filter-group">
+
+            <label>To Date</label>
+
+            <input type="date" id="filterToDate"
+                   value="@Model.ToDate?.ToString("yyyy-MM-dd")" />
+
+        </div>
+
+        <div class="filter-group">
+
+            <label>State</label>
+
+            <select id="filterStateId" data-searchable>
+                <option value="">All States</option>
+                @foreach (var s in Model.States)
+                {
+                    <option value="@s.Id"
+                            selected="@(s.Id == Model.StateId)">
+                        @s.Name
+                    </option>
+                }
+            </select>
+
+        </div>
+
+    </div>
+
+    <div class="filter-row">
+
+        <div class="filter-group">
+
+            <label>User</label>
+
+            <select id="filterUserId" data-searchable>
+                <option value="">All Users</option>
+                @foreach (var u in Model.Users)
+                {
+                    <option value="@u.Id"
+                            selected="@(u.Id == Model.UserId)">
+                        @u.Name
+                    </option>
+                }
+            </select>
+
+        </div>
+
+        <div class="filter-group">
+
+            <label>Client</label>
+
+            <select id="filterClientId" data-searchable>
+                <option value="">All Clients</option>
+                @foreach (var c in Model.Clients)
+                {
+                    <option value="@c.Id"
+                            selected="@(c.Id == Model.ClientId)">
+                        @c.Name
+                    </option>
+                }
+            </select>
+
+        </div>
+
+        <div class="filter-group">
+
+            <label>Status</label>
+
+            <select id="filterStatus">
+                @foreach (var st in Model.StatusOptions)
+                {
+                    <option value="@st"
+                            selected="@(st == Model.Status)">
+                        @st
+                    </option>
+                }
+            </select>
+
+        </div>
+
+        <div class="filter-group">
+
+            <label>Priority</label>
+
+            <select id="filterPriority">
+                @foreach (var p in Model.PriorityOptions)
+                {
+                    <option value="@p"
+                            selected="@(p == Model.Priority)">
+                        @p
+                    </option>
+                }
+            </select>
+
+        </div>
+
+    </div>
+
+    <div class="filter-actions">
+
+        <button type="button"
+                class="primary-btn"
+                onclick="reportApplyFilters()">
+            Apply Filters
+        </button>
+
+        <button type="button"
+                class="cancel-btn"
+                onclick="reportResetFilters()">
+            Reset
+        </button>
+
+    </div>
+
+    <div class="field-error"
+         id="reportDateError"
+         style="display: none;">
+
+        From date cannot be greater than To date. Please select a valid date range.
+
+    </div>
+
+</div>
+
+
+<!-- ================= RESULTS ================= -->
+
+<div class="loading-wrap">
+
+    <div id="reportResults">
+
+        @await Html.PartialAsync("_ReportResults", Model)
+
+    </div>
+
+    <div class="loading-overlay"
+         id="reportLoading">
+
+        <div class="loading-card">
+
+            <div class="spinner"></div>
+
+            <span class="loading-text">
+                Loading<span class="loading-dots"></span>
+            </span>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+@section Scripts
+{
+
+<script>
+
+    // ==========================================
+    // BUILD QUERY STRING FROM FILTERS
+    // ==========================================
+
+    function reportBuildQueryString() {
+
+        var params = new URLSearchParams();
+
+        var rt =
+            document.getElementById("filterReportType").value;
+
+        if (rt) params.set("reportType", rt);
+
+        var fd =
+            document.getElementById("filterFromDate").value;
+
+        if (fd) params.set("fromDate", fd);
+
+        var td =
+            document.getElementById("filterToDate").value;
+
+        if (td) params.set("toDate", td);
+
+        var si =
+            document.getElementById("filterStateId").value;
+
+        if (si) params.set("stateId", si);
+
+        var ui =
+            document.getElementById("filterUserId").value;
+
+        if (ui) params.set("userId", ui);
+
+        var ci =
+            document.getElementById("filterClientId").value;
+
+        if (ci) params.set("clientId", ci);
+
+        var st =
+            document.getElementById("filterStatus").value;
+
+        if (st && st !== "All") params.set("status", st);
+
+        var pr =
+            document.getElementById("filterPriority").value;
+
+        if (pr && pr !== "All") params.set("priority", pr);
+
+        return params.toString();
+
+    }
+
+
+    // ==========================================
+    // APPLY FILTERS (AJAX)
+    // ==========================================
+
+    function reportApplyFilters() {
+
+        var fd =
+            document.getElementById("filterFromDate").value;
+
+        var td =
+            document.getElementById("filterToDate").value;
+
+        var dateError =
+            document.getElementById("reportDateError");
+
+        if (fd && td && fd > td) {
+
+            if (dateError) {
+                dateError.style.display = "block";
+            }
+
+            return;
+
+        }
+
+        if (dateError) {
+            dateError.style.display = "none";
+        }
+
+        var qs = reportBuildQueryString();
+
+        var url = "/Reports?partial=true&" + qs;
+
+        var container =
+            document.getElementById("reportResults");
+
+        var loader =
+            document.getElementById("reportLoading");
+
+        if (loader) {
+            loader.classList.add("visible");
+        }
+
+        container.style.opacity = "0.4";
+
+        fetch(url, {
+            headers: {
+                "X-Requested-With": "XMLHttpRequest"
+            }
+        })
+        .then(function (response) {
+
+            if (!response.ok) {
+                throw new Error("Network error");
+            }
+
+            return response.text();
+
+        })
+        .then(function (html) {
+
+            container.innerHTML = html;
+            container.style.opacity = "1";
+            history.replaceState(
+                null, "", "/Reports?" + qs);
+
+            reportInitTable();
+
+        })
+        .catch(function () {
+
+            container.style.opacity = "1";
+
+        })
+        .finally(function () {
+
+            if (loader) {
+                loader.classList.remove("visible");
+            }
+
+        });
+
+    }
+
+
+    // ==========================================
+    // RESET FILTERS
+    // ==========================================
+
+    function reportResetFilters() {
+
+        document.getElementById(
+            "filterReportType").value = "support";
+
+        document.getElementById(
+            "filterFromDate").value = "";
+
+        document.getElementById(
+            "filterToDate").value = "";
+
+        document.getElementById(
+            "filterStateId").value = "";
+
+        document.getElementById(
+            "filterUserId").value = "";
+
+        document.getElementById(
+            "filterClientId").value = "";
+
+        document.getElementById(
+            "filterStatus").value = "All";
+
+        document.getElementById(
+            "filterPriority").value = "All";
+
+        if (
+            typeof masterSyncSearchableSelects
+                === "function"
+        ) {
+            masterSyncSearchableSelects(document);
+        }
+
+        reportApplyFilters();
+
+    }
+
+
+    // ==========================================
+    // CLIENT-SIDE TABLE: SEARCH / SORT / PAGE
+    // ==========================================
+
+    var rptCurrentPage = 1;
+    var rptPerPage = 10;
+    var rptSortCol = -1;
+    var rptSortDir = "asc";
+
+
+    function reportInitTable() {
+
+        rptCurrentPage = 1;
+        rptSortCol = -1;
+        rptSortDir = "asc";
+
+        reportRenderTable();
+
+    }
+
+
+    function reportFilterTable() {
+
+        rptCurrentPage = 1;
+
+        reportRenderTable();
+
+    }
+
+
+    function reportChangePerPage() {
+
+        rptPerPage = parseInt(
+            document.getElementById(
+                "rptPerPage").value);
+
+        rptCurrentPage = 1;
+
+        reportRenderTable();
+
+    }
+
+
+    function reportGoToPage(page) {
+
+        rptCurrentPage = page;
+
+        reportRenderTable();
+
+    }
+
+
+    function reportRenderTable() {
+
+        var search =
+            (document.getElementById("rptSearch")
+                ?.value || "")
+            .toLowerCase().trim();
+
+        var table =
+            document.getElementById("reportTable");
+
+        if (!table) return;
+
+        var allRows =
+            Array.from(
+                table.querySelectorAll("tbody tr"));
+
+        var filtered = allRows.filter(function (row) {
+
+            if (row.classList.contains("no-data-row")) {
+                return false;
+            }
+
+            var text = row.textContent.toLowerCase();
+
+            return text.indexOf(search) !== -1;
+
+        });
+
+        var emptyRow =
+            document.getElementById("rptNoRecordsRow");
+
+        var total = filtered.length;
+
+        var totalPages =
+            Math.ceil(total / rptPerPage);
+
+        if (rptCurrentPage > totalPages) {
+            rptCurrentPage =
+                totalPages > 0 ? totalPages : 1;
+        }
+
+        var start = (rptCurrentPage - 1) * rptPerPage;
+
+        var end = start + rptPerPage;
+
+        if (end > total) end = total;
+
+        allRows.forEach(function (row) {
+            row.style.display = "none";
+        });
+
+        for (var i = start; i < end; i++) {
+            filtered[i].style.display = "";
+        }
+
+        if (emptyRow) {
+
+            var hasVisible = filtered.some(function (row) {
+                return row.style.display !== "none";
+            });
+
+            emptyRow.style.display =
+                hasVisible ? "none" : "";
+        }
+
+        var info =
+            document.getElementById("rptInfo");
+
+        if (info) {
+
+            if (total === 0) {
+                info.textContent =
+                    "Showing 0 to 0 of 0 entries";
+            } else {
+                info.textContent =
+                    "Showing "
+                    + (start + 1)
+                    + " to "
+                    + end
+                    + " of "
+                    + total
+                    + " entries";
+            }
+
+        }
+
+        reportRenderPagination(totalPages);
+
+    }
+
+
+    function reportRenderPagination(totalPages) {
+
+        var el =
+            document.getElementById("rptPagination");
+
+        if (!el) return;
+
+        var html = "";
+
+        if (rptCurrentPage === 1) {
+            html +=
+                '<button class="page-btn" disabled>'
+                + '\u2190 Previous</button>';
+        } else {
+            html +=
+                '<button class="page-btn" '
+                + 'onclick="reportGoToPage('
+                + (rptCurrentPage - 1)
+                + ')">\u2190 Previous</button>';
+        }
+
+        for (var i = 1; i <= totalPages; i++) {
+
+            if (i === rptCurrentPage) {
+                html +=
+                    '<button class="page-btn active">'
+                    + i + '</button>';
+            } else {
+                html +=
+                    '<button class="page-btn" '
+                    + 'onclick="reportGoToPage(' + i
+                    + ')">' + i + '</button>';
+            }
+
+        }
+
+        if (
+            rptCurrentPage >= totalPages
+            || totalPages === 0
+        ) {
+            html +=
+                '<button class="page-btn" disabled>'
+                + 'Next \u2192</button>';
+        } else {
+            html +=
+                '<button class="page-btn" '
+                + 'onclick="reportGoToPage('
+                + (rptCurrentPage + 1)
+                + ')">Next \u2192</button>';
+        }
+
+        el.innerHTML = html;
+
+    }
+
+
+    // ==========================================
+    // SORT
+    // ==========================================
+
+    function reportSortTable(th) {
+
+        var headers =
+            Array.from(th.parentNode.children);
+
+        var colIdx = headers.indexOf(th);
+
+        var type =
+            th.getAttribute("data-sort") || "text";
+
+        if (rptSortCol === colIdx) {
+            rptSortDir =
+                rptSortDir === "asc" ? "desc" : "asc";
+        } else {
+            rptSortDir = "asc";
+            rptSortCol = colIdx;
+        }
+
+        var table =
+            document.getElementById("reportTable");
+
+        var tbody =
+            table.querySelector("tbody");
+
+        var rows =
+            Array.from(tbody.querySelectorAll("tr"))
+                .filter(function (row) {
+                    return !row.classList.contains("no-data-row");
+                });
+
+        rows.sort(function (a, b) {
+
+            var aVal =
+                a.querySelectorAll("td")[colIdx]
+                ?.innerText.trim() || "";
+
+            var bVal =
+                b.querySelectorAll("td")[colIdx]
+                ?.innerText.trim() || "";
+
+            var aRank, bRank, aTime, bTime;
+
+            if (type === "date") {
+
+                aTime = Date.parse(aVal) || 0;
+                bTime = Date.parse(bVal) || 0;
+
+                return rptSortDir === "asc"
+                    ? aTime - bTime
+                    : bTime - aTime;
+
+            } else if (type === "num") {
+
+                aRank = parseFloat(aVal) || 0;
+                bRank = parseFloat(bVal) || 0;
+
+                return rptSortDir === "asc"
+                    ? aRank - bRank
+                    : bRank - aRank;
+
+            } else if (type === "status") {
+
+                var statusRank = {
+                    "Open": 0,
+                    "In Progress": 1,
+                    "Pending": 2,
+                    "Completed": 3,
+                    "Cancelled": 4,
+                    "Active": 5,
+                    "Inactive": 6
+                };
+
+                aRank = aVal.toLowerCase() === "in progress"
+                    ? 1
+                    : statusRank[aVal] !== undefined
+                        ? statusRank[aVal]
+                        : 99;
+
+                bRank = bVal.toLowerCase() === "in progress"
+                    ? 1
+                    : statusRank[bVal] !== undefined
+                        ? statusRank[bVal]
+                        : 99;
+
+                return rptSortDir === "asc"
+                    ? aRank - bRank
+                    : bRank - aRank;
+
+            } else if (type === "priority") {
+
+                var priorityRank = {
+                    "Low": 0,
+                    "Medium": 1,
+                    "High": 2,
+                    "Urgent": 3
+                };
+
+                aRank =
+                    priorityRank[aVal] !== undefined
+                        ? priorityRank[aVal]
+                        : 99;
+
+                bRank =
+                    priorityRank[bVal] !== undefined
+                        ? priorityRank[bVal]
+                        : 99;
+
+                return rptSortDir === "asc"
+                    ? aRank - bRank
+                    : bRank - aRank;
+
+            } else {
+
+                var cmp = aVal.localeCompare(bVal);
+
+                return rptSortDir === "asc"
+                    ? cmp : -cmp;
+
+            }
+
+        });
+
+        rows.forEach(function (row) {
+            tbody.appendChild(row);
+        });
+
+        var allTh =
+            table.querySelectorAll("th");
+
+        allTh.forEach(function (h) {
+            h.classList.remove("sort-asc", "sort-desc");
+        });
+
+        th.classList.add(
+            rptSortDir === "asc"
+                ? "sort-asc" : "sort-desc");
+
+        rptCurrentPage = 1;
+
+        reportRenderTable();
+
+    }
+
+
+    // ==========================================
+    // EXPORT EXCEL (SheetJS from DOM)
+    // ==========================================
+
+    function reportExportExcel() {
+
+        var table =
+            document.getElementById("reportTable");
+
+        if (!table) return;
+
+        var rows =
+            table.querySelectorAll("tr");
+
+        var data = [];
+
+        for (var i = 0; i < rows.length; i++) {
+
+            if (rows[i].style.display === "none") {
+                continue;
+            }
+
+            if (
+                rows[i].classList
+                    .contains("no-data-row")
+            ) {
+                continue;
+            }
+
+            var cells =
+                rows[i].querySelectorAll("th, td");
+
+            var rowData = [];
+
+            for (var j = 0; j < cells.length; j++) {
+                rowData.push(
+                    cells[j].innerText.trim());
+            }
+
+            if (rowData.length > 0) {
+                data.push(rowData);
+            }
+
+        }
+
+        var ws =
+            XLSX.utils.aoa_to_sheet(data);
+
+        var wb =
+            XLSX.utils.book_new();
+
+        XLSX.utils.book_append_sheet(
+            wb, ws, "Report");
+
+        XLSX.writeFile(
+            wb, "Report_Data.xlsx");
+
+    }
+
+
+    // ==========================================
+    // EXPORT CSV
+    // ==========================================
+
+    function reportExportCSV() {
+
+        var table =
+            document.getElementById("reportTable");
+
+        if (!table) return;
+
+        var rows =
+            table.querySelectorAll("tr");
+
+        var csv = "";
+
+        for (var i = 0; i < rows.length; i++) {
+
+            if (rows[i].style.display === "none") {
+                continue;
+            }
+
+            if (
+                rows[i].classList
+                    .contains("no-data-row")
+            ) {
+                continue;
+            }
+
+            var cells =
+                rows[i].querySelectorAll("th, td");
+
+            var rowData = [];
+
+            for (var j = 0; j < cells.length; j++) {
+
+                var text =
+                    cells[j].innerText.trim();
+
+                text = text.replace(/"/g, '""');
+
+                rowData.push('"' + text + '"');
+
+            }
+
+            if (rowData.length > 0) {
+                csv += rowData.join(",") + "\r\n";
+            }
+
+        }
+
+        var blob = new Blob(
+            [csv],
+            { type: "text/csv;charset=utf-8;" });
+
+        var link =
+            document.createElement("a");
+
+        link.href =
+            URL.createObjectURL(blob);
+
+        link.download = "Report_Data.csv";
+
+        link.click();
+
+    }
+
+
+    // ==========================================
+    // PRINT TABLE
+    // ==========================================
+
+    function reportPrintTable() {
+
+        var table =
+            document.getElementById("reportTable");
+
+        if (!table) return;
+
+        var printWindow =
+            window.open("", "_blank");
+
+        printWindow.document.write(
+            '<html><head>'
+            + '<title>Report Data</title>'
+            + '<style>'
+            + 'body { font-family: Arial, sans-serif; padding: 20px; }'
+            + 'h1 { font-size: 22px; margin-bottom: 15px; }'
+            + 'table { width: 100%; border-collapse: collapse; }'
+            + 'th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }'
+            + 'th { background: #f3f4f6; font-size: 13px; }'
+            + 'td { font-size: 13px; }'
+            + '</style>'
+            + '</head><body>'
+        );
+
+        var thead =
+            table.querySelector("thead");
+
+        if (thead) {
+
+            printWindow.document.write(
+                "<thead>"
+                + thead.innerHTML
+                + "</thead>"
+            );
+
+        }
+
+        printWindow.document.write(
+            "<tbody>"
+        );
+
+        var tbodyRows =
+            table.querySelectorAll(
+                "tbody tr"
+            );
+
+        for (var i = 0; i < tbodyRows.length; i++) {
+
+            var tr = tbodyRows[i];
+
+            if (tr.classList.contains("no-data-row")) {
+                continue;
+            }
+
+            if (tr.style.display === "none") {
+                continue;
+            }
+
+            printWindow.document.write(
+                "<tr>"
+                + tr.innerHTML
+                + "</tr>"
+            );
+
+        }
+
+        printWindow.document.write(
+            "</tbody></table>"
+        );
+
+        printWindow.document.write(
+            "</body></html>"
+        );
+
+        printWindow.document.close();
+
+        printWindow.print();
+
+    }
+
+
+    // ==========================================
+    // INIT ON LOAD
+    // ==========================================
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        function () {
+
+            reportInitTable();
+
+        }
+    );
+
+</script>
+
+}

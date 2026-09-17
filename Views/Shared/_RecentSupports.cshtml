@@ -1,0 +1,249 @@
+@model DashboardSupportTabViewModel
+
+<!-- Recent Support records (COMPONENT 10).
+     Newest DailySupport rows matching every Dashboard filter
+     (Date on SupportDate, State via ClientMaster, User via
+     DailySupport.UserId -> LoginUsers.Id, Client, Status, Priority).
+     Sortable headers use the same pattern as the project tables
+     (data-sort + .sortable / .sort-up / .sort-down arrows); sorting
+     is handled by the shared sortDashboardTable() in the Dashboard
+     scripts. -->
+
+<div class="state-section recent-support-panel">
+
+    <div class="support-analytics-header">
+
+        <h3>
+            Recent Support
+        </h3>
+
+        <div class="recent-support-actions">
+
+            <span class="support-analytics-total">
+                @Model.Recent.Count records
+            </span>
+
+            <span class="recent-table-hint">
+                Click a column to sort
+            </span>
+
+        </div>
+
+    </div>
+
+
+    @if (Model.Recent.Count > 0)
+    {
+        <table class="recent-table"
+               id="recentSupportTable">
+
+            <thead>
+
+                <tr>
+
+                    <th class="rs-sr">
+                        <span class="th-text">
+                            Sr No.
+                        </span>
+                    </th>
+
+                    <th class="sortable rs-date"
+                        data-sort="date"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Support Date
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rs-client"
+                        data-sort="text"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Client
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rs-user"
+                        data-sort="text"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            User
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rs-type"
+                        data-sort="text"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Support Type
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rs-subject"
+                        data-sort="text"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Subject
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rs-status"
+                        data-sort="text"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Status
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rs-priority"
+                        data-sort="priority"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Priority
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rs-followup"
+                        data-sort="date"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Follow-up Date
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                @{ int supportSrNo = 0; }
+
+                @foreach (var item in Model.Recent)
+                {
+                    supportSrNo++;
+
+                    <tr>
+
+                        <td class="rs-sr">
+                            @supportSrNo
+                        </td>
+
+                        <td class="rs-date">
+                            @item.SupportDateText
+                        </td>
+
+                        <td class="rs-client">
+
+                            <a class="recent-client-link"
+                               href="@Url.Action("Index", "DailySupport")">
+
+                                @item.ClientName
+
+                            </a>
+
+                        </td>
+
+                        <td class="rs-user">
+                            @item.UserName
+                        </td>
+
+                        <td class="rs-type">
+                            @item.SupportType
+                        </td>
+
+                        <td class="rs-subject">
+                            @item.Subject
+                        </td>
+
+                        <td class="rs-status">
+
+                            <span class="status-pill @item.StatusClass">
+                                @item.Status
+                            </span>
+
+                        </td>
+
+                        <td class="rs-priority">
+
+                            <span class="priority-pill @item.PriorityClass">
+                                @item.Priority
+                            </span>
+
+                        </td>
+
+                        <td class="rs-followup">
+                            @item.FollowUpDateText
+                        </td>
+
+                    </tr>
+                }
+
+            </tbody>
+
+        </table>
+    }
+    else
+    {
+        <p class="recent-support-empty">
+            No Records Found on this filter.
+        </p>
+    }
+
+</div>

@@ -1,0 +1,69 @@
+@model DashboardClientsByStateViewModel
+
+<!-- Clients by State (COMPONENT 7).
+     ClientMaster.StateId -> States.Id client counts behind the shared
+     DashboardFilter (date + global filters). Reuses the shared
+     support-analytics-* header styles for visual consistency. -->
+
+<div class="state-section clients-by-state-panel">
+
+    <div class="support-analytics-header">
+
+        <h3>
+            Clients by State
+        </h3>
+
+        @if (Model.TotalClients > 0)
+        {
+            <span class="support-analytics-total">
+                @Model.TotalClients clients
+            </span>
+        }
+
+    </div>
+
+
+    @if (Model.States.Count > 0)
+    {
+        <table class="clients-state-table">
+
+            <tbody>
+
+                @foreach (var state in Model.States)
+                {
+                    <tr>
+
+                        <td class="clients-state-name">
+                            @state.StateName
+                        </td>
+
+                        <td class="clients-state-bar-cell">
+
+                            <div class="clients-state-bar">
+
+                                <div class="clients-state-bar-fill"
+                                     style="width: @state.BarWidth(Model.MaxCount)%;"></div>
+
+                            </div>
+
+                        </td>
+
+                        <td class="clients-state-count">
+                            @state.ClientCount
+                        </td>
+
+                    </tr>
+                }
+
+            </tbody>
+
+        </table>
+    }
+    else
+    {
+        <p class="clients-state-empty">
+            No Records Found on this filter.
+        </p>
+    }
+
+</div>

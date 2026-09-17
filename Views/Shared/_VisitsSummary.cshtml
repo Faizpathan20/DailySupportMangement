@@ -1,0 +1,83 @@
+@model DashboardVisitsTabViewModel
+
+<!-- Visits KPI strip (COMPONENT 11).
+     Four compact tiles reusing the support-kpi-* classes from
+     Component 10 for visual consistency. -->
+
+<div class="support-kpi-strip">
+
+    <div class="support-kpi support-kpi-total">
+
+        <span class="support-kpi-dot support-kpi-dot-icon">
+
+            <svg class="kpi-icon-svg"
+                 viewBox="0 0 24 24"
+                 fill="none"
+                 stroke="currentColor"
+                 stroke-width="2"
+                 stroke-linecap="round"
+                 stroke-linejoin="round"
+                 aria-hidden="true">
+
+                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+
+            </svg>
+
+        </span>
+
+        <span class="support-kpi-number">
+            @Model.TotalVisits
+        </span>
+
+        <span class="support-kpi-label">
+            Total Visits
+        </span>
+
+    </div>
+
+    <div class="support-kpi">
+
+        <span class="support-kpi-dot visit-kpi-today"></span>
+
+        <span class="support-kpi-number">
+            @Model.TodayVisits
+        </span>
+
+        <span class="support-kpi-label">
+            Today's Visits
+        </span>
+
+    </div>
+
+    <div class="support-kpi">
+
+        <span class="support-kpi-dot visit-kpi-month"></span>
+
+        <span class="support-kpi-number">
+            @Model.ThisMonthVisits
+        </span>
+
+        <span class="support-kpi-label">
+            This Month
+        </span>
+
+    </div>
+
+    <div class="support-kpi">
+
+        <span class="support-kpi-dot visit-kpi-upcoming"></span>
+
+        <span class="support-kpi-number">
+            @Model.UpcomingVisits
+        </span>
+
+        <span class="support-kpi-label">
+            Upcoming Visits
+        </span>
+
+    </div>
+
+</div>

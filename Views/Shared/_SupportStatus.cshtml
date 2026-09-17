@@ -1,0 +1,102 @@
+@model DashboardSupportStatusViewModel
+
+<!-- Support Status analytics (COMPONENT 5).
+     Real DailySupport counts from the database behind the shared
+     DashboardFilter (date + global filters). Structural classes are
+     shared with the Support Priority panel (support-analytics-*);
+     only the colour classes are status-specific. -->
+
+<div class="state-section support-status-panel">
+
+    <div class="support-analytics-header">
+
+        <h3>
+            Support Status
+        </h3>
+
+        <span class="support-analytics-total">
+            @Model.Total total
+        </span>
+
+    </div>
+
+
+    <!-- Stacked bar: one colour segment per status -->
+
+    <div class="support-analytics-bar">
+
+        <div class="support-analytics-segment support-status-open"
+             style="width: @Model.Percent(Model.OpenCount)%;"></div>
+
+        <div class="support-analytics-segment support-status-inprogress"
+             style="width: @Model.Percent(Model.InProgressCount)%;"></div>
+
+        <div class="support-analytics-segment support-status-pending"
+             style="width: @Model.Percent(Model.PendingCount)%;"></div>
+
+        <div class="support-analytics-segment support-status-completed"
+             style="width: @Model.Percent(Model.CompletedCount)%;"></div>
+
+        <div class="support-analytics-segment support-status-cancelled"
+             style="width: @Model.Percent(Model.CancelledCount)%;"></div>
+
+    </div>
+
+
+    <!-- Legend: dot + name + count per status -->
+
+    <div class="support-analytics-legend">
+
+        <div class="support-analytics-item">
+            <span class="support-analytics-dot support-status-open"></span>
+            <span class="support-analytics-name">
+                Open
+            </span>
+            <span class="support-analytics-count">
+                @Model.OpenCount
+            </span>
+        </div>
+
+        <div class="support-analytics-item">
+            <span class="support-analytics-dot support-status-inprogress"></span>
+            <span class="support-analytics-name">
+                In Progress
+            </span>
+            <span class="support-analytics-count">
+                @Model.InProgressCount
+            </span>
+        </div>
+
+        <div class="support-analytics-item">
+            <span class="support-analytics-dot support-status-pending"></span>
+            <span class="support-analytics-name">
+                Pending
+            </span>
+            <span class="support-analytics-count">
+                @Model.PendingCount
+            </span>
+        </div>
+
+        <div class="support-analytics-item">
+            <span class="support-analytics-dot support-status-completed"></span>
+            <span class="support-analytics-name">
+                Completed
+            </span>
+            <span class="support-analytics-count">
+                @Model.CompletedCount
+            </span>
+        </div>
+
+        <div class="support-analytics-item">
+            <span class="support-analytics-dot support-status-cancelled"></span>
+            <span class="support-analytics-name">
+                Cancelled
+            </span>
+            <span class="support-analytics-count">
+                @Model.CancelledCount
+            </span>
+        </div>
+
+    </div>
+
+</div>

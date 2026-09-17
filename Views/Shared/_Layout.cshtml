@@ -1,0 +1,273 @@
+
+@using System.Security.Claims
+
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8" />
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0" />
+
+    <title>
+        @ViewData["Title"] - MANEGEMENT
+    </title>
+
+    <link rel="stylesheet"
+          href="~/css/site.css?v=26" />
+
+    <link rel="stylesheet"
+          href="~/css/dashboard.css?v=4" />
+
+    <script defer
+        src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js">
+    </script>
+
+</head>
+
+
+<body>
+
+    <div class="layout">
+
+
+        <!-- ================= SIDEBAR ================= -->
+
+        <aside class="sidebar" id="appSidebar">
+
+            <div class="sidebar-top">
+
+                <div class="sidebar-logo">
+
+                    <h2>
+                      MANEGEMENT
+                    </h2>
+
+                </div>
+
+                <button type="button"
+                        id="sidebarToggle"
+                        class="sidebar-toggle"
+                        title="Toggle sidebar"
+                        aria-label="Toggle sidebar">
+
+                    ☰
+
+                </button>
+
+            </div>
+
+
+            <div class="user-info">
+
+                <span>
+                    Logged in as
+                </span>
+
+                <strong>
+                    @User.Identity?.Name
+                </strong>
+
+            </div>
+
+
+            <nav class="sidebar-menu">
+
+
+                <div class="menu-group">
+
+                    <span class="menu-group-label">
+                        Dashboard
+                    </span>
+
+                    <a asp-controller="Dashboard"
+                       asp-action="Index"
+                       class="menu-item">
+
+                        <span class="menu-icon">🏠</span>
+
+                        <span class="menu-text">
+                            Dashboard
+                        </span>
+
+                    </a>
+
+                </div>
+
+
+                <div class="menu-group">
+
+                    <span class="menu-group-label">
+                        Operations
+                    </span>
+
+                    <a asp-controller="DailySupport"
+                       asp-action="Index"
+                       class="menu-item">
+
+                        <span class="menu-icon">🛠️</span>
+
+                        <span class="menu-text">
+                            Daily Support
+                        </span>
+
+                    </a>
+
+                    <a asp-controller="ClientVisiting"
+                       asp-action="Index"
+                       class="menu-item">
+
+                        <span class="menu-icon">📍</span>
+
+                        <span class="menu-text">
+                            Client Visiting
+                        </span>
+
+                    </a>
+
+                </div>
+
+
+                <div class="menu-group">
+
+                    <span class="menu-group-label">
+                        Masters
+                    </span>
+
+                    <a asp-controller="Users"
+                       asp-action="Index"
+                       class="menu-item">
+
+                        <span class="menu-icon">👤</span>
+
+                        <span class="menu-text">
+                            User Master
+                        </span>
+
+                    </a>
+
+                    <a asp-controller="States"
+                       asp-action="Index"
+                       class="menu-item">
+
+                        <span class="menu-icon">🗺️</span>
+
+                        <span class="menu-text">
+                            State Master
+                        </span>
+
+                    </a>
+
+                    <a asp-controller="Clients"
+                       asp-action="Index"
+                       class="menu-item">
+
+                        <span class="menu-icon">🏢</span>
+
+                        <span class="menu-text">
+                            Client Master
+                        </span>
+
+                    </a>
+
+                </div>
+
+
+                <div class="menu-group">
+
+                    <span class="menu-group-label">
+                        Reports
+                    </span>
+
+                    <a asp-controller="Reports"
+                       asp-action="Index"
+                       class="menu-item">
+
+                        <span class="menu-icon">📊</span>
+
+                        <span class="menu-text">
+                            Reports
+                        </span>
+
+                    </a>
+
+                </div>
+
+
+                <div class="menu-group">
+
+                    <span class="menu-group-label">
+                        Logout
+                    </span>
+
+                    <form asp-controller="Account"
+                          asp-action="Logout"
+                          method="post">
+
+                        @Html.AntiForgeryToken()
+
+                        <button type="submit"
+                                class="menu-item logout-btn">
+
+                            <span class="menu-icon">🚪</span>
+
+                            <span class="menu-text">
+                                Logout
+                            </span>
+
+                        </button>
+
+                    </form>
+
+                </div>
+
+            </nav>
+
+        </aside>
+
+
+        <!-- ================= MAIN ================= -->
+
+        <main class="main-content">
+
+            @RenderBody()
+
+        </main>
+
+
+    </div>
+
+
+    @RenderSection(
+        "Scripts",
+        required: false)
+
+
+    <!-- ================= APP LOADER ================= -->
+
+    <div class="app-loader"
+         id="appLoader">
+
+        <div class="app-loader-card">
+
+            <div class="app-loader-spinner"></div>
+
+            <div class="app-loader-text">
+                Loading<span class="loading-dots"></span>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <script src="~/js/site.js?v=7">
+    </script>
+
+</body>
+
+</html>
+

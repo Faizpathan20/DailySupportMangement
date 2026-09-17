@@ -1,0 +1,224 @@
+@model DashboardClientsTabViewModel
+
+<!-- Clients Overview (COMPONENT 12).
+     Newest ClientMaster rows matching the shared DashboardFilter
+     (Date on EntryOn, State via c.StateId -> States.Id, User via
+     c.UserId -> LoginUsers.Id, Client via c.Id). Active status pills
+     reuse the module's .status-active / .status-inactive. Client name
+     links to the real Clients module (add/edit lives there, not here). -->
+
+<div class="state-section recent-support-panel">
+
+    <div class="support-analytics-header">
+
+        <h3>
+            Clients Overview
+        </h3>
+
+        <div class="recent-support-actions">
+
+            <span class="support-analytics-total">
+                @Model.Overview.Count clients
+            </span>
+
+            <span class="recent-table-hint">
+                Click a column to sort
+            </span>
+
+        </div>
+
+    </div>
+
+
+    @if (Model.Overview.Count > 0)
+    {
+        <table class="recent-table"
+               id="recentClientsTable">
+
+            <thead>
+
+                <tr>
+
+                    <th class="rc-sr">
+                        <span class="th-text">
+                            Sr No.
+                        </span>
+                    </th>
+
+                    <th class="sortable rc-client"
+                        data-sort="text"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Client Name
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rc-state"
+                        data-sort="text"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            State
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rc-date"
+                        data-sort="date"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Entry Date
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rc-user"
+                        data-sort="text"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Created By
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rc-status"
+                        data-sort="text"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Status
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rc-mobile"
+                        data-sort="text"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Mobile
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable rc-email"
+                        data-sort="text"
+                        onclick="sortDashboardTable(this)">
+
+                        <span class="th-text">
+                            Email
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                @{ int clientSrNo = 0; }
+
+                @foreach (var item in Model.Overview)
+                {
+                    clientSrNo++;
+
+                    <tr>
+
+                        <td class="rc-sr">
+                            @clientSrNo
+                        </td>
+
+                        <td class="rc-client">
+
+                            <a class="recent-client-link"
+                               href="@Url.Action("Index", "Clients")">
+
+                                @item.ClientName
+
+                            </a>
+
+                        </td>
+
+                        <td class="rc-state">
+                            @item.StateName
+                        </td>
+
+                        <td class="rc-date">
+                            @item.EntryDateText
+                        </td>
+
+                        <td class="rc-user">
+                            @item.UserName
+                        </td>
+
+                        <td class="rc-status">
+
+                            <span class="@item.StatusClass">
+                                @item.StatusText
+                            </span>
+
+                        </td>
+
+                        <td class="rc-mobile">
+                            @item.MobileNo
+                        </td>
+
+                        <td class="rc-email">
+                            @item.Email
+                        </td>
+
+                    </tr>
+                }
+
+            </tbody>
+
+        </table>
+    }
+    else
+    {
+        <p class="recent-support-empty">
+            No Records Found on this filter.
+        </p>
+    }
+
+</div>

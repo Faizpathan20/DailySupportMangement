@@ -1,0 +1,106 @@
+
+@model Master.Models.LoginViewModel
+
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8" />
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0" />
+
+    <title>
+        Login - State Master
+    </title>
+
+    <link rel="stylesheet"
+          href="~/css/site.css" />
+
+</head>
+
+
+<body class="login-page">
+
+    <div class="login-container">
+
+        <div class="login-card">
+
+            <h1>
+               Mangement 
+            </h1>
+
+            <p class="subtitle">
+                Login to continue
+            </p>
+
+
+            <form asp-controller="Account"
+                  asp-action="Login"
+                  method="post">
+
+                @Html.AntiForgeryToken()
+
+
+                <div asp-validation-summary="ModelOnly"
+                     class="error">
+                </div>
+
+
+                <div class="form-group">
+
+                    <label asp-for="UserName">
+                        Username
+                    </label>
+
+                    <input asp-for="UserName"
+                           placeholder="Enter username"
+                           autocomplete="username" />
+
+                    <span asp-validation-for="UserName"
+                          class="error">
+                    </span>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label asp-for="Password">
+                        Password
+                    </label>
+
+                    <input asp-for="Password"
+                           type="password"
+                           placeholder="Enter password"
+                           autocomplete="current-password" />
+
+                    <span asp-validation-for="Password"
+                          class="error">
+                    </span>
+
+                </div>
+
+
+                <button type="submit"
+                        class="login-btn">
+
+                    Login
+
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>

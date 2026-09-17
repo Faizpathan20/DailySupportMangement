@@ -1,0 +1,89 @@
+@model DashboardSupportPriorityViewModel
+
+<!-- Support Priority analytics (COMPONENT 6).
+     Real DailySupport counts from the database behind the shared
+     DashboardFilter (date + global filters). Structural classes are
+     shared with the Support Status panel (support-analytics-*);
+     only the colour classes are priority-specific. -->
+
+<div class="state-section support-priority-panel">
+
+    <div class="support-analytics-header">
+
+        <h3>
+            Support Priority
+        </h3>
+
+        <span class="support-analytics-total">
+            @Model.Total total
+        </span>
+
+    </div>
+
+
+    <!-- Stacked bar: one colour segment per priority -->
+
+    <div class="support-analytics-bar">
+
+        <div class="support-analytics-segment support-priority-low"
+             style="width: @Model.Percent(Model.LowCount)%;"></div>
+
+        <div class="support-analytics-segment support-priority-medium"
+             style="width: @Model.Percent(Model.MediumCount)%;"></div>
+
+        <div class="support-analytics-segment support-priority-high"
+             style="width: @Model.Percent(Model.HighCount)%;"></div>
+
+        <div class="support-analytics-segment support-priority-urgent"
+             style="width: @Model.Percent(Model.UrgentCount)%;"></div>
+
+    </div>
+
+
+    <!-- Legend: dot + name + count per priority -->
+
+    <div class="support-analytics-legend support-analytics-legend--quart">
+
+        <div class="support-analytics-item">
+            <span class="support-analytics-dot support-priority-low"></span>
+            <span class="support-analytics-name">
+                Low
+            </span>
+            <span class="support-analytics-count">
+                @Model.LowCount
+            </span>
+        </div>
+
+        <div class="support-analytics-item">
+            <span class="support-analytics-dot support-priority-medium"></span>
+            <span class="support-analytics-name">
+                Medium
+            </span>
+            <span class="support-analytics-count">
+                @Model.MediumCount
+            </span>
+        </div>
+
+        <div class="support-analytics-item">
+            <span class="support-analytics-dot support-priority-high"></span>
+            <span class="support-analytics-name">
+                High
+            </span>
+            <span class="support-analytics-count">
+                @Model.HighCount
+            </span>
+        </div>
+
+        <div class="support-analytics-item">
+            <span class="support-analytics-dot support-priority-urgent"></span>
+            <span class="support-analytics-name">
+                Urgent
+            </span>
+            <span class="support-analytics-count">
+                @Model.UrgentCount
+            </span>
+        </div>
+
+    </div>
+
+</div>

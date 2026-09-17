@@ -1,0 +1,517 @@
+@model DashboardViewModel
+
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+
+<!-- ================= DASHBOARD HEADER ================= -->
+
+<div class="page-header">
+
+    <h1>
+        Dashboard
+    </h1>
+
+    <p>
+        System overview and quick navigation
+    </p>
+
+</div>
+
+
+<!-- ================= DASHBOARD CONTENT ================= -->
+
+<div class="state-section">
+
+    <div class="loading-wrap">
+
+    <div id="dashContent">
+
+        @await Html.PartialAsync(
+            "_DashboardContent",
+            Model)
+
+    </div>
+
+    <div class="loading-overlay"
+         id="dashLoading">
+
+        <div class="loading-card">
+
+            <div class="spinner"></div>
+
+            <span class="loading-text">
+                Loading<span class="loading-dots"></span>
+            </span>
+
+        </div>
+
+    </div>
+
+</div>
+
+</div>
+
+
+@section Scripts
+{
+    <script>
+
+        // ==========================================
+        // DASHBOARD AJAX FILTER APPLY
+        // Swaps only the #dashContent area when the
+        // filter form is submitted, instead of doing
+        // a full page reload.
+        //
+        // The filter form lives inside the
+        // _DashboardContent partial, so it is
+        // re-rendered on every fetch. bindDashFilters()
+        // always queries the LIVE DOM and re-binds the
+        // fresh form so the active pill highlights
+        // match whatever the server returned.
+        // ==========================================
+
+        var dashContent =
+            document.getElementById(
+                "dashContent"
+            );
+
+        var dashLoading =
+            document.getElementById(
+                "dashLoading"
+            );
+
+
+        function dashShowLoader() {
+
+            if (dashLoading) {
+                dashLoading.classList.add("visible");
+            }
+
+        }
+
+
+        function dashHideLoader() {
+
+            if (dashLoading) {
+                dashLoading.classList.remove("visible");
+            }
+
+        }
+
+
+        function bindDashFilters() {
+
+            var dashFilterForm =
+                document.getElementById(
+                    "dashFilterForm"
+                );
+
+            if (!dashFilterForm) {
+                return;
+            }
+
+            var dashFilterTypeInput =
+                document.getElementById(
+                    "dashFilterType"
+                );
+
+            var dashCustomRow =
+                document.querySelector(
+                    ".dash-custom-row"
+                );
+
+            var dashResetBtn =
+                document.getElementById(
+                    "dashResetBtn"
+                );
+
+            var dashFilterBusy = false;
+
+
+            function dashSetBusy(busy) {
+
+                dashFilterBusy = busy;
+
+                dashFilterForm.classList.toggle(
+                    "dash-busy",
+                    busy
+                );
+
+            }
+
+
+            // Build the filter URL from the live form values.
+            // withPartial=true asks the server for the content
+            // area partial only.
+            function dashBuildUrl(withPartial) {
+
+                var params =
+                    new URLSearchParams(
+                        new FormData(dashFilterForm)
+                    );
+
+                if (withPartial) {
+                    params.set("partial", "true");
+                }
+
+                return dashFilterForm.action
+                    + "?"
+                    + params.toString();
+
+            }
+
+
+            function dashApplyFilters(url) {
+
+                if (dashFilterBusy) {
+                    return;
+                }
+
+                var fetchUrl =
+                    url || dashBuildUrl(true);
+
+                var visibleUrl =
+                    dashBuildUrl(false);
+
+                dashSetBusy(true);
+
+                dashShowLoader();
+
+                fetch(fetchUrl, {
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest"
+                    },
+                    credentials: "same-origin"
+                })
+                    .then(function (response) {
+
+                        if (!response.ok) {
+                            throw new Error(response.status);
+                        }
+
+                        return response.text();
+
+                    })
+                    .then(function (html) {
+
+                        if (dashContent) {
+                            dashContent.innerHTML = html;
+                        }
+
+                        window.history.replaceState(
+                            null,
+                            "",
+                            visibleUrl
+                        );
+
+                        // The partial re-renders the tabs AND
+                        // the filter form, so re-bind both.
+                        bindDashTabs();
+
+                        bindDashFilters();
+
+                        if (
+                            typeof masterInitSearchableSelects
+                                === "function"
+                        ) {
+                            masterInitSearchableSelects(
+                                dashContent
+                            );
+                        }
+
+                    })
+                    .catch(function () {
+
+                        window.location.href = fetchUrl;
+
+                    })
+                    .finally(function () {
+
+                        dashSetBusy(false);
+
+                        dashHideLoader();
+
+                    });
+
+            }
+
+
+            dashFilterForm.addEventListener(
+                "submit",
+                function (event) {
+
+                    event.preventDefault();
+
+                    var dateError =
+                        document.getElementById("dashDateError");
+
+                    var fromInput =
+                        dashFilterForm.querySelector(
+                            'input[name="from"]'
+                        );
+
+                    var toInput =
+                        dashFilterForm.querySelector(
+                            'input[name="to"]'
+                        );
+
+                    if (dashFilterTypeInput.value === "Custom"
+                        && fromInput
+                        && toInput
+                        && fromInput.value
+                        && toInput.value
+                        && fromInput.value > toInput.value) {
+
+                        if (dateError) {
+                            dateError.style.display = "block";
+                        }
+
+                        return;
+
+                    }
+
+                    if (dateError) {
+                        dateError.style.display = "none";
+                    }
+
+                    dashApplyFilters(dashBuildUrl(true));
+
+                }
+            );
+
+
+            if (dashResetBtn) {
+
+                dashResetBtn.addEventListener(
+                    "click",
+                    function () {
+
+                        // Fresh All Time + all filters All.
+                        dashApplyFilters(
+                            dashFilterForm.action
+                                + "?partial=true"
+                        );
+
+                    }
+                );
+
+            }
+
+
+            document
+                .querySelectorAll(".dash-pills .pill")
+                .forEach(function (pill) {
+
+                    pill.addEventListener(
+                        "click",
+                        function () {
+
+                            var filterValue =
+                                this.getAttribute(
+                                    "data-filter"
+                                );
+
+                            dashFilterTypeInput.value =
+                                filterValue;
+
+                            if (filterValue === "Custom") {
+
+                                dashCustomRow.classList.add(
+                                    "visible"
+                                );
+
+                                return;
+
+                            }
+
+                            dashApplyFilters(dashBuildUrl(true));
+
+                        }
+                    );
+
+                });
+
+        }
+
+
+        // ==========================================
+        // DASHBOARD TAB SWITCHING
+        // ==========================================
+
+        function bindDashTabs() {
+
+            var tabs =
+                document.querySelectorAll(".dash-tab");
+
+            for (var i = 0; i < tabs.length; i++) {
+
+                tabs[i].addEventListener(
+                    "click",
+                    function () {
+
+                        var targetId =
+                            this.getAttribute(
+                                "data-tab"
+                            );
+
+                        document
+                            .querySelectorAll(".dash-tab")
+                            .forEach(function (t) {
+                                t.classList.remove("active");
+                            });
+
+                        document
+                            .querySelectorAll(".dash-tab-pane")
+                            .forEach(function (p) {
+                                p.classList.remove("active");
+                            });
+
+                        this.classList.add("active");
+
+                        var pane =
+                            document.getElementById(targetId);
+
+                        if (pane) {
+                            pane.classList.add("active");
+                        }
+
+                    }
+                );
+
+            }
+
+        }
+
+
+        bindDashFilters();
+
+        bindDashTabs();
+
+
+        // ==========================================
+        // DASHBOARD TABLE SORTING
+        // Shared by Recent Support (Component 10) and
+        // Recent Visits (Component 11). Same arrow pattern
+        // as the project module tables: .sortable headers
+        // + .sort-up / .sort-down. State kept per table id.
+        // ==========================================
+
+        var dashboardSortState = {};
+
+
+        function sortDashboardTable(th) {
+
+            var table = th.closest("table");
+
+            var tableId = table.id;
+
+            var headers = Array.from(
+                th.parentNode.children
+            );
+
+            var colIndex = headers.indexOf(th);
+
+            var type =
+                th.getAttribute("data-sort") || "text";
+
+            var state =
+                dashboardSortState[tableId]
+                || { column: -1, direction: "asc" };
+
+            if (state.column === colIndex) {
+                state.direction =
+                    state.direction === "asc"
+                        ? "desc"
+                        : "asc";
+            } else {
+                state.column = colIndex;
+                state.direction = "asc";
+            }
+
+            dashboardSortState[tableId] = state;
+
+            var tbody =
+                table.querySelector("tbody");
+
+            var rows = Array.from(
+                tbody.querySelectorAll("tr")
+            );
+
+            rows.sort(function (a, b) {
+
+                var aVal = a
+                    .querySelectorAll("td")[colIndex]
+                    .innerText.trim();
+
+                var bVal = b
+                    .querySelectorAll("td")[colIndex]
+                    .innerText.trim();
+
+                if (type === "date") {
+
+                    var aTime = Date.parse(aVal) || 0;
+                    var bTime = Date.parse(bVal) || 0;
+
+                    return state.direction === "asc"
+                        ? aTime - bTime
+                        : bTime - aTime;
+
+                } else if (type === "priority") {
+
+                    var rank = {
+                        "Low": 0,
+                        "Medium": 1,
+                        "High": 2,
+                        "Urgent": 3
+                    };
+
+                    var aRank =
+                        rank[aVal] !== undefined ? rank[aVal] : 99;
+                    var bRank =
+                        rank[bVal] !== undefined ? rank[bVal] : 99;
+
+                    return state.direction === "asc"
+                        ? aRank - bRank
+                        : bRank - aRank;
+
+                } else {
+
+                    return state.direction === "asc"
+                        ? aVal.localeCompare(bVal)
+                        : bVal.localeCompare(aVal);
+
+                }
+
+            });
+
+            for (var i = 0; i < rows.length; i++) {
+                tbody.appendChild(rows[i]);
+            }
+
+            var allThs =
+                table.querySelectorAll("th");
+
+            for (var i = 0; i < allThs.length; i++) {
+
+                allThs[i].classList.remove(
+                    "sort-asc", "sort-desc"
+                );
+
+            }
+
+            if (allThs[colIndex]) {
+
+                allThs[colIndex].classList.add(
+                    state.direction === "asc"
+                        ? "sort-asc"
+                        : "sort-desc"
+                );
+
+            }
+
+        }
+
+    </script>
+}
