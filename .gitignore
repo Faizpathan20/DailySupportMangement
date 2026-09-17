@@ -1,12 +1,9 @@
 bin/
 obj/
 publish/
-
 *.zip
-
 cookies.txt
-
 .vs/
 .vscode/
-
 appsettings.Development.json
+appsettings.json
