@@ -94,6 +94,14 @@ public class AccountController : Controller
             new SqlConnection(connectionString);
 
 
+        // Open the connection BEFORE running any query.
+        // GetSchemaAsync executes a query immediately, so
+        // the connection must already be open, otherwise
+        // SqlCommand throws "BeginExecuteReader requires
+        // an open and available Connection".
+        await connection.OpenAsync();
+
+
         DynamicTableService.SchemaColumns schema =
             await _tableService.GetSchemaAsync(
                 connection,
@@ -169,9 +177,6 @@ public class AccountController : Controller
             {
                 Value = model.UserName.Trim()
             });
-
-
-        await connection.OpenAsync();
 
 
         using SqlDataReader reader =

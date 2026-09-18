@@ -60,8 +60,12 @@ if (!app.Environment.IsDevelopment())
 }
 
 
-app.UseHttpsRedirection();
-
+// NOTE: HTTPS redirection is intentionally DISABLED.
+// The current host (e.g. *.tryasp.net free subdomain)
+// serves HTTP only and RESETS HTTPS connections, so
+// forcing https would break the whole site. If the site
+// ever gets a working HTTPS certificate, re-add:
+//     app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 
