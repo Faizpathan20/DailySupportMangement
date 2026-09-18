@@ -11,84 +11,26 @@ namespace Master.Controllers;
 public class StatesController : Controller
 {
     private readonly IConfiguration _configuration;
+    private readonly DynamicTableService _tableService;
 
     public StatesController(
-        IConfiguration configuration)
+        IConfiguration configuration,
+        DynamicTableService tableService)
     {
         _configuration = configuration;
+        _tableService = tableService;
     }
 
     private bool IsAjax =>
-        DynamicTableHelper.IsAjaxRequest(
+        DynamicTableService.IsAjaxRequest(
             Request);
 
-
-    // ============================================
-    // REGISTRY OF ALL KNOWN STATE MASTER COLUMNS
-    // ============================================
-
-    private static readonly List<MasterColumnViewModel> FieldRegistry =
-        new()
-        {
-            new MasterColumnViewModel
-            {
-                Name = "Id",
-                Display = "ID",
-                Type = "number",
-                SortType = "num",
-                Width = 6
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "StateName",
-                Display = "State Name",
-                Type = "text",
-                SortType = "text",
-                InputType = "text",
-                Required = true,
-                Editable = true,
-                Width = 30
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "EntryOn",
-                Display = "Entry On",
-                Type = "date",
-                SortType = "date",
-                Width = 20
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "UserId",
-                Display = "User Name",
-                Type = "lookup",
-                SortType = "text",
-                LookupKey = "Users",
-                Width = 18
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "IsActive",
-                Display = "Status",
-                Type = "status",
-                SortType = "status",
-                Width = 12
-            }
-        };
-
-
-    private static readonly string[] StateSearchableFields =
-    {
-        "StateName"
-    };
-
+    private const string TableName = "States";
 
     // ============================================
     // STATE LIST
+    // Fields, KPI columns and grid columns are all
+    // derived from live SQL Server metadata.
     // ============================================
 
     [HttpGet]
@@ -115,16 +57,10 @@ public class StatesController : Controller
         await connection.OpenAsync();
 
 
-        HashSet<string> columns =
-            await DynamicTableHelper.GetTableColumnsAsync(
-                connection,
-                DatabaseMapping.States.Table);
-
-
         List<MasterColumnViewModel> fields =
-            DynamicTableHelper.BuildActiveFields(
-                FieldRegistry,
-                columns);
+            await _tableService.GetTableFieldsAsync(
+                connection,
+                TableName);
 
 
         StateMasterViewModel model =
@@ -138,12 +74,16 @@ public class StatesController : Controller
                 .ToList();
 
         model.HasLastWeekKpi =
-            columns.Contains(
-                DatabaseMapping.States.EntryOn);
+            fields.Any(
+                f => f.Name.Equals(
+                    "EntryOn",
+                    StringComparison.OrdinalIgnoreCase));
 
         model.HasActiveKpi =
-            columns.Contains(
-                DatabaseMapping.States.IsActive);
+            fields.Any(
+                f => f.Name.Equals(
+                    "IsActive",
+                    StringComparison.OrdinalIgnoreCase));
 
 
         // ========================================
@@ -156,30 +96,42 @@ public class StatesController : Controller
         };
 
 
-        if (columns.Contains(
-                DatabaseMapping.States.EntryOn))
+        if (model.HasLastWeekKpi)
         {
+            string entryOn =
+                fields.First(
+                    f => f.Name.Equals(
+                        "EntryOn",
+                        StringComparison.OrdinalIgnoreCase))
+                .Name;
+
             kpiSelect.Add(
                 $"SUM(CASE WHEN " +
-                $"{DatabaseMapping.States.EntryOn}" +
+                $"[{entryOn}]" +
                 $" >= DATEADD(DAY, -7, GETDATE()) " +
                 $"THEN 1 ELSE 0 END) " +
                 $"AS LastWeekRecords");
         }
 
 
-        if (columns.Contains(
-                DatabaseMapping.States.IsActive))
+        if (model.HasActiveKpi)
         {
+            string active =
+                fields.First(
+                    f => f.Name.Equals(
+                        "IsActive",
+                        StringComparison.OrdinalIgnoreCase))
+                .Name;
+
             kpiSelect.Add(
                 $"SUM(CASE WHEN " +
-                $"{DatabaseMapping.States.IsActive}" +
+                $"[{active}]" +
                 $" = 1 THEN 1 ELSE 0 END) " +
                 $"AS ActiveRecords");
 
             kpiSelect.Add(
                 $"SUM(CASE WHEN " +
-                $"{DatabaseMapping.States.IsActive}" +
+                $"[{active}]" +
                 $" = 0 THEN 1 ELSE 0 END) " +
                 $"AS NonActiveRecords");
         }
@@ -187,7 +139,7 @@ public class StatesController : Controller
 
         string kpiQuery =
             $"SELECT {string.Join(", ", kpiSelect)} " +
-            $"FROM {DatabaseMapping.States.Table}";
+            $"FROM {TableName}";
 
 
         using SqlCommand kpiCommand =
@@ -231,33 +183,91 @@ public class StatesController : Controller
         kpiReader.Close();
 
 
+        string idColumn =
+            fields.FirstOrDefault(
+                    f => f.IsPrimaryKey)
+                ?.Name ?? "Id";
+
+
         // ========================================
         // LOAD STATES LIST (dynamic columns)
         // ========================================
 
-        bool joinUser =
-            columns.Contains("UserId");
-
-
         var selectParts =
+            new List<string>();
+
+        var joinClauses =
             new List<string>();
 
         var searchParts =
             new List<string>();
 
+        var joinAliases =
+            new Dictionary<string, string>(
+                StringComparer.OrdinalIgnoreCase);
+
+        int joinIndex = 0;
+
 
         foreach (var field in fields)
         {
-            if (field.Name == "UserId" && joinUser)
+            if (field.LookupKey != null
+                && _tableService.TryGetLookupDisplayColumn(
+                    field.LookupKey,
+                    out string displayColumn))
             {
+                string joinKey =
+                    $"{field.LookupKey}|{field.Name}";
+
+                string alias =
+                    joinAliases.TryGetValue(
+                        joinKey,
+                        out string? existing)
+                        ? existing
+                        : string.Empty;
+
+                if (string.IsNullOrWhiteSpace(alias))
+                {
+                    alias = $"j{joinIndex++}";
+
+                    joinAliases[joinKey] = alias;
+
+                    joinClauses.Add(
+                        $" INNER JOIN {field.LookupKey} {alias} " +
+                        $"ON {alias}.{field.LookupRefColumn ?? "Id"} " +
+                        $"= s.{field.Name}");
+                }
+
                 selectParts.Add(
-                    $"lu.{DatabaseMapping.LoginUsers.UserName} AS {field.Name}");
+                    $"{alias}.{displayColumn} AS {field.Name}");
+
+                searchParts.Add(
+                    $"{alias}.{displayColumn} " +
+                    $"LIKE '%' + @Search + '%'");
             }
             else
             {
                 selectParts.Add(
                     $"s.{field.Name}");
+
+                if (DynamicTableService.IsText(field.SqlType))
+                {
+                    searchParts.Add(
+                        $"s.{field.Name} " +
+                        $"LIKE '%' + @Search + '%'");
+                }
             }
+        }
+
+
+        if (fields.Any(
+                f => f.Name.Equals(
+                    idColumn,
+                    StringComparison.OrdinalIgnoreCase)))
+        {
+            searchParts.Add(
+                $"CAST(s.{idColumn} AS NVARCHAR(10)) " +
+                $"LIKE '%' + @Search + '%'");
         }
 
 
@@ -267,41 +277,11 @@ public class StatesController : Controller
         sql.Append(
             string.Join(", ", selectParts));
 
-        sql.Append($" FROM {DatabaseMapping.States.Table} s");
+        sql.Append($" FROM {TableName} s");
 
-
-        if (joinUser)
+        foreach (string join in joinClauses)
         {
-            sql.Append(
-                $" INNER JOIN {DatabaseMapping.LoginUsers.Table} lu " +
-                $"ON lu.{DatabaseMapping.LoginUsers.Id} " +
-                $"= s.{DatabaseMapping.States.UserId}");
-        }
-
-
-        foreach (var name in StateSearchableFields)
-        {
-            if (columns.Contains(name))
-            {
-                searchParts.Add(
-                    $"s.{name} LIKE '%' + @Search + '%'");
-            }
-        }
-
-
-        if (columns.Contains("Id"))
-        {
-            searchParts.Add(
-                "CAST(s.Id AS NVARCHAR(10)) " +
-                "LIKE '%' + @Search + '%'");
-        }
-
-
-        if (joinUser)
-        {
-            searchParts.Add(
-                $"lu.{DatabaseMapping.LoginUsers.UserName} " +
-                $"LIKE '%' + @Search + '%'");
+            sql.Append(join);
         }
 
 
@@ -318,10 +298,13 @@ public class StatesController : Controller
         }
 
 
-        if (columns.Contains("Id"))
+        if (fields.Any(
+                f => f.Name.Equals(
+                    idColumn,
+                    StringComparison.OrdinalIgnoreCase)))
         {
             sql.Append(
-                " ORDER BY s.Id ASC");
+                $" ORDER BY s.{idColumn} ASC");
         }
         else
         {
@@ -358,38 +341,10 @@ public class StatesController : Controller
             {
                 object value = reader[field.Name];
 
-                switch (field.Type)
-                {
-                    case "date":
-
-                        row.Values[field.Name] =
-                            value == DBNull.Value
-                                ? ""
-                                : Convert.ToDateTime(value)
-                                    .ToString(
-                                        "dd/MM/yyyy hh:mm tt");
-
-                        break;
-
-                    case "status":
-
-                        row.Values[field.Name] =
-                            value != DBNull.Value
-                                && Convert.ToBoolean(value)
-                                    ? "Active"
-                                    : "Non Active";
-
-                        break;
-
-                    default:
-
-                        row.Values[field.Name] =
-                            value == DBNull.Value
-                                ? ""
-                                : value.ToString() ?? "";
-
-                        break;
-                }
+                row.Values[field.Name] =
+                    DynamicTableService.FormatCellValue(
+                        field,
+                        value);
             }
 
             model.States.Add(row);
@@ -410,7 +365,7 @@ public class StatesController : Controller
 
 
     // ============================================
-    // CREATE (dynamic columns)
+    // CREATE (metadata driven)
     // ============================================
 
     [HttpPost]
@@ -425,7 +380,8 @@ public class StatesController : Controller
 
 
         string? loggedInUserId =
-            DynamicTableHelper.GetLoggedInUserId(User);
+            DynamicTableService.GetLoggedInUserId(
+                User);
 
 
         using SqlConnection connection =
@@ -435,23 +391,20 @@ public class StatesController : Controller
         await connection.OpenAsync();
 
 
-        HashSet<string> columns =
-            await DynamicTableHelper.GetTableColumnsAsync(
-                connection,
-                DatabaseMapping.States.Table);
-
-
         List<MasterColumnViewModel> fields =
-            DynamicTableHelper.BuildActiveFields(
-                    FieldRegistry,
-                    columns)
-                .Where(f => f.Editable)
+            await _tableService.GetTableFieldsAsync(
+                connection,
+                TableName);
+
+
+        var formFields =
+            fields.Where(f => f.Editable)
                 .ToList();
 
 
         string? validationError =
-            DynamicTableHelper.ValidateRequiredFields(
-                fields,
+            _tableService.ValidateRequiredFields(
+                formFields,
                 form);
 
 
@@ -474,7 +427,8 @@ public class StatesController : Controller
         }
 
 
-        if (columns.Contains("UserId")
+        if (fields.Any(
+                f => f.AutoWrite == "auth-user")
             && string.IsNullOrWhiteSpace(loggedInUserId))
         {
             if (IsAjax)
@@ -499,62 +453,62 @@ public class StatesController : Controller
 
 
         using SqlCommand command =
-            new SqlCommand();
-            command.CommandTimeout = 0;
+            new SqlCommand
+            {
+                Connection = connection,
+                CommandTimeout = 0
+            };
 
-        command.Connection = connection;
-        command.CommandTimeout = 0;
 
-
-        foreach (var field in fields)
+        foreach (var field in formFields)
         {
+            if (field.AutoWrite != null)
+            {
+                continue;
+            }
+
             insertColumns.Add(field.Name);
 
             placeholders.Add($"@{field.Name}");
 
-            DynamicTableHelper.AddEditableParameter(
+            _tableService.AddParameter(
                 command,
                 field,
                 form[field.Name].ToString());
         }
 
 
-        if (columns.Contains("EntryOn"))
+        foreach (var auto in fields.Where(
+                     f => f.AutoWrite != null))
         {
-            insertColumns.Add("EntryOn");
+            if (auto.AutoWrite == "auth-user"
+                && !string.IsNullOrWhiteSpace(loggedInUserId))
+            {
+                insertColumns.Add(auto.Name);
 
-            placeholders.Add("GETDATE()");
-        }
+                placeholders.Add($"@{auto.Name}");
 
+                command.Parameters.Add(
+                    new SqlParameter(
+                        $"@{auto.Name}",
+                        System.Data.SqlDbType.Int)
+                    {
+                        Value =
+                            Convert.ToInt32(
+                                loggedInUserId)
+                    });
+            }
+            else if (auto.AutoWrite == "true")
+            {
+                insertColumns.Add(auto.Name);
 
-        if (columns.Contains("UserId"))
-        {
-            insertColumns.Add("UserId");
-
-            placeholders.Add("@UserId");
-
-            command.Parameters.Add(
-                new SqlParameter(
-                    "@UserId",
-                    System.Data.SqlDbType.Int)
-                {
-                    Value =
-                        Convert.ToInt32(
-                            loggedInUserId)
-                });
-        }
-
-
-        if (columns.Contains("IsActive"))
-        {
-            insertColumns.Add("IsActive");
-
-            placeholders.Add("1");
+                placeholders.Add("1");
+            }
         }
 
 
         command.CommandText =
-            $"INSERT INTO {DatabaseMapping.States.Table} " +
+            $"INSERT INTO {TableName} " +
             $"({string.Join(", ", insertColumns)}) " +
             $"VALUES ({string.Join(", ", placeholders)})";
 
@@ -605,7 +559,7 @@ public class StatesController : Controller
 
 
     // ============================================
-    // EDIT (dynamic columns)
+    // EDIT (metadata driven)
     // ============================================
 
     [HttpPost]
@@ -627,24 +581,28 @@ public class StatesController : Controller
         await connection.OpenAsync();
 
 
-        HashSet<string> columns =
-            await DynamicTableHelper.GetTableColumnsAsync(
-                connection,
-                DatabaseMapping.States.Table);
-
-
         List<MasterColumnViewModel> fields =
-            DynamicTableHelper.BuildActiveFields(
-                    FieldRegistry,
-                    columns)
-                .Where(f => f.Editable
-                            && !f.CreateOnly)
+            await _tableService.GetTableFieldsAsync(
+                connection,
+                TableName);
+
+
+        var editFields =
+            fields.Where(
+                    f => f.Editable
+                         && !f.CreateOnly)
                 .ToList();
 
 
+        string idColumn =
+            fields.FirstOrDefault(
+                    f => f.IsPrimaryKey)
+                ?.Name ?? "Id";
+
+
         string? validationError =
-            DynamicTableHelper.ValidateRequiredFields(
-                fields,
+            _tableService.ValidateRequiredFields(
+                editFields,
                 form);
 
 
@@ -670,12 +628,14 @@ public class StatesController : Controller
         var setParts =
             new List<string>();
 
-        using SqlCommand command =
-            new SqlCommand();
-            command.CommandTimeout = 0;
 
-        command.Connection = connection;
-        command.CommandTimeout = 0;
+        using SqlCommand command =
+            new SqlCommand
+            {
+                Connection = connection,
+                CommandTimeout = 0
+            };
+
 
         command.Parameters.Add(
             new SqlParameter(
@@ -686,27 +646,35 @@ public class StatesController : Controller
             });
 
 
-        foreach (var field in fields)
+        foreach (var field in editFields)
         {
-            setParts.Add($"{field.Name} = @{field.Name}");
+            if (field.AutoWrite != null)
+            {
+                continue;
+            }
 
-            DynamicTableHelper.AddEditableParameter(
+            setParts.Add(
+                $"{field.Name} = @{field.Name}");
+
+            _tableService.AddParameter(
                 command,
                 field,
                 form[field.Name].ToString());
         }
 
 
-        if (columns.Contains("IsActive"))
+        foreach (var auto in fields.Where(
+                     f => f.AutoWrite == "true"))
         {
-            setParts.Add("IsActive = 1");
+            setParts.Add(
+                $"{auto.Name} = 1");
         }
 
 
         command.CommandText =
-            $"UPDATE {DatabaseMapping.States.Table} " +
+            $"UPDATE {TableName} " +
             $"SET {string.Join(", ", setParts)} " +
-            $"WHERE {DatabaseMapping.States.Id} = @Id";
+            $"WHERE {idColumn} = @Id";
 
 
         try
@@ -790,25 +758,43 @@ public class StatesController : Controller
         await connection.OpenAsync();
 
 
-        string checkQuery = $@"
-            SELECT COUNT(*)
-            FROM {DatabaseMapping.ClientMaster.Table}
-            WHERE {DatabaseMapping.ClientMaster.StateId}
-                  = @Id";
+        string idColumn =
+            await _tableService
+                .GetPrimaryKeyColumnAsync(
+                    connection,
+                    TableName);
 
 
-        using SqlCommand checkCmd =
-            new SqlCommand(checkQuery, connection);
-            checkCmd.CommandTimeout = 0;
+        DynamicTableService.SchemaColumns schema =
+            await _tableService.GetSchemaAsync(
+                connection,
+                "ClientMaster");
 
 
-        checkCmd.Parameters.AddWithValue(
-            "@Id",
-            id);
+        int clientCount = 0;
 
 
-        int clientCount =
-            (int)await checkCmd.ExecuteScalarAsync();
+        if (schema.Has("ClientMaster", "StateId"))
+        {
+            string checkQuery = $@"
+                SELECT COUNT(*)
+                FROM ClientMaster
+                WHERE StateId = @Id";
+
+
+            using SqlCommand checkCmd =
+                new SqlCommand(
+                    checkQuery,
+                    connection);
+                checkCmd.CommandTimeout = 0;
+
+            checkCmd.Parameters.AddWithValue(
+                "@Id",
+                id);
+
+            clientCount =
+                (int)await checkCmd.ExecuteScalarAsync();
+        }
 
 
         if (clientCount > 0)
@@ -838,10 +824,10 @@ public class StatesController : Controller
 
         string query = $@"
             DELETE FROM
-                {DatabaseMapping.States.Table}
+                {TableName}
 
             WHERE
-                {DatabaseMapping.States.Id}
+                {idColumn}
                 = @Id";
 
 

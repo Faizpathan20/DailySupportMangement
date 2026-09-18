@@ -1,3 +1,4 @@
+using System.Text;
 using Master.Configuration;
 using Master.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -10,88 +11,46 @@ namespace Master.Controllers;
 public class DailySupportController : Controller
 {
     private readonly IConfiguration _configuration;
+    private readonly DynamicTableService _tableService;
 
     public DailySupportController(
-        IConfiguration configuration)
+        IConfiguration configuration,
+        DynamicTableService tableService)
     {
         _configuration = configuration;
+        _tableService = tableService;
     }
 
     private bool IsAjax =>
-        DynamicTableHelper.IsAjaxRequest(
-            Request);
+        DynamicTableService.IsAjaxRequest(Request);
 
+    private const string TableName = "DailySupport";
 
-    private static readonly string[] AllowedStatuses =
+    private static readonly string[] AllowedTransitions =
     {
-        "Open",
-        "In Progress",
-        "Pending",
-        "Completed",
-        "Cancelled"
+        "Open|In Progress",
+        "Open|Cancelled",
+        "In Progress|Pending",
+        "In Progress|Completed",
+        "In Progress|Cancelled",
+        "Pending|In Progress",
+        "Pending|Completed",
+        "Pending|Cancelled",
+        "Completed|Cancelled"
     };
-
-
-    private static readonly string[] AllowedPriorities =
-    {
-        "Low",
-        "Medium",
-        "High",
-        "Urgent"
-    };
-
-
-    private static readonly (string From, string To)[] AllowedTransitions =
-    {
-        ("Open", "In Progress"),
-        ("Open", "Cancelled"),
-        ("In Progress", "Pending"),
-        ("In Progress", "Completed"),
-        ("In Progress", "Cancelled"),
-        ("Pending", "In Progress"),
-        ("Pending", "Completed"),
-        ("Pending", "Cancelled"),
-        ("Completed", "Cancelled")
-    };
-
-
-    private static readonly (string Name, string Display, bool Required)[]
-        FormColumns =
-    {
-        (DatabaseMapping.DailySupport.SupportDate,
-            "Support Date", true),
-        (DatabaseMapping.DailySupport.ClientId,
-            "Client", true),
-        (DatabaseMapping.DailySupport.SupportType,
-            "Support Type", true),
-        (DatabaseMapping.DailySupport.Subject,
-            "Subject", true),
-        (DatabaseMapping.DailySupport.Description,
-            "Description", true),
-       
-        (DatabaseMapping.DailySupport.Status,
-            "Status", true),
-        (DatabaseMapping.DailySupport.Priority,
-            "Priority", true),
-        (DatabaseMapping.DailySupport.FollowUpDate,
-            "Follow-Up Date", false),
-        (DatabaseMapping.DailySupport.Remarks,
-            "Remarks", false)
-    };
-
 
     // ============================================
     // SUPPORT LIST
+    // Columns, KPI cards and grid columns are all
+    // derived from live SQL Server metadata.
     // ============================================
 
     [HttpGet]
-    public async Task<IActionResult> Index(
-        string? search)
+    public async Task<IActionResult> Index(string? search)
     {
         string? connectionString =
             _configuration.GetConnectionString(
                 "DefaultConnection");
-
 
         if (string.IsNullOrWhiteSpace(connectionString))
         {
@@ -100,276 +59,241 @@ public class DailySupportController : Controller
                 "Database connection string is missing.");
         }
 
-
         using SqlConnection connection =
             new SqlConnection(connectionString);
 
-
         await connection.OpenAsync();
 
-
-        HashSet<string> columns =
-            await DynamicTableHelper.GetTableColumnsAsync(
+        List<MasterColumnViewModel> fields =
+            await _tableService.GetTableFieldsAsync(
                 connection,
-                DatabaseMapping.DailySupport.Table);
+                TableName);
 
+        ApplyConventions(fields);
 
-        var model =
-            await BuildIndexAsync(
+        var model = new DailySupportViewModel
+        {
+            Fields = fields,
+            FormFields = fields
+                .Where(f => f.Editable)
+                .ToList(),
+            HasStatusKpi = fields.Any(
+                f => f.Name.Equals(
+                    "Status",
+                    StringComparison.OrdinalIgnoreCase))
+        };
+
+        // ========================================
+        // LOAD KPI COUNTS
+        // ========================================
+
+        var kpiSelect = new List<string>();
+
+        if (model.HasStatusKpi)
+        {
+            kpiSelect.Add(
+                "SUM(CASE WHEN [Status] = 'Open' " +
+                "THEN 1 ELSE 0 END) AS OpenCount");
+
+            kpiSelect.Add(
+                "SUM(CASE WHEN [Status] = 'In Progress' " +
+                "THEN 1 ELSE 0 END) AS InProgressCount");
+
+            kpiSelect.Add(
+                "SUM(CASE WHEN [Status] = 'Completed' " +
+                "THEN 1 ELSE 0 END) AS CompletedCount");
+        }
+
+        string kpiQuery =
+            $"SELECT COUNT(*) AS TotalRecords";
+
+        if (kpiSelect.Count > 0)
+        {
+            kpiQuery += ", " + string.Join(", ", kpiSelect);
+        }
+
+        kpiQuery += $" FROM [{TableName}]";
+
+        using (SqlCommand kpiCommand =
+            new SqlCommand(kpiQuery, connection))
+        {
+            kpiCommand.CommandTimeout = 0;
+
+            using SqlDataReader kpiReader =
+                await kpiCommand.ExecuteReaderAsync();
+
+            if (await kpiReader.ReadAsync())
+            {
+                model.TotalRecords =
+                    Convert.ToInt32(kpiReader["TotalRecords"]);
+
+                model.OpenCount =
+                    kpiReader["OpenCount"] == DBNull.Value
+                        ? 0
+                        : Convert.ToInt32(kpiReader["OpenCount"]);
+
+                model.InProgressCount =
+                    kpiReader["InProgressCount"] == DBNull.Value
+                        ? 0
+                        : Convert.ToInt32(kpiReader["InProgressCount"]);
+
+                model.CompletedCount =
+                    kpiReader["CompletedCount"] == DBNull.Value
+                        ? 0
+                        : Convert.ToInt32(kpiReader["CompletedCount"]);
+            }
+        }
+
+        // ========================================
+        // LOAD SUPPORT ROWS (dynamic columns)
+        // ========================================
+
+        model.Supports =
+            await LoadGridAsync(
                 connection,
-                columns,
+                fields,
                 search);
 
+        // ========================================
+        // LOAD DROPDOWNS + STATIC OPTIONS
+        // ========================================
 
+        (var dropdowns, var staticOptions) =
+            await _tableService.LoadFormOptionsAsync(
+                connection,
+                TableName,
+                model.FormFields);
+
+        ViewBag.Dropdowns = dropdowns;
+        ViewBag.StaticOptions = staticOptions;
         ViewBag.Search = search;
 
         return View(model);
     }
 
-
-    private static async Task<DailySupportViewModel> BuildIndexAsync(
+    private async Task<List<MasterRowViewModel>> LoadGridAsync(
         SqlConnection connection,
-        HashSet<string> columns,
+        List<MasterColumnViewModel> fields,
         string? search)
     {
-        var model =
-            new DailySupportViewModel();
+        var selectParts = new List<string>();
+        var joinClauses = new List<string>();
+        var searchParts = new List<string>();
+        var joinAliases =
+            new Dictionary<string, string>(
+                StringComparer.OrdinalIgnoreCase);
 
-        model.AvailableColumns = columns;
+        int joinIndex = 0;
 
-
-        // ========================================
-        // ACTIVE CLIENTS FOR DROPDOWN
-        // ========================================
-
-        string clientQuery = $@"
-            SELECT
-                {DatabaseMapping.ClientMaster.Id},
-                {DatabaseMapping.ClientMaster.ClientName}
-
-            FROM
-                {DatabaseMapping.ClientMaster.Table}
-
-            WHERE
-                {DatabaseMapping.ClientMaster.IsActive}
-                = 1
-
-            ORDER BY
-                {DatabaseMapping.ClientMaster.ClientName}";
-
-
-        using (SqlCommand clientCommand =
-            new SqlCommand(clientQuery, connection))
+        foreach (var field in fields)
         {
-            clientCommand.CommandTimeout = 0;
-            using SqlDataReader clientReader =
-                await clientCommand.ExecuteReaderAsync();
-
-            while (await clientReader.ReadAsync())
+            if (field.LookupKey != null
+                && _tableService.TryGetLookupDisplayColumn(
+                    field.LookupKey,
+                    out string displayColumn))
             {
-                model.Clients.Add(
-                    new LookupOptionViewModel
-                    {
-                        Id =
-                            Convert.ToInt32(
-                                clientReader[0]),
-                        Name =
-                            clientReader[1]
-                                .ToString() ?? ""
-                    });
+                string joinKey =
+                    $"{field.LookupKey}|{field.Name}";
+
+                string alias =
+                    joinAliases.TryGetValue(
+                        joinKey,
+                        out string? existing)
+                        ? existing
+                        : string.Empty;
+
+                if (string.IsNullOrWhiteSpace(alias))
+                {
+                    alias = $"j{joinIndex++}";
+
+                    joinAliases[joinKey] = alias;
+
+                    joinClauses.Add(
+                        $" INNER JOIN [{field.LookupKey}] {alias} " +
+                        $"ON {alias}.[{field.LookupRefColumn ?? "Id"}] " +
+                        $"= s.[{field.Name}]");
+                }
+
+                selectParts.Add(
+                    $"{alias}.[{displayColumn}] AS [{field.Name}]");
+
+                if (field.Editable
+                    && field.Control == "select")
+                {
+                    selectParts.Add(
+                        $"s.[{field.Name}] AS [{field.Name}_key]");
+                }
+
+                searchParts.Add(
+                    $"{alias}.[{displayColumn}] " +
+                    $"LIKE '%' + @Search + '%'");
+            }
+            else
+            {
+                selectParts.Add($"s.[{field.Name}]");
+
+                if (DynamicTableService.IsText(field.SqlType))
+                {
+                    searchParts.Add(
+                        $"s.[{field.Name}] " +
+                        $"LIKE '%' + @Search + '%'");
+                }
             }
         }
 
+        string idColumn =
+            fields.FirstOrDefault(
+                    f => f.IsPrimaryKey)
+                ?.Name ?? "Id";
 
-        // ========================================
-        // KPI COUNTS
-        // ========================================
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.Status))
+        if (fields.Any(f => f.Name.Equals(
+                idColumn,
+                StringComparison.OrdinalIgnoreCase)))
         {
-            string kpiQuery = $@"
-                SELECT
-                    COUNT(*) AS TotalRecords,
-                    SUM(CASE WHEN {DatabaseMapping.DailySupport.Status}
-                        = 'Open' THEN 1 ELSE 0 END)
-                        AS OpenCount,
-                    SUM(CASE WHEN {DatabaseMapping.DailySupport.Status}
-                        = 'In Progress' THEN 1 ELSE 0 END)
-                        AS InProgressCount,
-                    SUM(CASE WHEN {DatabaseMapping.DailySupport.Status}
-                        = 'Completed' THEN 1 ELSE 0 END)
-                        AS CompletedCount
+            searchParts.Add(
+                $"CAST(s.[{idColumn}] AS NVARCHAR(10)) " +
+                $"LIKE '%' + @Search + '%'");
+        }
 
-                FROM
-                    {DatabaseMapping.DailySupport.Table}";
+        var sql = new StringBuilder();
 
+        sql.Append("SELECT ");
+        sql.Append(string.Join(", ", selectParts));
+        sql.Append($" FROM [{TableName}] s");
 
-            using (SqlCommand kpiCommand =
-                new SqlCommand(kpiQuery, connection))
-            {
-                kpiCommand.CommandTimeout = 0;
-                using SqlDataReader kpiReader =
-                    await kpiCommand.ExecuteReaderAsync();
+        foreach (string join in joinClauses)
+        {
+            sql.Append(join);
+        }
 
-                if (await kpiReader.ReadAsync())
-                {
-                    model.TotalRecords =
-                        Convert.ToInt32(
-                            kpiReader["TotalRecords"]);
-
-                    model.OpenCount =
-                        kpiReader["OpenCount"] == DBNull.Value
-                            ? 0
-                            : Convert.ToInt32(
-                                kpiReader["OpenCount"]);
-
-                    model.InProgressCount =
-                        kpiReader["InProgressCount"] == DBNull.Value
-                            ? 0
-                            : Convert.ToInt32(
-                                kpiReader["InProgressCount"]);
-
-                    model.CompletedCount =
-                        kpiReader["CompletedCount"] == DBNull.Value
-                            ? 0
-                            : Convert.ToInt32(
-                                kpiReader["CompletedCount"]);
-                }
-            }
+        if (searchParts.Count > 0)
+        {
+            sql.Append(" WHERE (@Search = '' OR ");
+            sql.Append(string.Join(" OR ", searchParts));
+            sql.Append(')');
         }
         else
         {
-            string countQuery = $@"
-                SELECT
-                    COUNT(*) AS TotalRecords
-
-                FROM
-                    {DatabaseMapping.DailySupport.Table}";
-
-
-            using (SqlCommand countCommand =
-                new SqlCommand(countQuery, connection))
-            {
-                countCommand.CommandTimeout = 0;
-                using SqlDataReader countReader =
-                    await countCommand.ExecuteReaderAsync();
-
-                if (await countReader.ReadAsync())
-                {
-                    model.TotalRecords =
-                        Convert.ToInt32(
-                            countReader["TotalRecords"]);
-                }
-            }
+            sql.Append(" WHERE @Search = ''");
         }
 
-
-        // ========================================
-        // SUPPORT RECORDS (JOINS FOR DISPLAY)
-        // ========================================
-
-        var selectColumns =
-            FormColumns
-                .Select(c => c.Name)
-                .Where(columns.Contains)
-                .ToList();
-
-        selectColumns.Add(
-            DatabaseMapping.DailySupport.StartTime);
-
-        selectColumns.Add(
-            DatabaseMapping.DailySupport.EndTime);
-
-        selectColumns.Add(
-            DatabaseMapping.DailySupport.EntryOn);
-
-        selectColumns =
-            selectColumns
-                .Where(columns.Contains)
-                .ToList();
-
-        var selectParts =
-            selectColumns
-                .Select(c => $"s.{c}")
-                .ToList();
-
-        string selectedColumnList =
-            selectParts.Count > 0
-                ? string.Join(", ", selectParts)
-                : $"s.{DatabaseMapping.DailySupport.Id}";
-
-
-        var searchParts =
-            new List<string>();
-
-        foreach (string candidate in new[]
+        if (fields.Any(f => f.Name.Equals(
+                idColumn,
+                StringComparison.OrdinalIgnoreCase)))
         {
-            DatabaseMapping.DailySupport.Subject,
-            DatabaseMapping.DailySupport.SupportType,
-            DatabaseMapping.DailySupport.Description,
-            DatabaseMapping.DailySupport.Remarks,
-            DatabaseMapping.DailySupport.Status
-        })
+            sql.Append($" ORDER BY s.[{idColumn}] ASC");
+        }
+        else
         {
-            if (columns.Contains(candidate))
-            {
-                searchParts.Add(
-                    $"s.{candidate} LIKE '%' + @Search + '%'");
-            }
+            sql.Append(" ORDER BY (SELECT NULL)");
         }
 
-        searchParts.Add(
-            $"c.{DatabaseMapping.ClientMaster.ClientName}"
-                + " LIKE '%' + @Search + '%'");
-
-        searchParts.Add(
-            $"u.{DatabaseMapping.LoginUsers.UserName}"
-                + " LIKE '%' + @Search + '%'");
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.Id))
-        {
-            searchParts.Add(
-                $"CAST(s.{DatabaseMapping.DailySupport.Id}"
-                    + " AS NVARCHAR(10)) LIKE '%' + @Search + '%'");
-        }
-
-
-        string query = $@"
-            SELECT
-                s.{DatabaseMapping.DailySupport.Id},
-                {selectedColumnList},
-                c.{DatabaseMapping.ClientMaster.ClientName}
-                    AS ClientName,
-                u.{DatabaseMapping.LoginUsers.UserName}
-                    AS UserName
-
-            FROM
-                {DatabaseMapping.DailySupport.Table} s
-
-            INNER JOIN
-                {DatabaseMapping.ClientMaster.Table} c
-                ON c.{DatabaseMapping.ClientMaster.Id}
-                = s.{DatabaseMapping.DailySupport.ClientId}
-
-            INNER JOIN
-                {DatabaseMapping.LoginUsers.Table} u
-                ON u.{DatabaseMapping.LoginUsers.Id}
-                = s.{DatabaseMapping.DailySupport.UserId}
-
-            WHERE
-                (@Search = '' OR
-                    {string.Join(" OR ", searchParts)})
-
-            ORDER BY
-                s.{DatabaseMapping.DailySupport.Id} ASC";
-
+        var rows = new List<MasterRowViewModel>();
 
         using SqlCommand command =
-            new SqlCommand(query, connection);
-            command.CommandTimeout = 0;
+            new SqlCommand(sql.ToString(), connection);
 
+        command.CommandTimeout = 0;
 
         command.Parameters.Add(
             new SqlParameter(
@@ -377,10 +301,8 @@ public class DailySupportController : Controller
                 System.Data.SqlDbType.NVarChar,
                 100)
             {
-                Value =
-                    search?.Trim() ?? ""
+                Value = search?.Trim() ?? ""
             });
-
 
         using SqlDataReader reader =
             await command.ExecuteReaderAsync();
@@ -389,103 +311,60 @@ public class DailySupportController : Controller
         {
             var row = new MasterRowViewModel();
 
-            row.Values["Id"] =
-                reader[
-                    DatabaseMapping.DailySupport.Id]
-                .ToString() ?? "";
-
-            foreach (string name in selectColumns)
+            foreach (var field in fields)
             {
-                object value = reader[name];
+                object value = reader[field.Name];
 
-                switch (name)
+                row.Values[field.Name] =
+                    DynamicTableService.FormatCellValue(
+                        field,
+                        value);
+
+                if (field.LookupKey != null
+                    && field.Editable
+                    && field.Control == "select"
+                    && _tableService.TryGetLookupDisplayColumn(
+                        field.LookupKey,
+                        out _))
                 {
-                    case string _ when name ==
-                        DatabaseMapping.DailySupport.SupportDate:
-                        row.Values[name] =
-                            value == DBNull.Value
-                                ? ""
-                                : Convert.ToDateTime(value)
-                                    .ToString("dd/MM/yyyy");
+                    object? keyValue =
+                        reader[$"{field.Name}_key"];
 
-                        if (value != DBNull.Value)
-                        {
-                            row.Values["SupportDateISO"] =
-                                Convert.ToDateTime(value)
-                                    .ToString("yyyy-MM-dd");
-                        }
-                        break;
-
-                    case string _ when name ==
-                        DatabaseMapping.DailySupport.FollowUpDate:
-                        row.Values[name] =
-                            FormatDate(value);
-
-                        if (value != DBNull.Value)
-                        {
-                            row.Values["FollowUpDateISO"] =
-                                Convert.ToDateTime(value)
-                                    .ToString("yyyy-MM-dd");
-                        }
-                        break;
-
-                    case string _ when name ==
-                        DatabaseMapping.DailySupport.StartTime:
-                    case string _ when name ==
-                        DatabaseMapping.DailySupport.EndTime:
-                        row.Values[name] =
-                            FormatTime(value);
-                        break;
-
-                    case string _ when name ==
-                        DatabaseMapping.DailySupport.EntryOn:
-                        row.Values[name] =
-                            value == DBNull.Value
-                                ? ""
-                                : Convert.ToDateTime(value)
-                                    .ToString("dd/MM/yyyy hh:mm tt");
-                        break;
-
-                    default:
-                        row.Values[name] =
-                            value == DBNull.Value
-                                ? ""
-                                : value.ToString() ?? "";
-                        break;
+                    row.Values[$"{field.Name}_key"] =
+                        keyValue == DBNull.Value
+                            ? ""
+                            : keyValue.ToString() ?? "";
                 }
             }
 
-            row.Values["ClientName"] =
-                reader["ClientName"]
-                .ToString() ?? "";
-
-            row.Values["UserName"] =
-                reader["UserName"]
-                .ToString() ?? "";
-
-            model.Supports.Add(row);
+            rows.Add(row);
         }
 
-
-        reader.Close();
-
-
-        return model;
+        return rows;
     }
 
+    private async Task<(
+        Dictionary<string, List<LookupOptionViewModel>> Dropdowns,
+        Dictionary<string, string[]> StaticOptions)>
+        LoadOptionsAsync(
+            SqlConnection connection,
+            List<MasterColumnViewModel> formFields) =>
+
+        await _tableService.LoadFormOptionsAsync(
+            connection,
+            TableName,
+            formFields);
 
     // ============================================
     // CREATE
     // ============================================
 
     [HttpGet]
-    public async Task<IActionResult> Create(
-        string? returnUrl = null)
+    public async Task<IActionResult> Create()
     {
         string? connectionString =
             _configuration.GetConnectionString(
                 "DefaultConnection");
-
 
         if (string.IsNullOrWhiteSpace(connectionString))
         {
@@ -494,58 +373,111 @@ public class DailySupportController : Controller
                 "Database connection string is missing.");
         }
 
-
         using SqlConnection connection =
             new SqlConnection(connectionString);
 
-
         await connection.OpenAsync();
 
+        List<MasterColumnViewModel> fields =
+            await _tableService.GetTableFieldsAsync(
+                connection,
+                TableName);
 
-        (HashSet<string> columns,
-         List<LookupOptionViewModel> clients) =
-            await LoadFormDataAsync(connection);
+        ApplyConventions(fields);
 
+        var model = new DailySupportViewModel
+        {
+            Fields = fields,
+            FormFields = fields
+                .Where(f => f.Editable)
+                .ToList()
+        };
 
-        var model =
-            new DailySupportViewModel
-            {
-                AvailableColumns = columns,
-                Clients = clients
-            };
+        (var dropdowns, var staticOptions) =
+            await LoadOptionsAsync(
+                connection,
+                model.FormFields);
+
+        ViewBag.Dropdowns = dropdowns;
+        ViewBag.StaticOptions = staticOptions;
 
         return View(model);
     }
 
-
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create()
+    public async Task<IActionResult> Create(
+        IFormCollection form)
     {
-        var form = Request.Form;
 
         string? connectionString =
             _configuration.GetConnectionString(
                 "DefaultConnection");
 
+        string? loggedInUserId =
+            DynamicTableService.GetLoggedInUserId(User);
 
         using SqlConnection connection =
             new SqlConnection(connectionString);
 
-
         await connection.OpenAsync();
 
+        List<MasterColumnViewModel> fields =
+            await _tableService.GetTableFieldsAsync(
+                connection,
+                TableName);
 
-        (HashSet<string> columns,
-         List<LookupOptionViewModel> clients) =
-            await LoadFormDataAsync(connection);
+        ApplyConventions(fields);
 
+        var formFields =
+            fields.Where(f => f.Editable)
+                .ToList();
 
-        string? loggedInUserId =
-            DynamicTableHelper.GetLoggedInUserId(User);
+        // ========================================
+        // GENERIC VALIDATION
+        // ========================================
 
+        string? validationError =
+            _tableService.ValidateRequiredFields(
+                formFields,
+                form);
 
-        if (string.IsNullOrWhiteSpace(loggedInUserId))
+        // ========================================
+        // BUSINESS RULES (status/time/remarks...)
+        // ========================================
+
+        var errors =
+            ValidateBusinessRules(
+                fields,
+                form,
+                null,
+                null,
+                out Dictionary<string, string> overrides);
+
+        if (!string.IsNullOrWhiteSpace(validationError))
+        {
+            errors.Clear();
+            errors["_"] = validationError;
+        }
+
+        if (errors.Count > 0)
+        {
+            if (IsAjax)
+            {
+                return Json(new
+                {
+                    success = false,
+                    message = errors.Values.First()
+                });
+            }
+
+            TempData["Error"] = errors.Values.First();
+
+            return RedirectToAction(nameof(Create));
+        }
+
+        if (fields.Any(f => f.AutoWrite == "auth-user")
+            && string.IsNullOrWhiteSpace(loggedInUserId))
         {
             if (IsAjax)
             {
@@ -560,122 +492,79 @@ public class DailySupportController : Controller
             return Unauthorized();
         }
 
+        // ========================================
+        // BUILD INSERT (metadata driven)
+        // ========================================
 
-        var fieldErrors =
-            ValidateFields(
-                columns,
-                form,
-                null,
-                null,
-                out DateTime supportDate,
-                out DateTime? followUpDate,
-                out DateTime? startTime,
-                out DateTime? endTime);
-
-
-        if (fieldErrors.Count > 0)
-        {
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message =
-                        fieldErrors.Values.First()
-                });
-            }
-
-            return View(new DailySupportViewModel
-            {
-                AvailableColumns = columns,
-                Clients = clients,
-                FormValues =
-                    CollectFormValues(form),
-                FieldErrors = fieldErrors
-            });
-        }
-
-
-        var insertColumns =
-            new List<string>();
-
-        var insertPlaceholders =
-            new List<string>();
-
-        foreach (var (name, _, _) in FormColumns)
-        {
-            if (columns.Contains(name))
-            {
-                insertColumns.Add(name);
-                insertPlaceholders.Add($"@{name}");
-            }
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.StartTime))
-        {
-            insertColumns.Add(
-                DatabaseMapping.DailySupport.StartTime);
-            insertPlaceholders.Add("@StartTime");
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.EndTime))
-        {
-            insertColumns.Add(
-                DatabaseMapping.DailySupport.EndTime);
-            insertPlaceholders.Add("@EndTime");
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.UserId))
-        {
-            insertColumns.Add(
-                DatabaseMapping.DailySupport.UserId);
-            insertPlaceholders.Add("@UserId");
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.EntryOn))
-        {
-            insertColumns.Add(
-                DatabaseMapping.DailySupport.EntryOn);
-            insertPlaceholders.Add("GETDATE()");
-        }
-
-
-        string query = $@"
-            INSERT INTO
-                {DatabaseMapping.DailySupport.Table}
-                (
-                    {string.Join(", ", insertColumns)}
-                )
-
-            VALUES
-                (
-                    {string.Join(", ", insertPlaceholders)}
-                )";
-
+        var insertColumns = new List<string>();
+        var placeholders = new List<string>();
 
         using SqlCommand command =
-            new SqlCommand(query, connection);
-            command.CommandTimeout = 0;
+            new SqlCommand
+            {
+                Connection = connection,
+                CommandTimeout = 0
+            };
 
+        foreach (var field in formFields)
+        {
+            if (field.AutoWrite != null)
+            {
+                continue;
+            }
 
-        AddFormParameters(
-            columns,
-            command,
-            form,
-            supportDate,
-            followUpDate,
-            startTime,
-            endTime,
-            Convert.ToInt32(
-                loggedInUserId));
+            string raw =
+                overrides.TryGetValue(
+                    field.Name,
+                    out string? inline)
+                    ? inline
+                    : form[field.Name].ToString();
 
+            insertColumns.Add(field.Name);
+            placeholders.Add($"@{field.Name}");
+
+            _tableService.AddParameter(
+                command,
+                field,
+                raw);
+        }
+
+        foreach (var auto in fields.Where(
+                     f => f.AutoWrite != null))
+        {
+            if (auto.AutoWrite == "auth-user"
+                && !string.IsNullOrWhiteSpace(loggedInUserId))
+            {
+                insertColumns.Add(auto.Name);
+                placeholders.Add($"@{auto.Name}");
+
+                command.Parameters.Add(
+                    new SqlParameter(
+                        $"@{auto.Name}",
+                        System.Data.SqlDbType.Int)
+                    {
+                        Value =
+                            Convert.ToInt32(loggedInUserId)
+                    });
+            }
+            else if (auto.AutoWrite == "true")
+            {
+                insertColumns.Add(auto.Name);
+                placeholders.Add("1");
+            }
+            else if (auto.AutoWrite == "now")
+            {
+                insertColumns.Add(auto.Name);
+                placeholders.Add("GETDATE()");
+            }
+        }
+
+        command.CommandText =
+            $"INSERT INTO [{TableName}] " +
+            $"({string.Join(", ", insertColumns)}) " +
+            $"VALUES ({string.Join(", ", placeholders)})";
 
         await command.ExecuteNonQueryAsync();
-
 
         if (IsAjax)
         {
@@ -693,15 +582,13 @@ public class DailySupportController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-
     // ============================================
     // EDIT
     // ============================================
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(
-        int id)
+    public async Task<IActionResult> Edit(int id)
     {
         var form = Request.Form;
 
@@ -709,19 +596,28 @@ public class DailySupportController : Controller
             _configuration.GetConnectionString(
                 "DefaultConnection");
 
-
         using SqlConnection connection =
             new SqlConnection(connectionString);
 
-
         await connection.OpenAsync();
 
-
-        HashSet<string> columns =
-            await DynamicTableHelper.GetTableColumnsAsync(
+        List<MasterColumnViewModel> fields =
+            await _tableService.GetTableFieldsAsync(
                 connection,
-                DatabaseMapping.DailySupport.Table);
+                TableName);
 
+        ApplyConventions(fields);
+
+        var editFields =
+            fields.Where(
+                    f => f.Editable
+                         && !f.CreateOnly)
+                .ToList();
+
+        string idColumn =
+            fields.FirstOrDefault(
+                    f => f.IsPrimaryKey)
+                ?.Name ?? "Id";
 
         (bool found,
          string existingStatus,
@@ -729,9 +625,8 @@ public class DailySupportController : Controller
          DateTime? existingEnd) =
             await ReadCurrentAsync(
                 connection,
-                columns,
+                fields,
                 id);
-
 
         if (!found)
         {
@@ -753,143 +648,85 @@ public class DailySupportController : Controller
                 "DailySupport");
         }
 
+        // ========================================
+        // GENERIC VALIDATION
+        // ========================================
 
-        var fieldErrors =
-            ValidateFields(
-                columns,
+        string? validationError =
+            _tableService.ValidateRequiredFields(
+                editFields,
+                form);
+
+        // ========================================
+        // BUSINESS RULES
+        // ========================================
+
+        var errors =
+            ValidateBusinessRules(
+                fields,
                 form,
                 existingStart,
                 existingEnd,
-                out DateTime supportDate,
-                out DateTime? followUpDate,
-                out DateTime? startTime,
-                out DateTime? endTime);
+                out Dictionary<string, string> overrides);
 
-
-        string newStatus =
-            form[
-                DatabaseMapping.DailySupport.Status]
-                .ToString()
-                .Trim();
-
-
-        if (!string.Equals(
-                existingStatus,
-                newStatus,
-                StringComparison.OrdinalIgnoreCase)
-            && !IsAllowedTransition(
-                existingStatus,
-                newStatus))
+        if (fields.Any(f => f.Name.Equals(
+                "Status",
+                StringComparison.OrdinalIgnoreCase)))
         {
-            fieldErrors[
-                DatabaseMapping.DailySupport.Status] =
+            string newStatus =
+                form["Status"].ToString().Trim();
+
+            if (!string.Equals(
+                    existingStatus,
+                    newStatus,
+                    StringComparison.OrdinalIgnoreCase)
+                && !IsAllowedTransition(
+                    existingStatus,
+                    newStatus))
+            {
+                errors["Status"] =
                     $"Status transition from "
                     + $"'{existingStatus}' to '{newStatus}'"
                     + " is not allowed.";
+            }
         }
 
+        if (!string.IsNullOrWhiteSpace(validationError))
+        {
+            errors.Clear();
+            errors["_"] = validationError;
+        }
 
-        if (fieldErrors.Count > 0)
+        if (errors.Count > 0)
         {
             if (IsAjax)
             {
                 return Json(new
                 {
                     success = false,
-                    message =
-                        fieldErrors.Values.First()
+                    message = errors.Values.First()
                 });
             }
 
-            var formValues =
-                CollectFormValues(form);
+            TempData["Error"] = errors.Values.First();
 
-            if (string.IsNullOrWhiteSpace(
-                    formValues[
-                        DatabaseMapping.DailySupport.StartTime])
-                && startTime.HasValue)
-            {
-                formValues[
-                    DatabaseMapping.DailySupport.StartTime] =
-                        startTime.Value.ToString("HH:mm");
-            }
-
-            if (string.IsNullOrWhiteSpace(
-                    formValues[
-                        DatabaseMapping.DailySupport.EndTime])
-                && endTime.HasValue)
-            {
-                formValues[
-                    DatabaseMapping.DailySupport.EndTime] =
-                        endTime.Value.ToString("HH:mm");
-            }
-
-            var model =
-                await BuildIndexAsync(
-                    connection,
-                    columns,
-                    null);
-
-            model.FormValues = formValues;
-            model.FieldErrors = fieldErrors;
-            model.OpenEditModal = true;
-            model.EditPreviousStatus = existingStatus;
-
-            return View("Index", model);
+            return RedirectToAction(
+                "Index",
+                "DailySupport");
         }
 
+        // ========================================
+        // BUILD UPDATE (metadata driven)
+        // ========================================
 
-        var setParts =
-            new List<string>();
-
-        foreach (var (name, _, _) in FormColumns)
-        {
-            if (name ==
-                DatabaseMapping.DailySupport.StartTime
-                || name ==
-                DatabaseMapping.DailySupport.EndTime)
-            {
-                continue;
-            }
-
-            if (columns.Contains(name))
-            {
-                setParts.Add($"{name} = @{name}");
-            }
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.StartTime))
-        {
-            setParts.Add(
-                $"{DatabaseMapping.DailySupport.StartTime}"
-                    + " = @StartTime");
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.EndTime))
-        {
-            setParts.Add(
-                $"{DatabaseMapping.DailySupport.EndTime}"
-                    + " = @EndTime");
-        }
-
-
-        string query = $@"
-            UPDATE
-                {DatabaseMapping.DailySupport.Table}
-
-            SET
-                {string.Join(", ", setParts)}
-
-            WHERE
-                {DatabaseMapping.DailySupport.Id} = @Id";
-
+        var setParts = new List<string>();
 
         using SqlCommand command =
-            new SqlCommand(query, connection);
-            command.CommandTimeout = 0;
-
+            new SqlCommand
+            {
+                Connection = connection,
+                CommandTimeout = 0
+            };
 
         command.Parameters.Add(
             new SqlParameter(
@@ -899,59 +736,186 @@ public class DailySupportController : Controller
                 Value = id
             });
 
-        AddFormParameters(
-            columns,
-            command,
-            form,
-            supportDate,
-            followUpDate,
-            startTime,
-            endTime,
-            null);
-
-
-        await command.ExecuteNonQueryAsync();
-
-
-        if (IsAjax)
+        foreach (var field in editFields)
         {
-            return Json(new
+            if (field.AutoWrite != null)
             {
-                success = true,
-                message =
-                    "Support record updated successfully."
-            });
+                continue;
+            }
+
+            string raw =
+                overrides.TryGetValue(
+                    field.Name,
+                    out string? inline)
+                    ? inline
+                    : form[field.Name].ToString();
+
+            setParts.Add($"[{field.Name}] = @{field.Name}");
+
+            _tableService.AddParameter(
+                command,
+                field,
+                raw);
         }
 
-        TempData["Success"] =
-            "Support record updated successfully.";
+        foreach (var auto in fields.Where(
+                     f => f.AutoWrite == "true"))
+        {
+            setParts.Add($"[{auto.Name}] = 1");
+        }
+
+        command.CommandText =
+            $"UPDATE [{TableName}] " +
+            $"SET {string.Join(", ", setParts)} " +
+            $"WHERE [{idColumn}] = @Id";
+
+        int rows = await command.ExecuteNonQueryAsync();
+
+        if (rows == 0)
+        {
+            if (IsAjax)
+            {
+                return Json(new
+                {
+                    success = false,
+                    message =
+                        "Support record not found."
+                });
+            }
+
+            TempData["Error"] =
+                "Support record not found.";
+        }
+        else
+        {
+            if (IsAjax)
+            {
+                return Json(new
+                {
+                    success = true,
+                    message =
+                        "Support record updated successfully."
+                });
+            }
+
+            TempData["Success"] =
+                "Support record updated successfully.";
+        }
 
         return RedirectToAction(nameof(Index));
     }
 
+    // ============================================
+    // QUICK ACTIONS (Start / Pause / Complete / Cancel)
+    // ============================================
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Start(
-        int id)
+    public async Task<IActionResult> Start(int id)
+    {
+        var result =
+            await RunQuickActionAsync(id,
+                allowedFrom: new[] { "Open", "Pending" },
+                allowError:
+                    "Cannot start support. "
+                    + "Allowed only from Open or Pending.",
+                statusValue: "In Progress",
+                startFresh: true,
+                startMessage: "Support started.",
+                resumeMessage: "Support resumed.");
+
+        return Done(result);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Pause(int id)
+    {
+        var result =
+            await RunQuickActionAsync(id,
+                allowedFrom: new[] { "In Progress" },
+                allowError:
+                    "Cannot pause support. "
+                    + "Allowed only from In Progress.",
+                statusValue: "Pending",
+                startFresh: false,
+                startMessage: "Support paused. Status updated to Pending.",
+                resumeMessage: "");
+
+        return Done(result);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Complete(int id)
+    {
+        var result =
+            await RunQuickActionAsync(id,
+                allowedFrom: new[] { "In Progress" },
+                allowError:
+                    "Cannot complete support. "
+                    + "Allowed only from In Progress.",
+                statusValue: "Completed",
+                startFresh: false,
+                startMessage:
+                    "Support completed. Status updated to Completed.",
+                resumeMessage: "");
+
+        return Done(result);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Cancel(int id)
+    {
+        var result =
+            await RunQuickActionAsync(id,
+                allowedFrom: new[] { "Open", "In Progress" },
+                allowError:
+                    "Cannot cancel support. "
+                    + "Allowed only from Open or In Progress.",
+                statusValue: "Cancelled",
+                startFresh: false,
+                startMessage:
+                    "Support cancelled. Status updated to Cancelled.",
+                resumeMessage: "");
+
+        return Done(result);
+    }
+
+    private async Task<(bool Success, string Message)>
+        RunQuickActionAsync(
+            int id,
+            string[] allowedFrom,
+            string allowError,
+            string statusValue,
+            bool startFresh,
+            string startMessage,
+            string resumeMessage)
     {
         string? connectionString =
             _configuration.GetConnectionString(
                 "DefaultConnection");
 
-
         using SqlConnection connection =
             new SqlConnection(connectionString);
 
-
         await connection.OpenAsync();
 
-
-        HashSet<string> columns =
-            await DynamicTableHelper.GetTableColumnsAsync(
+        List<MasterColumnViewModel> fields =
+            await _tableService.GetTableFieldsAsync(
                 connection,
-                DatabaseMapping.DailySupport.Table);
+                TableName);
 
+        var columns =
+            new HashSet<string>(
+                fields.Select(f => f.Name),
+                StringComparer.OrdinalIgnoreCase);
+
+        string idColumn =
+            fields.FirstOrDefault(
+                    f => f.IsPrimaryKey)
+                ?.Name ?? "Id";
 
         (bool found,
          string existingStatus,
@@ -959,30 +923,13 @@ public class DailySupportController : Controller
          DateTime? existingEnd) =
             await ReadCurrentAsync(
                 connection,
-                columns,
+                fields,
                 id);
-
 
         if (!found)
         {
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message =
-                        "Support record not found."
-                });
-            }
-
-            TempData["Error"] =
-                "Support record not found.";
-
-            return RedirectToAction(
-                "Index",
-                "DailySupport");
+            return (false, "Support record not found.");
         }
-
 
         bool fromOpen =
             string.Equals(
@@ -990,698 +937,88 @@ public class DailySupportController : Controller
                 "Open",
                 StringComparison.OrdinalIgnoreCase);
 
-        bool fromPending =
-            string.Equals(
+        if (!allowedFrom.Contains(
                 existingStatus,
-                "Pending",
-                StringComparison.OrdinalIgnoreCase);
-
-        if (!fromOpen && !fromPending)
+                StringComparer.OrdinalIgnoreCase))
         {
-            const string message =
-                "Cannot start support. "
-                    + "Allowed only from Open or Pending.";
-
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message
-                });
-            }
-
-            TempData["Error"] = message;
-
-            return RedirectToAction(
-                "Index",
-                "DailySupport");
+            return (false, allowError);
         }
 
+        var setParts = new List<string>();
 
-        var setParts =
-            new List<string>();
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.Status))
+        if (columns.Contains("Status"))
         {
-            setParts.Add(
-                $"{DatabaseMapping.DailySupport.Status}"
-                    + " = 'In Progress'");
+            setParts.Add("[Status] = '" + statusValue + "'");
         }
 
-        if (fromOpen
-            && columns.Contains(
-                DatabaseMapping.DailySupport.StartTime))
+        if (startFresh
+            && fromOpen
+            && columns.Contains("StartTime"))
         {
-            setParts.Add(
-                $"{DatabaseMapping.DailySupport.StartTime}"
-                    + " = GETDATE()");
+            setParts.Add("[StartTime] = GETDATE()");
+        }
+
+        if (statusValue == "Completed"
+            && columns.Contains("EndTime"))
+        {
+            setParts.Add("[EndTime] = GETDATE()");
         }
 
         if (setParts.Count == 0)
         {
-            const string message =
-                "Cannot start support:"
-                    + " required columns are missing.";
-
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message
-                });
-            }
-
-            TempData["Error"] = message;
-
-            return RedirectToAction(
-                "Index",
-                "DailySupport");
+            return (false, "Cannot update support:"
+                + " required columns are missing.");
         }
 
-
         string query = $@"
-            UPDATE
-                {DatabaseMapping.DailySupport.Table}
-
-            SET
-                {string.Join(", ", setParts)}
-
-            WHERE
-                {DatabaseMapping.DailySupport.Id}
-                = @Id";
-
+            UPDATE [{TableName}]
+            SET {string.Join(", ", setParts)}
+            WHERE [{idColumn}] = @Id";
 
         using SqlCommand command =
             new SqlCommand(query, connection);
-            command.CommandTimeout = 0;
 
+        command.CommandTimeout = 0;
+        command.Parameters.AddWithValue("@Id", id);
 
-        command.Parameters.AddWithValue(
-            "@Id",
-            id);
-
-
-        int rows =
-            await command.ExecuteNonQueryAsync();
-
+        int rows = await command.ExecuteNonQueryAsync();
 
         if (rows == 0)
         {
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message =
-                        "Support record not found."
-                });
-            }
-
-            TempData["Error"] =
-                "Support record not found.";
+            return (false, "Support record not found.");
         }
-        else
+
+        if (statusValue == "In Progress")
         {
-            string message =
-                fromOpen
-                    ? "Support started."
-                    : "Support resumed.";
-
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = true,
-                    message
-                });
-            }
-
-            TempData["Success"] = message;
+            return (true, fromOpen ? startMessage : resumeMessage);
         }
 
-
-        return RedirectToAction(
-            "Index",
-            "DailySupport");
+        return (true, startMessage);
     }
 
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Pause(
-        int id)
+    private IActionResult Done(
+        (bool Success, string Message) result)
     {
-        string? connectionString =
-            _configuration.GetConnectionString(
-                "DefaultConnection");
-
-
-        using SqlConnection connection =
-            new SqlConnection(connectionString);
-
-
-        await connection.OpenAsync();
-
-
-        HashSet<string> columns =
-            await DynamicTableHelper.GetTableColumnsAsync(
-                connection,
-                DatabaseMapping.DailySupport.Table);
-
-
-        (bool found,
-         string existingStatus,
-         DateTime? existingStart,
-         DateTime? existingEnd) =
-            await ReadCurrentAsync(
-                connection,
-                columns,
-                id);
-
-
-        if (!found)
+        if (IsAjax)
         {
-            if (IsAjax)
+            return Json(new
             {
-                return Json(new
-                {
-                    success = false,
-                    message =
-                        "Support record not found."
-                });
-            }
-
-            TempData["Error"] =
-                "Support record not found.";
-
-            return RedirectToAction(
-                "Index",
-                "DailySupport");
+                success = result.Success,
+                message = result.Message
+            });
         }
 
-
-        if (!string.Equals(
-                existingStatus,
-                "In Progress",
-                StringComparison.OrdinalIgnoreCase))
+        if (result.Success)
         {
-            const string message =
-                "Cannot pause support. "
-                    + "Allowed only from In Progress.";
-
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message
-                });
-            }
-
-            TempData["Error"] = message;
-
-            return RedirectToAction(
-                "Index",
-                "DailySupport");
-        }
-
-
-        var setParts =
-            new List<string>();
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.Status))
-        {
-            setParts.Add(
-                $"{DatabaseMapping.DailySupport.Status}"
-                    + " = 'Pending'");
-        }
-
-        if (setParts.Count == 0)
-        {
-            const string message =
-                "Cannot pause support:"
-                    + " required columns are missing.";
-
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message
-                });
-            }
-
-            TempData["Error"] = message;
-
-            return RedirectToAction(
-                "Index",
-                "DailySupport");
-        }
-
-
-        string query = $@"
-            UPDATE
-                {DatabaseMapping.DailySupport.Table}
-
-            SET
-                {string.Join(", ", setParts)}
-
-            WHERE
-                {DatabaseMapping.DailySupport.Id}
-                = @Id";
-
-
-        using SqlCommand command =
-            new SqlCommand(query, connection);
-            command.CommandTimeout = 0;
-
-
-        command.Parameters.AddWithValue(
-            "@Id",
-            id);
-
-
-        int rows =
-            await command.ExecuteNonQueryAsync();
-
-
-        if (rows == 0)
-        {
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message =
-                        "Support record not found."
-                });
-            }
-
-            TempData["Error"] =
-                "Support record not found.";
+            TempData["Success"] = result.Message;
         }
         else
         {
-            const string message =
-                "Support paused. Status updated to Pending.";
-
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = true,
-                    message
-                });
-            }
-
-            TempData["Success"] = message;
+            TempData["Error"] = result.Message;
         }
 
-
-        return RedirectToAction(
-            "Index",
-            "DailySupport");
+        return RedirectToAction("Index", "DailySupport");
     }
-
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Complete(
-        int id)
-    {
-        string? connectionString =
-            _configuration.GetConnectionString(
-                "DefaultConnection");
-
-
-        using SqlConnection connection =
-            new SqlConnection(connectionString);
-
-
-        await connection.OpenAsync();
-
-
-        HashSet<string> columns =
-            await DynamicTableHelper.GetTableColumnsAsync(
-                connection,
-                DatabaseMapping.DailySupport.Table);
-
-
-        (bool found,
-         string existingStatus,
-         DateTime? existingStart,
-         DateTime? existingEnd) =
-            await ReadCurrentAsync(
-                connection,
-                columns,
-                id);
-
-
-        if (!found)
-        {
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message =
-                        "Support record not found."
-                });
-            }
-
-            TempData["Error"] =
-                "Support record not found.";
-
-            return RedirectToAction(
-                "Index",
-                "DailySupport");
-        }
-
-
-        if (!string.Equals(
-                existingStatus,
-                "In Progress",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            const string message =
-                "Cannot complete support. "
-                    + "Allowed only from In Progress.";
-
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message
-                });
-            }
-
-            TempData["Error"] = message;
-
-            return RedirectToAction(
-                "Index",
-                "DailySupport");
-        }
-
-
-        var setParts =
-            new List<string>();
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.Status))
-        {
-            setParts.Add(
-                $"{DatabaseMapping.DailySupport.Status}"
-                    + " = 'Completed'");
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.EndTime))
-        {
-            setParts.Add(
-                $"{DatabaseMapping.DailySupport.EndTime}"
-                    + " = GETDATE()");
-        }
-
-        if (setParts.Count == 0)
-        {
-            const string message =
-                "Cannot complete support:"
-                    + " required columns are missing.";
-
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message
-                });
-            }
-
-            TempData["Error"] = message;
-
-            return RedirectToAction(
-                "Index",
-                "DailySupport");
-        }
-
-
-        string query = $@"
-            UPDATE
-                {DatabaseMapping.DailySupport.Table}
-
-            SET
-                {string.Join(", ", setParts)}
-
-            WHERE
-                {DatabaseMapping.DailySupport.Id}
-                = @Id";
-
-
-        using SqlCommand command =
-            new SqlCommand(query, connection);
-            command.CommandTimeout = 0;
-
-
-        command.Parameters.AddWithValue(
-            "@Id",
-            id);
-
-
-        int rows =
-            await command.ExecuteNonQueryAsync();
-
-
-        if (rows == 0)
-        {
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message =
-                        "Support record not found."
-                });
-            }
-
-            TempData["Error"] =
-                "Support record not found.";
-        }
-        else
-        {
-            const string message =
-                "Support completed. Status updated to Completed.";
-
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = true,
-                    message
-                });
-            }
-
-            TempData["Success"] = message;
-        }
-
-
-        return RedirectToAction(
-            "Index",
-            "DailySupport");
-    }
-
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Cancel(
-        int id)
-    {
-        string? connectionString =
-            _configuration.GetConnectionString(
-                "DefaultConnection");
-
-
-        using SqlConnection connection =
-            new SqlConnection(connectionString);
-
-
-        await connection.OpenAsync();
-
-
-        HashSet<string> columns =
-            await DynamicTableHelper.GetTableColumnsAsync(
-                connection,
-                DatabaseMapping.DailySupport.Table);
-
-
-        (bool found,
-         string existingStatus,
-         DateTime? existingStart,
-         DateTime? existingEnd) =
-            await ReadCurrentAsync(
-                connection,
-                columns,
-                id);
-
-
-        if (!found)
-        {
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message =
-                        "Support record not found."
-                });
-            }
-
-            TempData["Error"] =
-                "Support record not found.";
-
-            return RedirectToAction(
-                "Index",
-                "DailySupport");
-        }
-
-
-        bool fromOpen =
-            string.Equals(
-                existingStatus,
-                "Open",
-                StringComparison.OrdinalIgnoreCase);
-
-        bool fromInProgress =
-            string.Equals(
-                existingStatus,
-                "In Progress",
-                StringComparison.OrdinalIgnoreCase);
-
-        if (!fromOpen && !fromInProgress)
-        {
-            const string message =
-                "Cannot cancel support. "
-                    + "Allowed only from Open or In Progress.";
-
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message
-                });
-            }
-
-            TempData["Error"] = message;
-
-            return RedirectToAction(
-                "Index",
-                "DailySupport");
-        }
-
-
-        var setParts =
-            new List<string>();
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.Status))
-        {
-            setParts.Add(
-                $"{DatabaseMapping.DailySupport.Status}"
-                    + " = 'Cancelled'");
-        }
-
-        if (setParts.Count == 0)
-        {
-            const string message =
-                "Cannot cancel support:"
-                    + " required columns are missing.";
-
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message
-                });
-            }
-
-            TempData["Error"] = message;
-
-            return RedirectToAction(
-                "Index",
-                "DailySupport");
-        }
-
-
-        string query = $@"
-            UPDATE
-                {DatabaseMapping.DailySupport.Table}
-
-            SET
-                {string.Join(", ", setParts)}
-
-            WHERE
-                {DatabaseMapping.DailySupport.Id}
-                = @Id";
-
-
-        using SqlCommand command =
-            new SqlCommand(query, connection);
-            command.CommandTimeout = 0;
-
-
-        command.Parameters.AddWithValue(
-            "@Id",
-            id);
-
-
-        int rows =
-            await command.ExecuteNonQueryAsync();
-
-
-        if (rows == 0)
-        {
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message =
-                        "Support record not found."
-                });
-            }
-
-            TempData["Error"] =
-                "Support record not found.";
-        }
-        else
-        {
-            const string message =
-                "Support cancelled. Status updated to Cancelled.";
-
-            if (IsAjax)
-            {
-                return Json(new
-                {
-                    success = true,
-                    message
-                });
-            }
-
-            TempData["Success"] = message;
-        }
-
-
-        return RedirectToAction(
-            "Index",
-            "DailySupport");
-    }
-
 
     // ============================================
     // DELETE
@@ -1689,43 +1026,34 @@ public class DailySupportController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Delete(
-        int id)
+    public async Task<IActionResult> Delete(int id)
     {
         string? connectionString =
             _configuration.GetConnectionString(
                 "DefaultConnection");
 
-
         using SqlConnection connection =
             new SqlConnection(connectionString);
 
-
         await connection.OpenAsync();
 
+        string idColumn =
+            await _tableService
+                .GetPrimaryKeyColumnAsync(
+                    connection,
+                    TableName);
 
         string query = $@"
-            DELETE FROM
-                {DatabaseMapping.DailySupport.Table}
-
-            WHERE
-                {DatabaseMapping.DailySupport.Id}
-                = @Id";
-
+            DELETE FROM [{TableName}]
+            WHERE [{idColumn}] = @Id";
 
         using SqlCommand command =
             new SqlCommand(query, connection);
-            command.CommandTimeout = 0;
 
+        command.CommandTimeout = 0;
+        command.Parameters.AddWithValue("@Id", id);
 
-        command.Parameters.AddWithValue(
-            "@Id",
-            id);
-
-
-        int rows =
-            await command.ExecuteNonQueryAsync();
-
+        int rows = await command.ExecuteNonQueryAsync();
 
         if (rows == 0)
         {
@@ -1758,73 +1086,31 @@ public class DailySupportController : Controller
                 "Support record deleted successfully.";
         }
 
-
-        return RedirectToAction(
-            "Index",
-            "DailySupport");
+        return RedirectToAction("Index", "DailySupport");
     }
-
 
     // ============================================
     // HELPERS
     // ============================================
 
-    private static async Task<(
-        HashSet<string> columns,
-        List<LookupOptionViewModel> clients)>
-        LoadFormDataAsync(
-            SqlConnection connection)
+    private static void ApplyConventions(
+        List<MasterColumnViewModel> fields)
     {
-        HashSet<string> columns =
-            await DynamicTableHelper.GetTableColumnsAsync(
-                connection,
-                DatabaseMapping.DailySupport.Table);
-
-
-        var clients =
-            new List<LookupOptionViewModel>();
-
-        string clientQuery = $@"
-            SELECT
-                {DatabaseMapping.ClientMaster.Id},
-                {DatabaseMapping.ClientMaster.ClientName}
-
-            FROM
-                {DatabaseMapping.ClientMaster.Table}
-
-            WHERE
-                {DatabaseMapping.ClientMaster.IsActive}
-                = 1
-
-            ORDER BY
-                {DatabaseMapping.ClientMaster.ClientName}";
-
-
-        using SqlCommand command =
-            new SqlCommand(clientQuery, connection);
-            command.CommandTimeout = 0;
-
-        using SqlDataReader reader =
-            await command.ExecuteReaderAsync();
-
-        while (await reader.ReadAsync())
+        foreach (var field in fields)
         {
-            clients.Add(
-                new LookupOptionViewModel
-                {
-                    Id =
-                        Convert.ToInt32(
-                            reader[0]),
-                    Name =
-                        reader[1]
-                            .ToString() ?? ""
-                });
+            // EntryOn is always server-written (GETDATE()),
+            // even if the live table has no column default.
+            if (field.Name.Equals(
+                    "EntryOn",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                field.Editable = false;
+                field.AutoWrite = "now";
+                field.Control = "input";
+                field.InputType = "text";
+            }
         }
-
-
-        return (columns, clients);
     }
-
 
     private static bool IsAllowedTransition(
         string from,
@@ -1838,16 +1124,18 @@ public class DailySupportController : Controller
             return true;
         }
 
-        foreach (var (allowedFrom, allowedTo)
-                in AllowedTransitions)
+        foreach (string rule in AllowedTransitions)
         {
+            string[] parts =
+                rule.Split('|');
+
             if (string.Equals(
                     from,
-                    allowedFrom,
+                    parts[0].Trim(),
                     StringComparison.OrdinalIgnoreCase)
                 && string.Equals(
                     to,
-                    allowedTo,
+                    parts[1].Trim(),
                     StringComparison.OrdinalIgnoreCase))
             {
                 return true;
@@ -1857,120 +1145,38 @@ public class DailySupportController : Controller
         return false;
     }
 
-
-    private static async Task<(bool found, string status,
-        DateTime? startTime, DateTime? endTime)>
-        ReadCurrentAsync(
-            SqlConnection connection,
-            HashSet<string> columns,
-            int id)
+    private static MasterColumnViewModel? FindField(
+        IEnumerable<MasterColumnViewModel> fields,
+        string name)
     {
-        var select = new List<string>
-        {
-            DatabaseMapping.DailySupport.Id
-        };
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.Status))
-        {
-            select.Add(
-                DatabaseMapping.DailySupport.Status);
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.StartTime))
-        {
-            select.Add(
-                DatabaseMapping.DailySupport.StartTime);
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.EndTime))
-        {
-            select.Add(
-                DatabaseMapping.DailySupport.EndTime);
-        }
-
-
-        string query = $@"
-            SELECT
-                {string.Join(", ", select)}
-
-            FROM
-                {DatabaseMapping.DailySupport.Table}
-
-            WHERE
-                {DatabaseMapping.DailySupport.Id} = @Id";
-
-
-        using SqlCommand command =
-            new SqlCommand(query, connection);
-            command.CommandTimeout = 0;
-
-
-        command.Parameters.AddWithValue(
-            "@Id",
-            id);
-
-
-        using SqlDataReader reader =
-            await command.ExecuteReaderAsync();
-
-
-        if (!await reader.ReadAsync())
-        {
-            return (false, "", null, null);
-        }
-
-
-        string status =
-            columns.Contains(
-                DatabaseMapping.DailySupport.Status)
-                ? (reader[
-                    DatabaseMapping.DailySupport.Status]
-                    .ToString() ?? "")
-                : "";
-
-        DateTime? startTime =
-            columns.Contains(
-                DatabaseMapping.DailySupport.StartTime)
-                ? ReadAsDateTime(
-                    reader[
-                        DatabaseMapping
-                            .DailySupport.StartTime])
-                : null;
-
-        DateTime? endTime =
-            columns.Contains(
-                DatabaseMapping.DailySupport.EndTime)
-                ? ReadAsDateTime(
-                    reader[
-                        DatabaseMapping
-                            .DailySupport.EndTime])
-                : null;
-
-        return (true, status, startTime, endTime);
+        return fields.FirstOrDefault(
+            f => f.Name.Equals(
+                name,
+                StringComparison.OrdinalIgnoreCase));
     }
 
+    private static bool IsStatus(
+        string current,
+        string check) =>
+        string.Equals(
+            current,
+            check,
+            StringComparison.OrdinalIgnoreCase);
 
-    private static Dictionary<string, string> ValidateFields(
-        HashSet<string> columns,
+    private static Dictionary<string, string> ValidateBusinessRules(
+        IEnumerable<MasterColumnViewModel> fields,
         IFormCollection form,
         DateTime? existingStart,
         DateTime? existingEnd,
-        out DateTime supportDate,
-        out DateTime? followUpDate,
-        out DateTime? startTime,
-        out DateTime? endTime)
+        out Dictionary<string, string> overrides)
     {
         var errors =
             new Dictionary<string, string>(
                 StringComparer.OrdinalIgnoreCase);
 
-        supportDate = default;
-        followUpDate = null;
-        startTime = null;
-        endTime = null;
+        overrides =
+            new Dictionary<string, string>(
+                StringComparer.OrdinalIgnoreCase);
 
         void AddError(string name, string message)
         {
@@ -1980,47 +1186,16 @@ public class DailySupportController : Controller
             }
         }
 
-        foreach (var (name, display, required) in FormColumns)
-        {
-            if (!columns.Contains(name)
-                || !required)
-            {
-                continue;
-            }
+        // ---- Support Type / Visit Type: "Other" composition ----
 
+        var supportType = FindField(fields, "SupportType");
+
+        if (supportType != null)
+        {
             string raw =
-                form[name].ToString().Trim();
+                form["SupportType"].ToString().Trim();
 
-            if (string.IsNullOrWhiteSpace(raw))
-            {
-                AddError(name, $"{display} is required.");
-            }
-            else if (name ==
-                DatabaseMapping.DailySupport.ClientId
-                && (!int.TryParse(
-                        raw,
-                        out int clientId)
-                    || clientId <= 0))
-            {
-                AddError(
-                    name,
-                    $"Please select a valid {display}.");
-            }
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.SupportType))
-        {
-            string supportTypeRaw =
-                form[
-                    DatabaseMapping.DailySupport.SupportType]
-                    .ToString()
-                    .Trim();
-
-            if (string.Equals(
-                    supportTypeRaw,
-                    "Other",
-                    StringComparison.OrdinalIgnoreCase))
+            if (IsStatus(raw, "Other"))
             {
                 string otherText =
                     form["OtherSupportType"]
@@ -2040,197 +1215,129 @@ public class DailySupportController : Controller
                         "Other Support Type is too long"
                             + " (maximum 92 characters).");
                 }
+                else
+                {
+                    overrides["SupportType"] =
+                        ComposeOther(raw, otherText);
+                }
             }
         }
 
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.SupportDate)
-            && !errors.ContainsKey(
-                DatabaseMapping.DailySupport.SupportDate)
+        // ---- Status based rules ----
+
+        string status =
+            form["Status"].ToString().Trim();
+
+        DateTime supportDate = default;
+
+        var supportDateField = FindField(fields, "SupportDate");
+
+        if (supportDateField != null
             && !DateTime.TryParse(
-                form[
-                    DatabaseMapping.DailySupport.SupportDate]
-                    .ToString(),
+                form["SupportDate"].ToString(),
                 out supportDate))
         {
-            AddError(
-                DatabaseMapping.DailySupport.SupportDate,
-                "Please select a valid Support Date.");
+            supportDate = DateTime.Today;
         }
 
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.Status))
-        {
-            string status =
-                form[
-                    DatabaseMapping.DailySupport.Status]
-                    .ToString()
-                    .Trim();
+        // ---- Start Time ----
 
-            if (!string.IsNullOrWhiteSpace(status)
-                && !AllowedStatuses.Contains(
-                    status,
-                    StringComparer.OrdinalIgnoreCase))
-            {
-                AddError(
-                    DatabaseMapping.DailySupport.Status,
-                    "Please select a valid Status.");
-            }
-        }
+        DateTime? startTime = null;
 
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.Priority))
-        {
-            string priority =
-                form[
-                    DatabaseMapping.DailySupport.Priority]
-                    .ToString()
-                    .Trim();
+        var startTimeField = FindField(fields, "StartTime");
 
-            if (!string.IsNullOrWhiteSpace(priority)
-                && !AllowedPriorities.Contains(
-                    priority,
-                    StringComparer.OrdinalIgnoreCase))
-            {
-                AddError(
-                    DatabaseMapping.DailySupport.Priority,
-                    "Please select a valid Priority.");
-            }
-        }
-
-        string currentStatus =
-            form[
-                DatabaseMapping.DailySupport.Status]
-                .ToString()
-                .Trim();
-
-        bool Is(string check) =>
-            string.Equals(
-                currentStatus,
-                check,
-                StringComparison.OrdinalIgnoreCase);
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.StartTime))
+        if (startTimeField != null)
         {
             string startRaw =
-                form[
-                    DatabaseMapping.DailySupport.StartTime]
-                    .ToString()
-                    .Trim();
+                form["StartTime"].ToString().Trim();
 
             if (string.IsNullOrWhiteSpace(startRaw))
             {
-                if (Is("In Progress")
-                    || Is("Pending")
-                    || Is("Completed"))
+                if (IsStatus(status, "In Progress")
+                    || IsStatus(status, "Pending")
+                    || IsStatus(status, "Completed"))
                 {
                     if (existingStart.HasValue)
                     {
+                        overrides["StartTime"] =
+                            existingStart.Value.ToString("HH:mm");
+
                         startTime = existingStart;
                     }
                     else
                     {
                         AddError(
-                            DatabaseMapping
-                                .DailySupport.StartTime,
+                            "StartTime",
                             "Start Time is required for this status.");
                     }
                 }
             }
-            else
+            else if (DateTime.TryParse(startRaw, out DateTime parsed))
             {
-                startTime =
-                    ParseNullableTime(startRaw);
-
-                if (!startTime.HasValue)
-                {
-                    AddError(
-                        DatabaseMapping
-                            .DailySupport.StartTime,
-                        "Please enter a valid Start Time.");
-                }
+                startTime = parsed;
             }
         }
 
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.EndTime))
+        // ---- End Time ----
+
+        DateTime? endTime = null;
+
+        var endTimeField = FindField(fields, "EndTime");
+
+        if (endTimeField != null)
         {
             string endRaw =
-                form[
-                    DatabaseMapping.DailySupport.EndTime]
-                    .ToString()
-                    .Trim();
+                form["EndTime"].ToString().Trim();
 
-            if (Is("Pending")
+            if (IsStatus(status, "Pending")
                 && !string.IsNullOrWhiteSpace(endRaw))
             {
                 AddError(
-                    DatabaseMapping.DailySupport.EndTime,
+                    "EndTime",
                     "End Time must be blank for Pending status.");
             }
             else if (string.IsNullOrWhiteSpace(endRaw))
             {
-                if (Is("Completed"))
+                if (IsStatus(status, "Completed"))
                 {
                     if (existingEnd.HasValue)
                     {
+                        overrides["EndTime"] =
+                            existingEnd.Value.ToString("HH:mm");
+
                         endTime = existingEnd;
                     }
                     else
                     {
                         AddError(
-                            DatabaseMapping
-                                .DailySupport.EndTime,
+                            "EndTime",
                             "End Time is required for Completed status.");
                     }
                 }
             }
-            else
+            else if (DateTime.TryParse(endRaw, out DateTime parsed))
             {
-                endTime =
-                    ParseNullableTime(endRaw);
-
-                if (!endTime.HasValue)
-                {
-                    AddError(
-                        DatabaseMapping
-                            .DailySupport.EndTime,
-                        "Please enter a valid End Time.");
-                }
+                endTime = parsed;
             }
         }
 
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.Remarks))
-        {
-            string remarksRaw =
-                form[
-                    DatabaseMapping.DailySupport.Remarks]
-                    .ToString()
-                    .Trim();
+        // ---- Remarks ----
 
-            if ((Is("Pending")
-                    || Is("Completed")
-                    || Is("Cancelled"))
-                && string.IsNullOrWhiteSpace(remarksRaw))
-            {
-                AddError(
-                    DatabaseMapping.DailySupport.Remarks,
-                    "Remarks is required for this status.");
-            }
+        var remarksField = FindField(fields, "Remarks");
+
+        if (remarksField != null
+            && (IsStatus(status, "Pending")
+                || IsStatus(status, "Completed")
+                || IsStatus(status, "Cancelled"))
+            && string.IsNullOrWhiteSpace(
+                form["Remarks"].ToString()))
+        {
+            AddError(
+                "Remarks",
+                "Remarks is required for this status.");
         }
 
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.FollowUpDate))
-        {
-            followUpDate =
-                ParseNullableDate(
-                    form[
-                        DatabaseMapping
-                            .DailySupport.FollowUpDate]
-                        .ToString());
-        }
+        // ---- End >= Start ----
 
         if (startTime.HasValue
             && endTime.HasValue
@@ -2238,112 +1345,120 @@ public class DailySupportController : Controller
                 < startTime.Value.TimeOfDay)
         {
             AddError(
-                DatabaseMapping
-                    .DailySupport.EndTime,
+                "EndTime",
                 "End time cannot be earlier"
                     + " than start time.");
         }
 
-        if (followUpDate.HasValue
-            && !errors.ContainsKey(
-                DatabaseMapping
-                    .DailySupport.SupportDate)
-            && followUpDate.Value.Date
-                < supportDate.Date)
+        // ---- Follow-up date >= Support date ----
+
+        var followUpField =
+            FindField(fields, "FollowUpDate");
+
+        if (followUpField != null)
         {
-            AddError(
-                DatabaseMapping
-                    .DailySupport.FollowUpDate,
-                "Follow-up date cannot be earlier"
-                    + " than support date.");
+            string followUpRaw =
+                form["FollowUpDate"].ToString().Trim();
+
+            if (DateTime.TryParse(
+                    followUpRaw,
+                    out DateTime followUpDate)
+                && followUpDate.Date
+                    < supportDate.Date)
+            {
+                AddError(
+                    "FollowUpDate",
+                    "Follow-up date cannot be earlier"
+                        + " than support date.");
+            }
         }
 
         return errors;
     }
 
-
-    private static Dictionary<string, string> CollectFormValues(
-        IFormCollection form)
+    private static string ComposeOther(
+        string raw,
+        string otherText)
     {
-        var values =
-            new Dictionary<string, string>(
-                StringComparer.OrdinalIgnoreCase);
+        string value = "Other - " + otherText;
 
-        foreach (string name in new[]
+        if (value.Length > 100)
         {
-            DatabaseMapping.DailySupport.Id,
-            DatabaseMapping.DailySupport.SupportDate,
-            DatabaseMapping.DailySupport.ClientId,
-            DatabaseMapping.DailySupport.SupportType,
-            "OtherSupportType",
-            DatabaseMapping.DailySupport.Subject,
-            DatabaseMapping.DailySupport.Description,
-            DatabaseMapping.DailySupport.Status,
-            DatabaseMapping.DailySupport.Priority,
-            DatabaseMapping.DailySupport.StartTime,
-            DatabaseMapping.DailySupport.EndTime,
-            DatabaseMapping.DailySupport.FollowUpDate,
-            DatabaseMapping.DailySupport.Remarks
-        })
-        {
-            values[name] =
-                form[name].ToString().Trim();
+            value = value.Substring(0, 100);
         }
 
-        return values;
+        return value;
     }
 
-
-    private static DateTime? ParseNullableDate(
-        string raw)
+    private static async Task<(bool found, string status,
+        DateTime? startTime, DateTime? endTime)>
+        ReadCurrentAsync(
+            SqlConnection connection,
+            List<MasterColumnViewModel> fields,
+            int id)
     {
-        if (string.IsNullOrWhiteSpace(raw))
+        bool hasStatus = FindField(fields, "Status") != null;
+        bool hasStart = FindField(fields, "StartTime") != null;
+        bool hasEnd = FindField(fields, "EndTime") != null;
+
+        string idColumn =
+            fields.FirstOrDefault(
+                    f => f.IsPrimaryKey)
+                ?.Name ?? "Id";
+
+        var select = new List<string> { idColumn };
+
+        if (hasStatus)
         {
-            return null;
+            select.Add("Status");
         }
 
-        return DateTime.TryParse(raw, out DateTime value)
-            ? value
-            : null;
+        if (hasStart)
+        {
+            select.Add("StartTime");
+        }
+
+        if (hasEnd)
+        {
+            select.Add("EndTime");
+        }
+
+        string query = $@"
+            SELECT {string.Join(", ", select)}
+            FROM [{TableName}]
+            WHERE [{idColumn}] = @Id";
+
+        using SqlCommand command =
+            new SqlCommand(query, connection);
+
+        command.CommandTimeout = 0;
+        command.Parameters.AddWithValue("@Id", id);
+
+        using SqlDataReader reader =
+            await command.ExecuteReaderAsync();
+
+        if (!await reader.ReadAsync())
+        {
+            return (false, "", null, null);
+        }
+
+        string status =
+            hasStatus
+                ? reader["Status"].ToString() ?? ""
+                : "";
+
+        DateTime? startTime =
+            hasStart
+                ? ReadAsDateTime(reader["StartTime"])
+                : null;
+
+        DateTime? endTime =
+            hasEnd
+                ? ReadAsDateTime(reader["EndTime"])
+                : null;
+
+        return (true, status, startTime, endTime);
     }
-
-
-    private static DateTime? ParseNullableTime(
-        string raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return null;
-        }
-
-        if (DateTime.TryParse(raw, out DateTime value))
-        {
-            return value;
-        }
-
-        return null;
-    }
-
-
-    private static string FormatTime(object value)
-    {
-        if (value == DBNull.Value
-            || value == null)
-        {
-            return "";
-        }
-
-        if (value is TimeSpan timeSpan)
-        {
-            return DateTime.Today
-                .Add(timeSpan)
-                .ToString("hh:mm tt");
-        }
-
-        return Convert.ToDateTime(value)
-            .ToString("hh:mm tt");
-    }
-
 
     private static DateTime? ReadAsDateTime(object value)
     {
@@ -2359,238 +1474,5 @@ public class DailySupportController : Controller
         }
 
         return Convert.ToDateTime(value);
-    }
-
-
-    private static string FormatDate(object value)
-    {
-        if (value == DBNull.Value
-            || value == null)
-        {
-            return "";
-        }
-
-        return Convert.ToDateTime(value)
-            .ToString("dd/MM/yyyy");
-    }
-
-
-    private static string BuildSupportType(
-        IFormCollection form)
-    {
-        string raw =
-            form[
-                DatabaseMapping.DailySupport.SupportType]
-                .ToString()
-                .Trim();
-
-        string value = raw;
-
-        if (string.Equals(
-                raw,
-                "Other",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            string otherText =
-                form["OtherSupportType"]
-                    .ToString()
-                    .Trim();
-
-            value = "Other - " + otherText;
-        }
-
-        if (value.Length > 100)
-        {
-            value = value.Substring(0, 100);
-        }
-
-        return value;
-    }
-
-
-    private void AddFormParameters(
-        HashSet<string> columns,
-        SqlCommand command,
-        IFormCollection form,
-        DateTime supportDate,
-        DateTime? followUpDate,
-        DateTime? startTime,
-        DateTime? endTime,
-        int? userId)
-    {
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.SupportDate))
-        {
-            command.Parameters.Add(
-                new SqlParameter(
-                    "@SupportDate",
-                    System.Data.SqlDbType.DateTime)
-                {
-                    Value = supportDate
-                });
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.ClientId))
-        {
-            command.Parameters.Add(
-                new SqlParameter(
-                    "@ClientId",
-                    System.Data.SqlDbType.Int)
-                {
-                    Value = Convert.ToInt32(
-                        form[
-                            DatabaseMapping.DailySupport.ClientId]
-                            .ToString())
-                });
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.UserId)
-            && userId.HasValue)
-        {
-            command.Parameters.Add(
-                new SqlParameter(
-                    "@UserId",
-                    System.Data.SqlDbType.Int)
-                {
-                    Value = userId.Value
-                });
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.SupportType))
-        {
-            command.Parameters.Add(
-                new SqlParameter(
-                    "@SupportType",
-                    System.Data.SqlDbType.NVarChar,
-                    100)
-                {
-                    Value = BuildSupportType(form)
-                });
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.Subject))
-        {
-            command.Parameters.Add(
-                new SqlParameter(
-                    "@Subject",
-                    System.Data.SqlDbType.NVarChar,
-                    300)
-                {
-                    Value = form[
-                        DatabaseMapping.DailySupport.Subject]
-                        .ToString().Trim()
-                });
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.Description))
-        {
-            command.Parameters.Add(
-                new SqlParameter(
-                    "@Description",
-                    System.Data.SqlDbType.NVarChar,
-                    -1)
-                {
-                    Value = form[
-                        DatabaseMapping.DailySupport.Description]
-                        .ToString().Trim()
-                });
-        }
-
-      
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.Status))
-        {
-            command.Parameters.Add(
-                new SqlParameter(
-                    "@Status",
-                    System.Data.SqlDbType.NVarChar,
-                    30)
-                {
-                    Value = form[
-                        DatabaseMapping.DailySupport.Status]
-                        .ToString().Trim()
-                });
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.Priority))
-        {
-            command.Parameters.Add(
-                new SqlParameter(
-                    "@Priority",
-                    System.Data.SqlDbType.NVarChar,
-                    20)
-                {
-                    Value = form[
-                        DatabaseMapping.DailySupport.Priority]
-                        .ToString().Trim()
-                });
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.StartTime))
-        {
-            command.Parameters.Add(
-                new SqlParameter(
-                    "@StartTime",
-                    System.Data.SqlDbType.DateTime)
-                {
-                    Value =
-                        startTime.HasValue
-                            ? startTime.Value
-                            : DBNull.Value
-                });
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.EndTime))
-        {
-            command.Parameters.Add(
-                new SqlParameter(
-                    "@EndTime",
-                    System.Data.SqlDbType.DateTime)
-                {
-                    Value =
-                        endTime.HasValue
-                            ? endTime.Value
-                            : DBNull.Value
-                });
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.FollowUpDate))
-        {
-            command.Parameters.Add(
-                new SqlParameter(
-                    "@FollowUpDate",
-                    System.Data.SqlDbType.DateTime)
-                {
-                    Value =
-                        followUpDate.HasValue
-                            ? followUpDate.Value
-                            : DBNull.Value
-                });
-        }
-
-        if (columns.Contains(
-                DatabaseMapping.DailySupport.Remarks))
-        {
-            command.Parameters.Add(
-                new SqlParameter(
-                    "@Remarks",
-                    System.Data.SqlDbType.NVarChar,
-                    -1)
-                {
-                    Value = form[
-                        DatabaseMapping.DailySupport.Remarks]
-                        .ToString().Trim()
-                });
-        }
     }
 }

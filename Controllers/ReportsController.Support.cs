@@ -16,9 +16,10 @@ public partial class ReportsController
     // Report: Support
     // ==========================================================
 
-    private static async Task BuildSupportReportAsync(
+    private async Task BuildSupportReportAsync(
         SqlConnection connection,
-        ReportsViewModel model)
+        ReportsViewModel model,
+        DynamicTableService.SchemaColumns schema)
     {
         model.Title = "Support Report";
 
@@ -35,24 +36,74 @@ public partial class ReportsController
             0.08, 0.07, 0.06, 0.06, 0.09
         };
 
-        string fromJoins = $@"
-            FROM {DatabaseMapping.DailySupport.Table} ds
-            INNER JOIN {DatabaseMapping.ClientMaster.Table} c
-                ON c.{DatabaseMapping.ClientMaster.Id}
-                = ds.{DatabaseMapping.DailySupport.ClientId}
-            INNER JOIN {DatabaseMapping.States.Table} st
-                ON st.{DatabaseMapping.States.Id}
-                = c.{DatabaseMapping.ClientMaster.StateId}
-            INNER JOIN {DatabaseMapping.LoginUsers.Table} lu
-                ON lu.{DatabaseMapping.LoginUsers.Id}
-                = ds.{DatabaseMapping.DailySupport.UserId}";
+        string? dsDate = Col(schema, "ds", "DailySupport", "SupportDate");
+        string? dsUser = Col(schema, "ds", "DailySupport", "UserId");
+        string? dsStatus = Col(schema, "ds", "DailySupport", "Status");
+        string? dsPriority = Col(schema, "ds", "DailySupport", "Priority");
+        string? cName = Col(schema, "c", "ClientMaster", "ClientName");
+        string? stName = Col(schema, "st", "States", "StateName");
+        string? luName = Col(schema, "lu", "LoginUsers", "UserName");
+        string? dsType = Col(schema, "ds", "DailySupport", "SupportType");
+        string? dsSubject = Col(schema, "ds", "DailySupport", "Subject");
+        string? dsStart = Col(schema, "ds", "DailySupport", "StartTime");
+        string? dsEnd = Col(schema, "ds", "DailySupport", "EndTime");
+        string? dsFollow = Col(schema, "ds", "DailySupport", "FollowUpDate");
+        string? dsId = Col(schema, "ds", "DailySupport", "Id");
+
+        var joins = new List<string> { "FROM [DailySupport] ds" };
+
+        string? joinClient = JoinIf(
+            "INNER JOIN", schema,
+            "DailySupport", "ClientId", "ds",
+            "ClientMaster", "Id", "c");
+
+        string? joinState = null;
+
+        string? joinUser = JoinIf(
+            "INNER JOIN", schema,
+            "DailySupport", "UserId", "ds",
+            "LoginUsers", "Id", "lu");
+
+        var active = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase) { "ds" };
+
+        if (joinClient != null)
+        {
+            joins.Add(joinClient);
+            active.Add("c");
+
+            joinState = JoinIf(
+                "INNER JOIN", schema,
+                "ClientMaster", "StateId", "c",
+                "States", "Id", "st");
+
+            if (joinState != null)
+            {
+                joins.Add(joinState);
+                active.Add("st");
+            }
+        }
+
+        if (joinUser != null)
+        {
+            joins.Add(joinUser);
+            active.Add("lu");
+        }
+
+        string fromJoins = string.Join("\n            ", joins);
 
         var filters = BuildFilters(
             model,
-            "ds." + DatabaseMapping.DailySupport.SupportDate,
-            "ds." + DatabaseMapping.DailySupport.UserId,
-            "ds." + DatabaseMapping.DailySupport.Status,
-            "ds." + DatabaseMapping.DailySupport.Priority);
+            dsDate,
+            dsUser,
+            dsStatus,
+            dsPriority,
+            joinClient != null
+                ? Col(schema, "c", "ClientMaster", "StateId")
+                : null,
+            joinClient != null
+                ? Col(schema, "c", "ClientMaster", "Id")
+                : null);
 
         using (var command = new SqlCommand())
         {
@@ -61,24 +112,27 @@ public partial class ReportsController
 
             ApplyFilters(command, filters);
 
+            string orderBy = (dsDate != null && dsId != null)
+                ? $"{dsDate} DESC, {dsId} DESC"
+                : "(SELECT NULL)";
+
             command.CommandText = $@"
                 SELECT
-                    ds.{DatabaseMapping.DailySupport.SupportDate},
-                    c.{DatabaseMapping.ClientMaster.ClientName},
-                    st.{DatabaseMapping.States.StateName},
-                    lu.{DatabaseMapping.LoginUsers.UserName},
-                    ds.{DatabaseMapping.DailySupport.SupportType},
-                    ds.{DatabaseMapping.DailySupport.Subject},
-                    ds.{DatabaseMapping.DailySupport.Status},
-                    ds.{DatabaseMapping.DailySupport.Priority},
-                    ds.{DatabaseMapping.DailySupport.StartTime},
-                    ds.{DatabaseMapping.DailySupport.EndTime},
-                    ds.{DatabaseMapping.DailySupport.FollowUpDate}
+                    {Sel(dsDate, active, "ds")},
+                    {Sel(cName, active, "c")},
+                    {Sel(stName, active, "st")},
+                    {Sel(luName, active, "lu")},
+                    {Sel(dsType, active, "ds")},
+                    {Sel(dsSubject, active, "ds")},
+                    {Sel(dsStatus, active, "ds")},
+                    {Sel(dsPriority, active, "ds")},
+                    {Sel(dsStart, active, "ds")},
+                    {Sel(dsEnd, active, "ds")},
+                    {Sel(dsFollow, active, "ds")}
                 {fromJoins}
                 {WhereOf(filters)}
                 ORDER BY
-                    ds.{DatabaseMapping.DailySupport.SupportDate} DESC,
-                    ds.{DatabaseMapping.DailySupport.Id} DESC";
+                    {orderBy}";
 
             using var reader =
                 await command.ExecuteReaderAsync();
@@ -104,11 +158,17 @@ public partial class ReportsController
 
         model.TotalRecords = model.Rows.Count;
 
-        var byStatus = await GroupCountAsync(
-            connection,
-            fromJoins,
-            "ds." + DatabaseMapping.DailySupport.Status,
-            filters);
+        Dictionary<string, int> byStatus =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        if (dsStatus != null)
+        {
+            byStatus = await GroupCountAsync(
+                connection,
+                fromJoins,
+                dsStatus,
+                filters);
+        }
 
         model.Summary.Add(new SummaryCardViewModel
         {
@@ -135,9 +195,10 @@ public partial class ReportsController
     // Report: Visits
     // ==========================================================
 
-    private static async Task BuildVisitReportAsync(
+    private async Task BuildVisitReportAsync(
         SqlConnection connection,
-        ReportsViewModel model)
+        ReportsViewModel model,
+        DynamicTableService.SchemaColumns schema)
     {
         model.Title = "Visit Report";
 
@@ -154,24 +215,73 @@ public partial class ReportsController
             0.15, 0.08, 0.10, 0.08
         };
 
-        string fromJoins = $@"
-            FROM {DatabaseMapping.ClientVisiting.Table} v
-            INNER JOIN {DatabaseMapping.ClientMaster.Table} c
-                ON c.{DatabaseMapping.ClientMaster.Id}
-                = v.{DatabaseMapping.ClientVisiting.ClientId}
-            INNER JOIN {DatabaseMapping.States.Table} st
-                ON st.{DatabaseMapping.States.Id}
-                = c.{DatabaseMapping.ClientMaster.StateId}
-            INNER JOIN {DatabaseMapping.LoginUsers.Table} lu
-                ON lu.{DatabaseMapping.LoginUsers.Id}
-                = v.{DatabaseMapping.ClientVisiting.UserId}";
+        string? vDate = Col(schema, "v", "ClientVisiting", "VisitDate");
+        string? vUser = Col(schema, "v", "ClientVisiting", "UserId");
+        string? vStatus = Col(schema, "v", "ClientVisiting", "Status");
+        string? cName = Col(schema, "c", "ClientMaster", "ClientName");
+        string? stName = Col(schema, "st", "States", "StateName");
+        string? luName = Col(schema, "lu", "LoginUsers", "UserName");
+        string? vType = Col(schema, "v", "ClientVisiting", "VisitType");
+        string? vPerson = Col(schema, "v", "ClientVisiting", "PersonMet");
+        string? vSubject = Col(schema, "v", "ClientVisiting", "Subject");
+        string? vNext = Col(schema, "v", "ClientVisiting", "NextAction");
+        string? vFollow = Col(schema, "v", "ClientVisiting", "FollowUpDate");
+        string? vId = Col(schema, "v", "ClientVisiting", "Id");
+
+        var joins = new List<string> { "FROM [ClientVisiting] v" };
+
+        string? joinClient = JoinIf(
+            "INNER JOIN", schema,
+            "ClientVisiting", "ClientId", "v",
+            "ClientMaster", "Id", "c");
+
+        string? joinState = null;
+
+        string? joinUser = JoinIf(
+            "INNER JOIN", schema,
+            "ClientVisiting", "UserId", "v",
+            "LoginUsers", "Id", "lu");
+
+        var active = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase) { "v" };
+
+        if (joinClient != null)
+        {
+            joins.Add(joinClient);
+            active.Add("c");
+
+            joinState = JoinIf(
+                "INNER JOIN", schema,
+                "ClientMaster", "StateId", "c",
+                "States", "Id", "st");
+
+            if (joinState != null)
+            {
+                joins.Add(joinState);
+                active.Add("st");
+            }
+        }
+
+        if (joinUser != null)
+        {
+            joins.Add(joinUser);
+            active.Add("lu");
+        }
+
+        string fromJoins = string.Join("\n            ", joins);
 
         var filters = BuildFilters(
             model,
-            "v." + DatabaseMapping.ClientVisiting.VisitDate,
-            "v." + DatabaseMapping.ClientVisiting.UserId,
-            "v." + DatabaseMapping.ClientVisiting.Status,
-            null);
+            vDate,
+            vUser,
+            vStatus,
+            null,
+            joinClient != null
+                ? Col(schema, "c", "ClientMaster", "StateId")
+                : null,
+            joinClient != null
+                ? Col(schema, "c", "ClientMaster", "Id")
+                : null);
 
         using (var command = new SqlCommand())
         {
@@ -180,23 +290,26 @@ public partial class ReportsController
 
             ApplyFilters(command, filters);
 
+            string orderBy = (vDate != null && vId != null)
+                ? $"{vDate} DESC, {vId} DESC"
+                : "(SELECT NULL)";
+
             command.CommandText = $@"
                 SELECT
-                    v.{DatabaseMapping.ClientVisiting.VisitDate},
-                    c.{DatabaseMapping.ClientMaster.ClientName},
-                    st.{DatabaseMapping.States.StateName},
-                    lu.{DatabaseMapping.LoginUsers.UserName},
-                    v.{DatabaseMapping.ClientVisiting.VisitType},
-                    v.{DatabaseMapping.ClientVisiting.PersonMet},
-                    v.{DatabaseMapping.ClientVisiting.Subject},
-                    v.{DatabaseMapping.ClientVisiting.Status},
-                    v.{DatabaseMapping.ClientVisiting.NextAction},
-                    v.{DatabaseMapping.ClientVisiting.FollowUpDate}
+                    {Sel(vDate, active, "v")},
+                    {Sel(cName, active, "c")},
+                    {Sel(stName, active, "st")},
+                    {Sel(luName, active, "lu")},
+                    {Sel(vType, active, "v")},
+                    {Sel(vPerson, active, "v")},
+                    {Sel(vSubject, active, "v")},
+                    {Sel(vStatus, active, "v")},
+                    {Sel(vNext, active, "v")},
+                    {Sel(vFollow, active, "v")}
                 {fromJoins}
                 {WhereOf(filters)}
                 ORDER BY
-                    v.{DatabaseMapping.ClientVisiting.VisitDate} DESC,
-                    v.{DatabaseMapping.ClientVisiting.Id} DESC";
+                    {orderBy}";
 
             using var reader =
                 await command.ExecuteReaderAsync();
@@ -221,11 +334,17 @@ public partial class ReportsController
 
         model.TotalRecords = model.Rows.Count;
 
-        var byStatus = await GroupCountAsync(
-            connection,
-            fromJoins,
-            "v." + DatabaseMapping.ClientVisiting.Status,
-            filters);
+        Dictionary<string, int> byStatus =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        if (vStatus != null)
+        {
+            byStatus = await GroupCountAsync(
+                connection,
+                fromJoins,
+                vStatus,
+                filters);
+        }
 
         model.Summary.Add(new SummaryCardViewModel
         {
@@ -244,5 +363,22 @@ public partial class ReportsController
                 Icon = "•"
             });
         }
+    }
+
+
+    // Emits "alias.[column]" when the column exists and the
+    // join for that alias is active, otherwise "NULL".
+    private static string Sel(
+        string? column,
+        HashSet<string> activeAliases,
+        string alias)
+    {
+        if (column == null
+            || !activeAliases.Contains(alias))
+        {
+            return "NULL";
+        }
+
+        return column;
     }
 }

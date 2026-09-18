@@ -13,6 +13,14 @@ public class DailySupportViewModel
 
     public int CompletedCount { get; set; }
 
+    public bool HasStatusKpi { get; set; }
+
+    public List<MasterColumnViewModel> Fields { get; set; }
+        = new();
+
+    public List<MasterColumnViewModel> FormFields { get; set; }
+        = new();
+
     public List<MasterRowViewModel> Supports { get; set; }
         = new();
 

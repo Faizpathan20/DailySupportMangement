@@ -4,78 +4,32 @@
     ViewData["Title"] = "Daily Support";
     int totalRecords = Model.TotalRecords;
 
-    var nowrapCols = new HashSet<string>
-    {
-        "Id",
-        "SupportDate",
-        "ClientName",
-        "SupportType",
-        "Priority",
-        "UserName",
-        "StartTime",
-        "EndTime",
-        "EntryOn",
-        "Status"
-    };
+    var staticOptions = ViewBag.StaticOptions as Dictionary<string, string[]>
+        ?? new Dictionary<string, string[]>();
 
-    var gridColumns = new[]
-    {
-        new { Name = "Id",         Display = "ID",           Width = 5,  Sort = "num" },
-        new { Name = "SupportDate",Display = "Support Date",  Width = 9,  Sort = "date" },
-        new { Name = "ClientName", Display = "Client",        Width = 12, Sort = "text" },
-        new { Name = "SupportType",Display = "Support Type",  Width = 9,  Sort = "text" },
-        new { Name = "Subject",    Display = "Subject",       Width = 12, Sort = "text" },
-        new { Name = "Status",     Display = "Status",        Width = 8,  Sort = "status" },
-        new { Name = "Priority",   Display = "Priority",      Width = 8,  Sort = "text" },
-        new { Name = "UserName",   Display = "User",          Width = 9,  Sort = "text" },
-        new { Name = "StartTime",  Display = "Start Time",    Width = 8,  Sort = "time" },
-        new { Name = "EndTime",    Display = "End Time",      Width = 8,  Sort = "time" },
-        new { Name = "Remarks",    Display = "Remarks",       Width = 14, Sort = "text" },
-        new { Name = "EntryOn",    Display = "Entry On",      Width = 10, Sort = "date" }
-    }
-        .Where(col =>
-            col.Name == "ClientName"
-            || col.Name == "UserName"
-            || Model.AvailableColumns.Contains(col.Name))
+    var dropdowns = ViewBag.Dropdowns as Dictionary<string, List<LookupOptionViewModel>>
+        ?? new Dictionary<string, List<LookupOptionViewModel>>();
+
+    var gridColumns = Model.Fields
+        .Where(f => f.ShowInTable)
+        .Select(f => new
+        {
+            f.Name,
+            f.Display,
+            f.Control,
+            f.MaxLength,
+            f.SortType,
+            f.InputType,
+            Sort = f.InputType == "time" ? "time" : f.SortType,
+            Nowrap = !(f.Control == "textarea" || (f.MaxLength ?? 0) > 150)
+        })
         .ToArray();
-
-    string[] statuses =
-    {
-        "Open",
-        "In Progress",
-        "Pending",
-        "Completed",
-        "Cancelled"
-    };
-
-    string[] priorities =
-    {
-        "Low",
-        "Medium",
-        "High",
-        "Urgent"
-    };
-
-    string[] supportTypes =
-    {
-        "Software Support",
-        "Installation",
-        "Configuration",
-        "Client Query",
-        "Training",
-        "Data/Report",
-        "Technical Issue",
-        "Other"
-    };
 
     string GetVal(string name)
         => Model.GetFormValue(name);
 
     string GetErr(string name)
         => Model.FieldError(name);
-
-    bool showOtherSupportType =
-        GetVal("SupportType") == "Other";
 
     string StatusPillClass(string status)
     {
@@ -91,6 +45,13 @@
                             ? "badge-cancelled"
                             : "badge-default";
     }
+
+    var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Subject"] = "Short subject",
+        ["Description"] = "Client problem / request",
+        ["Remarks"] = "Voice to text - click Mic and speak..."
+    };
 }
 
 
@@ -296,7 +257,7 @@
                    oninput="filterTable()" />
 
             <a href="@Url.Action("Create", "DailySupport")"
-                   class="primary-btn">
+               class="primary-btn">
 
                 + Add Support
 
@@ -323,7 +284,7 @@
                         var col = gridColumns[i];
 
                         string colClass =
-                            nowrapCols.Contains(col.Name)
+                            col.Nowrap
                                 ? "col-nowrap"
                                 : "col-wrap";
 
@@ -380,24 +341,14 @@
                         var statusValue = support.Get("Status");
 
                         string statusClass =
-                            statusValue == "Completed"
-                                ? "badge-completed"
-                                : statusValue == "Open"
-                                    ? "badge-open"
-                                    : statusValue == "In Progress"
-                                        ? "badge-inprogress"
-                                        : statusValue == "Pending"
-                                            ? "badge-pending"
-                                            : statusValue == "Cancelled"
-                                                ? "badge-cancelled"
-                                                : "badge-default";
+                            StatusPillClass(statusValue);
 
                         <tr data-search="@searchText">
 
                             @foreach (var col in gridColumns)
                             {
                                 string tdClass =
-                                    nowrapCols.Contains(col.Name)
+                                    col.Nowrap
                                         ? "col-nowrap"
                                         : "col-wrap";
 
@@ -558,429 +509,277 @@
 
             <div class="form-grid">
 
-                @if (Model.AvailableColumns.Contains("SupportDate"))
+                @foreach (var field in Model.FormFields)
                 {
-                <div class="form-group">
+                    var options = field.Type == "options"
+                        && staticOptions.TryGetValue(
+                            field.Name,
+                            out var opts)
+                        ? opts
+                        : Array.Empty<string>();
 
-                    <label>
-                        Support Date
-                    </label>
+                    var hasOther = options.Contains(
+                        "Other",
+                        StringComparer.OrdinalIgnoreCase);
 
-                    <input type="date"
-                           id="edit_SupportDate"
-                           name="SupportDate"
-                           value="@GetVal("SupportDate")"
-                           required />
+                    string fullClass =
+                        field.Control == "textarea"
+                            ? "form-group form-group-full"
+                            : "form-group";
 
-                    @if (!string.IsNullOrWhiteSpace(GetErr("SupportDate")))
+                    var placeholder =
+                        placeholders.TryGetValue(
+                            field.Name,
+                            out var ph)
+                        ? ph
+                        : "";
+
+                    if (field.Type == "options")
                     {
-                        <span class="field-error">
-                            @GetErr("SupportDate")
-                        </span>
-                    }
+                        var onChange = new List<string>();
 
-                </div>
-                }
-
-                @if (Model.AvailableColumns.Contains("ClientId"))
-                {
-                <div class="form-group">
-
-                    <label>
-                        Client
-                    </label>
-
-                    <select name="ClientId"
-                            id="edit_ClientId"
-                            required>
-
-                        <option value=""
-                                disabled
-                                selected="@(string.IsNullOrWhiteSpace(GetVal("ClientId")))">
-                            -- Select Client --
-                        </option>
-
-                        @foreach (var client in Model.Clients)
+                        if (hasOther)
                         {
-                            <option value="@client.Id"
-                                    selected="@(GetVal("ClientId") == client.Id.ToString())">
-                                @client.Name
-                            </option>
+                            onChange.Add(
+                                "toggleOtherField(this)");
                         }
 
-                    </select>
-
-                    @if (!string.IsNullOrWhiteSpace(GetErr("ClientId")))
-                    {
-                        <span class="field-error">
-                            @GetErr("ClientId")
-                        </span>
-                    }
-
-                </div>
-                }
-
-                @if (Model.AvailableColumns.Contains("SupportType"))
-                {
-                <div class="form-group">
-
-                    <label>
-                        Support Type
-                    </label>
-
-                    <select name="SupportType"
-                            id="edit_SupportType"
-                            onchange="toggleOtherSupportType()"
-                            required>
-
-                        <option value=""
-                                disabled
-                                selected="@(string.IsNullOrWhiteSpace(GetVal("SupportType")))">
-                            -- Select Support Type --
-                        </option>
-
-                        @foreach (var supportType in supportTypes)
+                        if (field.Name == "Status")
                         {
-                            <option value="@supportType"
-                                    selected="@(GetVal("SupportType") == supportType)">
-                                @supportType
-                            </option>
+                            onChange.Add(
+                                "updateCurrentStatus()");
                         }
 
-                    </select>
+                        string onChangeAttr =
+                            string.Join("; ", onChange);
 
-                    @if (!string.IsNullOrWhiteSpace(GetErr("SupportType")))
-                    {
-                        <span class="field-error">
-                            @GetErr("SupportType")
-                        </span>
-                    }
+                        <div class="@fullClass">
 
-                    <div id="otherSupportTypeGroup"
-                         style="@(showOtherSupportType ? "" : "display:none")">
+                            <label>
+                                @field.Display
+                            </label>
 
-                        <label class="sub-label">
-                            Other Support Type
-                        </label>
+                            <select name="@field.Name"
+                                    id="edit_@field.Name"
+                                    onchange="@onChangeAttr"
+                                    @(field.Required ? "required" : null)>
 
-                        <input type="text"
-                               name="OtherSupportType"
-                               id="edit_OtherSupportType"
-                               maxlength="92"
-                               placeholder="Specify other support type"
-                               value="@GetVal("OtherSupportType")"
-                               @(showOtherSupportType ? "required" : null) />
+                                <option value=""
+                                        disabled
+                                        selected="@(string.IsNullOrWhiteSpace(GetVal(field.Name)))">
+                                    -- Select @field.Display --
+                                </option>
 
-                        @if (!string.IsNullOrWhiteSpace(GetErr("OtherSupportType")))
-                        {
-                            <span class="field-error">
-                                @GetErr("OtherSupportType")
-                            </span>
-                        }
+                                @foreach (var option in options)
+                                {
+                                    <option value="@option"
+                                            selected="@(GetVal(field.Name) == option)">
+                                        @option
+                                    </option>
+                                }
 
-                    </div>
+                            </select>
 
-                </div>
-                }
+                            @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
+                            {
+                                <span class="field-error">
+                                    @GetErr(field.Name)
+                                </span>
+                            }
 
-                @if (Model.AvailableColumns.Contains("Subject"))
-                {
-                <div class="form-group">
+                            @if (hasOther)
+                            {
+                                <div id="other@(field.Name)Group"
+                                     style="@(GetVal(field.Name) == "Other" ? "" : "display:none")">
 
-                    <label>
-                        Subject
-                    </label>
+                                    <label class="sub-label">
+                                        Other @field.Display
+                                    </label>
 
-                    <input type="text"
-                           id="edit_Subject"
-                           name="Subject"
-                           value="@GetVal("Subject")"
-                           placeholder="Short subject"
-                           required />
+                                    <input type="text"
+                                           name="Other@(field.Name)"
+                                           id="edit_Other@(field.Name)"
+                                           maxlength="92"
+                                           placeholder="Specify other @field.Display.ToLower()"
+                                           value="@GetVal("Other" + field.Name)"
+                                           @(GetVal(field.Name) == "Other" ? "required" : null) />
 
-                    @if (!string.IsNullOrWhiteSpace(GetErr("Subject")))
-                    {
-                        <span class="field-error">
-                            @GetErr("Subject")
-                        </span>
-                    }
+                                    @if (!string.IsNullOrWhiteSpace(GetErr("Other" + field.Name)))
+                                    {
+                                        <span class="field-error">
+                                            @GetErr("Other" + field.Name)
+                                        </span>
+                                    }
 
-                </div>
-                }
+                                </div>
+                            }
 
-                @if (Model.AvailableColumns.Contains("Description"))
-                {
-                <div class="form-group form-group-full">
+                            @if (field.Name == "Status")
+                            {
+                                <div class="status-tracker">
 
-                    <label>
-                        Description
-                    </label>
+                                    <div class="status-tracker-row">
 
-                    <textarea id="edit_Description"
-                              name="Description"
-                              rows="2"
-                              placeholder="Client problem / request"
-                              required>@GetVal("Description")</textarea>
+                                        <span class="status-tracker-label">
+                                            Previous Status
+                                        </span>
 
-                    @if (!string.IsNullOrWhiteSpace(GetErr("Description")))
-                    {
-                        <span class="field-error">
-                            @GetErr("Description")
-                        </span>
-                    }
+                                        <span id="prevStatusBadge"
+                                              class="status-pill @StatusPillClass(Model.EditPreviousStatus)">
+                                            @(string.IsNullOrWhiteSpace(Model.EditPreviousStatus) ? "—" : Model.EditPreviousStatus)
+                                        </span>
 
-                </div>
-                }
+                                    </div>
 
-                @if (Model.AvailableColumns.Contains("ActionTaken"))
-                {
-                <div class="form-group form-group-full">
+                                    <div class="status-tracker-row">
 
-                    <label>
-                        Action Taken
-                    </label>
+                                        <span class="status-tracker-label">
+                                            Current Status
+                                        </span>
 
-                    <textarea id="edit_ActionTaken"
-                              name="ActionTaken"
-                              rows="2"
-                              placeholder="Action taken by support team">@GetVal("ActionTaken")</textarea>
+                                        <span id="curStatusBadge"
+                                              class="status-pill @StatusPillClass(GetVal("Status"))">
+                                            @(string.IsNullOrWhiteSpace(GetVal("Status")) ? "—" : GetVal("Status"))
+                                        </span>
 
-                </div>
-                }
+                                    </div>
 
-                @if (Model.AvailableColumns.Contains("Status"))
-                {
-                <div class="form-group">
-
-                    <label>
-                        Status
-                    </label>
-
-                    <select name="Status"
-                            id="edit_Status"
-                            onchange="updateCurrentStatus()"
-                            required>
-
-                        <option value=""
-                                disabled
-                                selected="@(string.IsNullOrWhiteSpace(GetVal("Status")))">
-                            -- Select Status --
-                        </option>
-
-                        @foreach (var status in statuses)
-                        {
-                            <option value="@status"
-                                    selected="@(GetVal("Status") == status)">
-                                @status
-                            </option>
-                        }
-
-                    </select>
-
-                    <div class="status-tracker">
-
-                        <div class="status-tracker-row">
-
-                            <span class="status-tracker-label">
-                                Previous Status
-                            </span>
-
-                            <span id="prevStatusBadge"
-                                  class="status-pill @StatusPillClass(Model.EditPreviousStatus)">
-                                @(string.IsNullOrWhiteSpace(Model.EditPreviousStatus) ? "—" : Model.EditPreviousStatus)
-                            </span>
+                                </div>
+                            }
 
                         </div>
+                    }
+                    else if (field.Control == "select")
+                    {
+                        var lookupOptions =
+                            field.LookupKey != null
+                            && dropdowns.TryGetValue(
+                                field.LookupKey,
+                                out var lopts)
+                            ? lopts
+                            : new List<LookupOptionViewModel>();
 
-                        <div class="status-tracker-row">
+                        <div class="@fullClass">
 
-                            <span class="status-tracker-label">
-                                Current Status
-                            </span>
+                            <label>
+                                @field.Display
+                            </label>
 
-                            <span id="curStatusBadge"
-                                  class="status-pill @StatusPillClass(GetVal("Status"))">
-                                @(string.IsNullOrWhiteSpace(GetVal("Status")) ? "—" : GetVal("Status"))
-                            </span>
+                            <select name="@field.Name"
+                                    id="edit_@field.Name"
+                                    @(field.Required ? "required" : null)>
+
+                                <option value=""
+                                        disabled
+                                        selected="@(string.IsNullOrWhiteSpace(GetVal(field.Name)))">
+                                    -- Select @field.Display --
+                                </option>
+
+                                @foreach (var option in lookupOptions)
+                                {
+                                    <option value="@option.Id"
+                                            selected="@(GetVal(field.Name) == option.Id.ToString())">
+                                        @option.Name
+                                    </option>
+                                }
+
+                            </select>
+
+                            @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
+                            {
+                                <span class="field-error">
+                                    @GetErr(field.Name)
+                                </span>
+                            }
 
                         </div>
-
-                    </div>
-
-                    @if (!string.IsNullOrWhiteSpace(GetErr("Status")))
-                    {
-                        <span class="field-error">
-                            @GetErr("Status")
-                        </span>
                     }
-
-                </div>
-                }
-
-                @if (Model.AvailableColumns.Contains("Priority"))
-                {
-                <div class="form-group">
-
-                    <label>
-                        Priority
-                    </label>
-
-                    <select name="Priority"
-                            id="edit_Priority"
-                            required>
-
-                        <option value=""
-                                disabled
-                                selected="@(string.IsNullOrWhiteSpace(GetVal("Priority")))">
-                            -- Select Priority --
-                        </option>
-
-                        @foreach (var priority in priorities)
-                        {
-                            <option value="@priority"
-                                    selected="@(GetVal("Priority") == priority)">
-                                @priority
-                            </option>
-                        }
-
-                    </select>
-
-                    @if (!string.IsNullOrWhiteSpace(GetErr("Priority")))
+                    else if (field.Control == "textarea")
                     {
-                        <span class="field-error">
-                            @GetErr("Priority")
-                        </span>
+                        <div class="@fullClass">
+
+                            <label>
+                                @field.Display
+                            </label>
+
+                            <textarea id="edit_@field.Name"
+                                      name="@field.Name"
+                                      rows="2"
+                                      placeholder="@placeholder"
+                                      @(field.Required ? "required" : null)>@GetVal(field.Name)</textarea>
+
+                            @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
+                            {
+                                <span class="field-error">
+                                    @GetErr(field.Name)
+                                </span>
+                            }
+
+                            @if (field.Name == "Remarks")
+                            {
+                                <div class="voice-controls">
+
+                                    <button type="button"
+                                            class="voice-btn mic-btn"
+                                            id="voiceMicBtn"
+                                            onclick="startVoice()">
+
+                                        Mic
+
+                                    </button>
+
+                                    <button type="button"
+                                            class="voice-btn voice-stop"
+                                            onclick="stopVoice()">
+
+                                        Stop
+
+                                    </button>
+
+                                    <button type="button"
+                                            class="voice-btn voice-reset"
+                                            onclick="resetRemarks()">
+
+                                        Reset
+
+                                    </button>
+
+                                </div>
+
+                                <span class="voice-status"
+                                      id="voiceStatus"></span>
+
+                                <span class="voice-hint">
+                                    Voice to Text: Mic se bolen, text Remarks ke end me jude ga. Mic tab tak open rahega jab tak Stop nahi click karte.
+                                </span>
+                            }
+
+                        </div>
                     }
-
-                </div>
-                }
-
-                @if (Model.AvailableColumns.Contains("StartTime"))
-                {
-                <div class="form-group">
-
-                    <label>
-                        Start Time
-                    </label>
-
-                    <input type="time"
-                           id="edit_StartTime"
-                           name="StartTime"
-                           value="@GetVal("StartTime")" />
-
-                    @if (!string.IsNullOrWhiteSpace(GetErr("StartTime")))
+                    else
                     {
-                        <span class="field-error">
-                            @GetErr("StartTime")
-                        </span>
+                        <div class="@fullClass">
+
+                            <label>
+                                @field.Display
+                            </label>
+
+                            <input type="@field.InputType"
+                                   id="edit_@field.Name"
+                                   name="@field.Name"
+                                   value="@GetVal(field.Name)"
+                                   placeholder="@placeholder"
+                                   @(field.Required ? "required" : null) />
+
+                            @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
+                            {
+                                <span class="field-error">
+                                    @GetErr(field.Name)
+                                </span>
+                            }
+
+                        </div>
                     }
-
-                </div>
-                }
-
-                @if (Model.AvailableColumns.Contains("EndTime"))
-                {
-                <div class="form-group">
-
-                    <label>
-                        End Time
-                    </label>
-
-                    <input type="time"
-                           id="edit_EndTime"
-                           name="EndTime"
-                           value="@GetVal("EndTime")" />
-
-                    @if (!string.IsNullOrWhiteSpace(GetErr("EndTime")))
-                    {
-                        <span class="field-error">
-                            @GetErr("EndTime")
-                        </span>
-                    }
-
-                </div>
-                }
-
-                @if (Model.AvailableColumns.Contains("FollowUpDate"))
-                {
-                <div class="form-group">
-
-                    <label>
-                        Follow Up Date
-                    </label>
-
-                    <input type="date"
-                           id="edit_FollowUpDate"
-                           name="FollowUpDate"
-                           value="@GetVal("FollowUpDate")" />
-
-                    @if (!string.IsNullOrWhiteSpace(GetErr("FollowUpDate")))
-                    {
-                        <span class="field-error">
-                            @GetErr("FollowUpDate")
-                        </span>
-                    }
-
-                </div>
-                }
-
-                @if (Model.AvailableColumns.Contains("Remarks"))
-                {
-                <div class="form-group form-group-full">
-
-                    <label>
-                        Remarks
-                    </label>
-
-                    <textarea id="edit_Remarks"
-                              name="Remarks"
-                              rows="3"
-                              placeholder="Voice to text - click Mic and speak...">@GetVal("Remarks")</textarea>
-
-                    <div class="voice-controls">
-
-                        <button type="button"
-                                class="voice-btn mic-btn"
-                                id="voiceMicBtn"
-                                onclick="startVoice()">
-
-                            Mic
-
-                        </button>
-
-                        <button type="button"
-                                class="voice-btn voice-stop"
-                                onclick="stopVoice()">
-
-                            Stop
-
-                        </button>
-
-                        <button type="button"
-                                class="voice-btn voice-reset"
-                                onclick="resetRemarks()">
-
-                            Reset
-
-                        </button>
-
-                    </div>
-
-                    <span class="voice-status"
-                          id="voiceStatus"></span>
-
-                    <span class="voice-hint">
-                        Voice to Text: Mic se bolen, text Remarks ke end me jude ga. Mic tab tak open rahega jab tak Stop nahi click karte.
-                    </span>
-
-                    @if (!string.IsNullOrWhiteSpace(GetErr("Remarks")))
-                    {
-                        <span class="field-error">
-                            @GetErr("Remarks")
-                        </span>
-                    }
-
-                </div>
                 }
 
             </div>
@@ -2053,26 +1852,51 @@
         }
 
 
-        function toggleOtherSupportType() {
+        // ==========================================
+        // GENERIC "OTHER" OPTION TOGGLES
+        // ==========================================
 
-            var select =
-                document.getElementById(
-                    "edit_SupportType"
-                );
+        function hasOtherOption(element) {
+
+            for (
+                var i = 0;
+                i < element.options.length;
+                i++
+            ) {
+
+                if (
+                    element.options[i].value === "Other"
+                ) {
+                    return true;
+                }
+
+            }
+
+            return false;
+
+        }
+
+
+        function toggleOtherField(select) {
+
+            var name = select.id.replace(
+                /^edit_/,
+                ""
+            );
 
             var group =
                 document.getElementById(
-                    "otherSupportTypeGroup"
+                    "other" + name + "Group"
                 );
 
             var input =
                 document.getElementById(
-                    "edit_OtherSupportType"
+                    "edit_Other" + name
                 );
 
             var isOther =
                 select !== null
-                    && select.value === "Other";
+                && select.value === "Other";
 
             if (group) {
 
@@ -2086,6 +1910,76 @@
                 input.required = isOther ? true : false;
 
             }
+
+        }
+
+
+        function fillOtherOption(element, rawValue) {
+
+            var otherValue = "";
+            var otherPrefix = "Other - ";
+
+            if (
+                rawValue.indexOf(otherPrefix) === 0
+            ) {
+
+                otherValue =
+                    rawValue.substring(
+                        otherPrefix.length
+                    );
+
+                rawValue = "Other";
+
+            } else {
+
+                var knownOption = false;
+
+                for (
+                    var i = 0;
+                    i < element.options.length;
+                    i++
+                ) {
+
+                    if (
+                        element.options[i].value
+                            === rawValue
+                    ) {
+                        knownOption = true;
+                        break;
+                    }
+
+                }
+
+                if (!knownOption
+                    && rawValue.length > 0) {
+
+                    otherValue = rawValue;
+
+                    rawValue = "Other";
+
+                }
+
+            }
+
+            element.value = rawValue;
+
+            var name = element.id.replace(
+                /^edit_/,
+                ""
+            );
+
+            var otherInput =
+                document.getElementById(
+                    "edit_Other" + name
+                );
+
+            if (otherInput) {
+
+                otherInput.value = otherValue;
+
+            }
+
+            toggleOtherField(element);
 
         }
 
@@ -2434,61 +2328,37 @@
                 var rawValue = data[key];
 
 
-                if (name.toLowerCase() === "supporttype") {
+                // Selects expose the raw id as a *_key value;
+                // prefer it over the joined display name.
+                if (element.tagName === "SELECT") {
 
-                    var otherValue = "";
-                    var otherPrefix = "Other - ";
+                    var keyVariant = name.toLowerCase() + "_key";
 
-                    if (
-                        rawValue.indexOf(otherPrefix) === 0
-                    ) {
+                    for (var f in data) {
 
-                        otherValue =
-                            rawValue.substring(
-                                otherPrefix.length
-                            );
-
-                        rawValue = "Other";
-
-                    } else {
-
-                        var knownOption = false;
-                        var option;
-
-                        for (
-                            option = 0;
-                            option < element.options.length;
-                            option++
+                        if (
+                            data.hasOwnProperty(f)
+                            && f.toLowerCase()
+                               === keyVariant
                         ) {
-
-                            if (
-                                element.options[option].value
-                                    === rawValue
-                            ) {
-                                knownOption = true;
-                                break;
-                            }
-
-                        }
-
-                        if (!knownOption
-                            && rawValue.length > 0) {
-
-                            otherValue = rawValue;
-
-                            rawValue = "Other";
-
+                            rawValue = data[f];
+                            break;
                         }
 
                     }
 
-                    element.value = rawValue;
+                }
 
-                    document.getElementById(
-                        "edit_OtherSupportType"
-                    ).value = otherValue;
 
-                    toggleOtherSupportType();
+                if (
+                    element.tagName === "SELECT"
+                    && hasOtherOption(element)
+                ) {
+
+                    fillOtherOption(
+                        element,
+                        rawValue
+                    );
 
                     continue;
 
@@ -2497,23 +2367,8 @@
 
                 if (element.type === "date") {
 
-                    var isoRaw = rawValue;
-
-                    for (var f in data) {
-
-                        if (
-                            data.hasOwnProperty(f)
-                            && f.toLowerCase()
-                               === name.toLowerCase() + "iso"
-                        ) {
-                            isoRaw = data[f];
-                            break;
-                        }
-
-                    }
-
                     element.value =
-                        toDateInputValue(isoRaw);
+                        toDateInputValue(rawValue);
 
                 } else if (element.type === "time") {
 

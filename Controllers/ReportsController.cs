@@ -16,14 +16,18 @@ namespace Master.Controllers;
 //
 // Reports has its OWN independent filter system and does NOT reuse the
 // Dashboard global filters. It only reads the existing tables and
-// relationships (via DatabaseMapping) — no schema changes.
+// relationships via runtime schema metadata — no schema changes.
 public partial class ReportsController : Controller
 {
     private readonly IConfiguration _configuration;
+    private readonly DynamicTableService _tableService;
 
-    public ReportsController(IConfiguration configuration)
+    public ReportsController(
+        IConfiguration configuration,
+        DynamicTableService tableService)
     {
         _configuration = configuration;
+        _tableService = tableService;
     }
 
 
@@ -148,6 +152,15 @@ public partial class ReportsController : Controller
 
         await connection.OpenAsync();
 
+        DynamicTableService.SchemaColumns schema =
+            await _tableService.GetSchemaAsync(
+                connection,
+                "ClientMaster",
+                "States",
+                "LoginUsers",
+                "DailySupport",
+                "ClientVisiting");
+
         model.States = await LoadStatesAsync(connection);
         model.Users = await LoadUsersAsync(connection);
         model.Clients = await LoadClientsAsync(connection);
@@ -166,23 +179,28 @@ public partial class ReportsController : Controller
         switch (model.ReportType)
         {
             case ReportsViewModel.VisitReport:
-                await BuildVisitReportAsync(connection, model);
+                await BuildVisitReportAsync(
+                    connection, model, schema);
                 break;
 
             case ReportsViewModel.ClientReport:
-                await BuildClientReportAsync(connection, model);
+                await BuildClientReportAsync(
+                    connection, model, schema);
                 break;
 
             case ReportsViewModel.UserActivityReport:
-                await BuildUserActivityReportAsync(connection, model);
+                await BuildUserActivityReportAsync(
+                    connection, model, schema);
                 break;
 
             case ReportsViewModel.StateWiseReport:
-                await BuildStateWiseReportAsync(connection, model);
+                await BuildStateWiseReportAsync(
+                    connection, model, schema);
                 break;
 
             default:
-                await BuildSupportReportAsync(connection, model);
+                await BuildSupportReportAsync(
+                    connection, model, schema);
                 break;
         }
 
@@ -272,6 +290,49 @@ public partial class ReportsController : Controller
     // Shared filter helpers
     // ==========================================================
 
+    // Returns "alias.[column]" when the column exists on the
+    // table, otherwise null (so callers drop the column/join/
+    // filter instead of generating invalid SQL).
+    private static string? Resolve(
+        DynamicTableService.SchemaColumns schema,
+        string table,
+        string column) =>
+        schema.Column(table, column);
+
+    // "alias.[column]" (or null when the column is missing).
+    private static string? Col(
+        DynamicTableService.SchemaColumns schema,
+        string alias,
+        string table,
+        string column) =>
+        schema.Has(table, column)
+            ? $"{alias}.[{column}]"
+            : null;
+
+    // A JOIN clause that is only emitted when both FK + PK
+    // columns exist; null otherwise.
+    private static string? JoinIf(
+        string joinKind,
+        DynamicTableService.SchemaColumns schema,
+        string childTable,
+        string childColumn,
+        string childAlias,
+        string joinTable,
+        string joinColumn,
+        string joinAlias)
+    {
+        if (!schema.Has(childTable, childColumn)
+            || !schema.Has(joinTable, joinColumn))
+        {
+            return null;
+        }
+
+        return $"{joinKind} [{joinTable}] {joinAlias} " +
+            $"ON {joinAlias}.[{joinColumn}] " +
+            $"= {childAlias}.[{childColumn}]";
+    }
+
+
     private sealed class ReportFilter
     {
         public string Where = "";
@@ -282,14 +343,16 @@ public partial class ReportsController : Controller
 
     private static List<ReportFilter> BuildFilters(
         ReportsViewModel model,
-        string dateColumn,
-        string userColumn,
+        string? dateColumn,
+        string? userColumn,
         string? statusColumn,
-        string? priorityColumn)
+        string? priorityColumn,
+        string? stateColumn,
+        string? clientIdColumn)
     {
         var filters = new List<ReportFilter>();
 
-        if (model.FromDate.HasValue)
+        if (model.FromDate.HasValue && dateColumn != null)
         {
             filters.Add(new ReportFilter
             {
@@ -299,7 +362,7 @@ public partial class ReportsController : Controller
             });
         }
 
-        if (model.ToDate.HasValue)
+        if (model.ToDate.HasValue && dateColumn != null)
         {
             filters.Add(new ReportFilter
             {
@@ -309,20 +372,17 @@ public partial class ReportsController : Controller
             });
         }
 
-        if (model.StateId.HasValue)
+        if (model.StateId.HasValue && stateColumn != null)
         {
             filters.Add(new ReportFilter
             {
-                Where =
-                    "c."
-                    + DatabaseMapping.ClientMaster.StateId
-                    + " = @RptStateId",
+                Where = stateColumn + " = @RptStateId",
                 Name = "@RptStateId",
                 Value = model.StateId.Value
             });
         }
 
-        if (model.UserId.HasValue)
+        if (model.UserId.HasValue && userColumn != null)
         {
             filters.Add(new ReportFilter
             {
@@ -332,14 +392,11 @@ public partial class ReportsController : Controller
             });
         }
 
-        if (model.ClientId.HasValue)
+        if (model.ClientId.HasValue && clientIdColumn != null)
         {
             filters.Add(new ReportFilter
             {
-                Where =
-                    "c."
-                    + DatabaseMapping.ClientMaster.Id
-                    + " = @RptClientId",
+                Where = clientIdColumn + " = @RptClientId",
                 Name = "@RptClientId",
                 Value = model.ClientId.Value
             });
@@ -484,46 +541,94 @@ public partial class ReportsController : Controller
     // Lookups (same pattern as the Dashboard)
     // ==========================================================
 
-    private static async Task<List<LookupOptionViewModel>>
+    private async Task<List<LookupOptionViewModel>>
         LoadStatesAsync(SqlConnection connection)
     {
+        DynamicTableService.SchemaColumns schema =
+            await _tableService.GetSchemaAsync(
+                connection,
+                "States");
+
+        if (!schema.Has("States", "Id")
+            || !schema.Has("States", "StateName"))
+        {
+            return new List<LookupOptionViewModel>();
+        }
+
+        string isActive =
+            schema.Has("States", "IsActive")
+                ? "WHERE [IsActive] = 1"
+                : "";
+
         string query = $@"
             SELECT
-                {DatabaseMapping.States.Id},
-                {DatabaseMapping.States.StateName}
-            FROM {DatabaseMapping.States.Table}
-            WHERE {DatabaseMapping.States.IsActive} = 1
-            ORDER BY {DatabaseMapping.States.StateName}";
+                [Id],
+                [StateName]
+            FROM [States]
+            {isActive}
+            ORDER BY [StateName]";
 
         return await ReadLookupsAsync(connection, query);
     }
 
 
-    private static async Task<List<LookupOptionViewModel>>
+    private async Task<List<LookupOptionViewModel>>
         LoadUsersAsync(SqlConnection connection)
     {
+        DynamicTableService.SchemaColumns schema =
+            await _tableService.GetSchemaAsync(
+                connection,
+                "LoginUsers");
+
+        if (!schema.Has("LoginUsers", "Id")
+            || !schema.Has("LoginUsers", "UserName"))
+        {
+            return new List<LookupOptionViewModel>();
+        }
+
+        string isActive =
+            schema.Has("LoginUsers", "IsActive")
+                ? "WHERE [IsActive] = 1"
+                : "";
+
         string query = $@"
             SELECT
-                {DatabaseMapping.LoginUsers.Id},
-                {DatabaseMapping.LoginUsers.UserName}
-            FROM {DatabaseMapping.LoginUsers.Table}
-            WHERE {DatabaseMapping.LoginUsers.IsActive} = 1
-            ORDER BY {DatabaseMapping.LoginUsers.UserName}";
+                [Id],
+                [UserName]
+            FROM [LoginUsers]
+            {isActive}
+            ORDER BY [UserName]";
 
         return await ReadLookupsAsync(connection, query);
     }
 
 
-    private static async Task<List<LookupOptionViewModel>>
+    private async Task<List<LookupOptionViewModel>>
         LoadClientsAsync(SqlConnection connection)
     {
+        DynamicTableService.SchemaColumns schema =
+            await _tableService.GetSchemaAsync(
+                connection,
+                "ClientMaster");
+
+        if (!schema.Has("ClientMaster", "Id")
+            || !schema.Has("ClientMaster", "ClientName"))
+        {
+            return new List<LookupOptionViewModel>();
+        }
+
+        string isActive =
+            schema.Has("ClientMaster", "IsActive")
+                ? "WHERE [IsActive] = 1"
+                : "";
+
         string query = $@"
             SELECT
-                {DatabaseMapping.ClientMaster.Id},
-                {DatabaseMapping.ClientMaster.ClientName}
-            FROM {DatabaseMapping.ClientMaster.Table}
-            WHERE {DatabaseMapping.ClientMaster.IsActive} = 1
-            ORDER BY {DatabaseMapping.ClientMaster.ClientName}";
+                [Id],
+                [ClientName]
+            FROM [ClientMaster]
+            {isActive}
+            ORDER BY [ClientName]";
 
         return await ReadLookupsAsync(connection, query);
     }

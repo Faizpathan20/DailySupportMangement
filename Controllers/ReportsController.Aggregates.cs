@@ -16,9 +16,10 @@ public partial class ReportsController
     // Report: Clients
     // ==========================================================
 
-    private static async Task BuildClientReportAsync(
+    private async Task BuildClientReportAsync(
         SqlConnection connection,
-        ReportsViewModel model)
+        ReportsViewModel model,
+        DynamicTableService.SchemaColumns schema)
     {
         model.Title = "Client Report";
 
@@ -33,22 +34,59 @@ public partial class ReportsController
             0.16, 0.11, 0.11, 0.11, 0.16, 0.12, 0.11, 0.12
         };
 
+        string? cName = Col(schema, "c", "ClientMaster", "ClientName");
+        string? cCity = Col(schema, "c", "ClientMaster", "City");
+        string? cMobile = Col(schema, "c", "ClientMaster", "MobileNo");
+        string? cEmail = Col(schema, "c", "ClientMaster", "Email");
+        string? cEntry = Col(schema, "c", "ClientMaster", "EntryOn");
+        string? cActive = Col(schema, "c", "ClientMaster", "IsActive");
+        string? cId = Col(schema, "c", "ClientMaster", "Id");
+        string? cStateId = Col(schema, "c", "ClientMaster", "StateId");
+        string? cUserId = Col(schema, "c", "ClientMaster", "UserId");
+        string? stName = Col(schema, "st", "States", "StateName");
+        string? stId = Col(schema, "st", "States", "Id");
+        string? luName = Col(schema, "lu", "LoginUsers", "UserName");
+        string? luId = Col(schema, "lu", "LoginUsers", "Id");
+
         // LEFT JOINs so clients without a State/User still appear.
-        string fromJoins = $@"
-            FROM {DatabaseMapping.ClientMaster.Table} c
-            LEFT JOIN {DatabaseMapping.States.Table} st
-                ON st.{DatabaseMapping.States.Id}
-                = c.{DatabaseMapping.ClientMaster.StateId}
-            LEFT JOIN {DatabaseMapping.LoginUsers.Table} lu
-                ON lu.{DatabaseMapping.LoginUsers.Id}
-                = c.{DatabaseMapping.ClientMaster.UserId}";
+        var joins = new List<string> { "FROM [ClientMaster] c" };
+
+        var active = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase) { "c" };
+
+        string? joinState = JoinIf(
+            "LEFT JOIN", schema,
+            "ClientMaster", "StateId", "c",
+            "States", "Id", "st");
+
+        if (joinState != null)
+        {
+            joins.Add(joinState);
+            active.Add("st");
+        }
+
+        string? joinUser = JoinIf(
+            "LEFT JOIN", schema,
+            "ClientMaster", "UserId", "c",
+            "LoginUsers", "Id", "lu");
+
+        if (joinUser != null)
+        {
+            joins.Add(joinUser);
+            active.Add("lu");
+        }
+
+        string fromJoins =
+            string.Join("\n            ", joins);
 
         var filters = BuildFilters(
             model,
-            "c." + DatabaseMapping.ClientMaster.EntryOn,
-            "c." + DatabaseMapping.ClientMaster.UserId,
+            cEntry,
+            cUserId,
             null,
-            null);
+            null,
+            cStateId,
+            cId);
 
         using (var command = new SqlCommand())
         {
@@ -57,21 +95,24 @@ public partial class ReportsController
 
             ApplyFilters(command, filters);
 
+            string orderBy = (cEntry != null && cId != null)
+                ? $"{cEntry} DESC, {cId} DESC"
+                : "(SELECT NULL)";
+
             command.CommandText = $@"
                 SELECT
-                    c.{DatabaseMapping.ClientMaster.ClientName},
-                    st.{DatabaseMapping.States.StateName},
-                    c.{DatabaseMapping.ClientMaster.City},
-                    c.{DatabaseMapping.ClientMaster.MobileNo},
-                    c.{DatabaseMapping.ClientMaster.Email},
-                    lu.{DatabaseMapping.LoginUsers.UserName},
-                    c.{DatabaseMapping.ClientMaster.EntryOn},
-                    c.{DatabaseMapping.ClientMaster.IsActive}
+                    {Sel(cName, active, "c")},
+                    {Sel(stName, active, "st")},
+                    {Sel(cCity, active, "c")},
+                    {Sel(cMobile, active, "c")},
+                    {Sel(cEmail, active, "c")},
+                    {Sel(luName, active, "lu")},
+                    {Sel(cEntry, active, "c")},
+                    {Sel(cActive, active, "c")}
                 {fromJoins}
                 {WhereOf(filters)}
                 ORDER BY
-                    c.{DatabaseMapping.ClientMaster.EntryOn} DESC,
-                    c.{DatabaseMapping.ClientMaster.Id} DESC";
+                    {orderBy}";
 
             using var reader =
                 await command.ExecuteReaderAsync();
@@ -99,8 +140,8 @@ public partial class ReportsController
         model.TotalRecords = model.Rows.Count;
 
         int total = 0;
-        int active = 0;
-        int nonActive = 0;
+        int activeCount = 0;
+        int nonActiveCount = 0;
 
         using (var command = new SqlCommand())
         {
@@ -109,14 +150,21 @@ public partial class ReportsController
 
             ApplyFilters(command, filters);
 
+            string countSelect = "COUNT(*)";
+
+            if (cActive != null)
+            {
+                countSelect += ", "
+                    + $"SUM(CASE WHEN {cActive} = 1 "
+                    + "THEN 1 ELSE 0 END), "
+                    + $"SUM(CASE WHEN {cActive} = 0 "
+                    + "THEN 1 ELSE 0 END)";
+            }
+
             command.CommandText = $@"
                 SELECT
-                    COUNT(*),
-                    SUM(CASE WHEN c.{DatabaseMapping.ClientMaster.IsActive}
-                        = 1 THEN 1 ELSE 0 END),
-                    SUM(CASE WHEN c.{DatabaseMapping.ClientMaster.IsActive}
-                        = 0 THEN 1 ELSE 0 END)
-                FROM {DatabaseMapping.ClientMaster.Table} c
+                    {countSelect}
+                FROM [ClientMaster] c
                 {WhereOf(filters)}";
 
             using var reader =
@@ -126,11 +174,18 @@ public partial class ReportsController
             {
                 total = Convert.ToInt32(reader.GetValue(0));
 
-                active = reader.GetValue(1) == DBNull.Value
-                    ? 0 : Convert.ToInt32(reader.GetValue(1));
+                if (cActive != null)
+                {
+                    activeCount =
+                        reader.GetValue(1) == DBNull.Value
+                            ? 0
+                            : Convert.ToInt32(reader.GetValue(1));
 
-                nonActive = reader.GetValue(2) == DBNull.Value
-                    ? 0 : Convert.ToInt32(reader.GetValue(2));
+                    nonActiveCount =
+                        reader.GetValue(2) == DBNull.Value
+                            ? 0
+                            : Convert.ToInt32(reader.GetValue(2));
+                }
             }
         }
 
@@ -144,14 +199,14 @@ public partial class ReportsController
         model.Summary.Add(new SummaryCardViewModel
         {
             Title = "ACTIVE CLIENTS",
-            Value = active,
+            Value = activeCount,
             Icon = "•"
         });
 
         model.Summary.Add(new SummaryCardViewModel
         {
             Title = "NON-ACTIVE CLIENTS",
-            Value = nonActive,
+            Value = nonActiveCount,
             Icon = "•"
         });
     }
@@ -161,9 +216,10 @@ public partial class ReportsController
     // Report: User Activity
     // ==========================================================
 
-    private static async Task BuildUserActivityReportAsync(
+    private async Task BuildUserActivityReportAsync(
         SqlConnection connection,
-        ReportsViewModel model)
+        ReportsViewModel model,
+        DynamicTableService.SchemaColumns schema)
     {
         model.Title = "User Activity Report";
 
@@ -177,86 +233,167 @@ public partial class ReportsController
             0.40, 0.15, 0.15, 0.15, 0.15
         };
 
+        string? cStateId = Col(schema, "c", "ClientMaster", "StateId");
+        string? cId = Col(schema, "c", "ClientMaster", "Id");
+        string? cEntry = Col(schema, "c", "ClientMaster", "EntryOn");
+        string? cUserId = Col(schema, "c", "ClientMaster", "UserId");
+        string? luName = Col(schema, "lu", "LoginUsers", "UserName");
+        string? luId = Col(schema, "lu", "LoginUsers", "Id");
+        string? dsDate = Col(schema, "ds", "DailySupport", "SupportDate");
+        string? dsUser = Col(schema, "ds", "DailySupport", "UserId");
+        string? dsStatus = Col(schema, "ds", "DailySupport", "Status");
+        string? dsPriority = Col(schema, "ds", "DailySupport", "Priority");
+        string? vDate = Col(schema, "v", "ClientVisiting", "VisitDate");
+        string? vUser = Col(schema, "v", "ClientVisiting", "UserId");
+        string? vStatus = Col(schema, "v", "ClientVisiting", "Status");
+
         // Support per user.
+        var supportJoins =
+            new List<string> { "FROM [DailySupport] ds" };
+
+        var supportActive =
+            new HashSet<string>(
+                StringComparer.OrdinalIgnoreCase) { "ds" };
+
+        if (JoinIf(
+                "INNER JOIN", schema,
+                "DailySupport", "ClientId", "ds",
+                "ClientMaster", "Id", "c") != null)
+        {
+            supportJoins.Add(
+                $"INNER JOIN [ClientMaster] c "
+                + $"ON {cId} = ds.[ClientId]");
+            supportActive.Add("c");
+        }
+
+        if (JoinIf(
+                "LEFT JOIN", schema,
+                "DailySupport", "UserId", "ds",
+                "LoginUsers", "Id", "lu") != null)
+        {
+            supportJoins.Add(
+                $"LEFT JOIN [LoginUsers] lu "
+                + $"ON {luId} = ds.[UserId]");
+            supportActive.Add("lu");
+        }
+
         var supportFilters = BuildFilters(
             model,
-            "ds." + DatabaseMapping.DailySupport.SupportDate,
-            "ds." + DatabaseMapping.DailySupport.UserId,
-            "ds." + DatabaseMapping.DailySupport.Status,
-            "ds." + DatabaseMapping.DailySupport.Priority);
+            dsDate,
+            dsUser,
+            dsStatus,
+            dsPriority,
+            supportActive.Contains("c") ? cStateId : null,
+            supportActive.Contains("c") ? cId : null);
 
         var supportRows = await GroupByIntAsync(
             connection,
             $@"
                 SELECT
-                    ds.{DatabaseMapping.DailySupport.UserId},
-                    lu.{DatabaseMapping.LoginUsers.UserName},
+                    {Sel(dsUser, supportActive, "ds")},
+                    {Sel(luName, supportActive, "lu")},
                     COUNT(*)
-                FROM {DatabaseMapping.DailySupport.Table} ds
-                INNER JOIN {DatabaseMapping.ClientMaster.Table} c
-                    ON c.{DatabaseMapping.ClientMaster.Id}
-                    = ds.{DatabaseMapping.DailySupport.ClientId}
-                LEFT JOIN {DatabaseMapping.LoginUsers.Table} lu
-                    ON lu.{DatabaseMapping.LoginUsers.Id}
-                    = ds.{DatabaseMapping.DailySupport.UserId}
+                {string.Join("\n            ", supportJoins)}
                 {WhereOf(supportFilters)}
-                GROUP BY
-                    ds.{DatabaseMapping.DailySupport.UserId},
-                    lu.{DatabaseMapping.LoginUsers.UserName}",
-            supportFilters);
+                {GroupClause(dsUser, supportActive, "ds",
+                    luName, supportActive, "lu")}",
+            supportFilters,
+            dsUser);
 
         // Visits per user.
+        var visitJoins =
+            new List<string> { "FROM [ClientVisiting] v" };
+
+        var visitActive =
+            new HashSet<string>(
+                StringComparer.OrdinalIgnoreCase) { "v" };
+
+        if (JoinIf(
+                "INNER JOIN", schema,
+                "ClientVisiting", "ClientId", "v",
+                "ClientMaster", "Id", "c") != null)
+        {
+            visitJoins.Add(
+                $"INNER JOIN [ClientMaster] c "
+                + $"ON {cId} = v.[ClientId]");
+            visitActive.Add("c");
+        }
+
+        if (JoinIf(
+                "LEFT JOIN", schema,
+                "ClientVisiting", "UserId", "v",
+                "LoginUsers", "Id", "lu") != null)
+        {
+            visitJoins.Add(
+                $"LEFT JOIN [LoginUsers] lu "
+                + $"ON {luId} = v.[UserId]");
+            visitActive.Add("lu");
+        }
+
         var visitFilters = BuildFilters(
             model,
-            "v." + DatabaseMapping.ClientVisiting.VisitDate,
-            "v." + DatabaseMapping.ClientVisiting.UserId,
-            "v." + DatabaseMapping.ClientVisiting.Status,
-            null);
+            vDate,
+            vUser,
+            vStatus,
+            null,
+            visitActive.Contains("c") ? cStateId : null,
+            visitActive.Contains("c") ? cId : null);
 
         var visitRows = await GroupByIntAsync(
             connection,
             $@"
                 SELECT
-                    v.{DatabaseMapping.ClientVisiting.UserId},
-                    lu.{DatabaseMapping.LoginUsers.UserName},
+                    {Sel(vUser, visitActive, "v")},
+                    {Sel(luName, visitActive, "lu")},
                     COUNT(*)
-                FROM {DatabaseMapping.ClientVisiting.Table} v
-                INNER JOIN {DatabaseMapping.ClientMaster.Table} c
-                    ON c.{DatabaseMapping.ClientMaster.Id}
-                    = v.{DatabaseMapping.ClientVisiting.ClientId}
-                LEFT JOIN {DatabaseMapping.LoginUsers.Table} lu
-                    ON lu.{DatabaseMapping.LoginUsers.Id}
-                    = v.{DatabaseMapping.ClientVisiting.UserId}
+                {string.Join("\n            ", visitJoins)}
                 {WhereOf(visitFilters)}
-                GROUP BY
-                    v.{DatabaseMapping.ClientVisiting.UserId},
-                    lu.{DatabaseMapping.LoginUsers.UserName}",
-            visitFilters);
+                {GroupClause(vUser, visitActive, "v",
+                    luName, visitActive, "lu")}",
+            visitFilters,
+            vUser);
 
         // Clients per user.
+        var clientJoins =
+            new List<string> { "FROM [ClientMaster] c" };
+
+        var clientActive =
+            new HashSet<string>(
+                StringComparer.OrdinalIgnoreCase) { "c" };
+
+        if (JoinIf(
+                "LEFT JOIN", schema,
+                "ClientMaster", "UserId", "c",
+                "LoginUsers", "Id", "lu") != null)
+        {
+            clientJoins.Add(
+                $"LEFT JOIN [LoginUsers] lu "
+                + $"ON {luId} = c.[UserId]");
+            clientActive.Add("lu");
+        }
+
         var clientFilters = BuildFilters(
             model,
-            "c." + DatabaseMapping.ClientMaster.EntryOn,
-            "c." + DatabaseMapping.ClientMaster.UserId,
+            cEntry,
+            cUserId,
             null,
-            null);
+            null,
+            cStateId,
+            cId);
 
         var clientRows = await GroupByIntAsync(
             connection,
             $@"
                 SELECT
-                    c.{DatabaseMapping.ClientMaster.UserId},
-                    lu.{DatabaseMapping.LoginUsers.UserName},
+                    {Sel(cUserId, clientActive, "c")},
+                    {Sel(luName, clientActive, "lu")},
                     COUNT(*)
-                FROM {DatabaseMapping.ClientMaster.Table} c
-                LEFT JOIN {DatabaseMapping.LoginUsers.Table} lu
-                    ON lu.{DatabaseMapping.LoginUsers.Id}
-                    = c.{DatabaseMapping.ClientMaster.UserId}
+                {string.Join("\n            ", clientJoins)}
                 {WhereOf(clientFilters)}
-                GROUP BY
-                    c.{DatabaseMapping.ClientMaster.UserId},
-                    lu.{DatabaseMapping.LoginUsers.UserName}",
-            clientFilters);
+                {GroupClause(cUserId, clientActive, "c",
+                    luName, clientActive, "lu")}",
+            clientFilters,
+            cUserId);
 
         // Merge by user id.
         var keys = new HashSet<int>();
@@ -336,9 +473,10 @@ public partial class ReportsController
     // Report: State-wise
     // ==========================================================
 
-    private static async Task BuildStateWiseReportAsync(
+    private async Task BuildStateWiseReportAsync(
         SqlConnection connection,
-        ReportsViewModel model)
+        ReportsViewModel model,
+        DynamicTableService.SchemaColumns schema)
     {
         model.Title = "State-wise Report";
 
@@ -352,86 +490,169 @@ public partial class ReportsController
             0.40, 0.15, 0.15, 0.15, 0.15
         };
 
+        string? cStateId = Col(schema, "c", "ClientMaster", "StateId");
+        string? cId = Col(schema, "c", "ClientMaster", "Id");
+        string? cEntry = Col(schema, "c", "ClientMaster", "EntryOn");
+        string? cUserId = Col(schema, "c", "ClientMaster", "UserId");
+        string? stName = Col(schema, "st", "States", "StateName");
+        string? stId = Col(schema, "st", "States", "Id");
+        string? dsDate = Col(schema, "ds", "DailySupport", "SupportDate");
+        string? dsUser = Col(schema, "ds", "DailySupport", "UserId");
+        string? dsStatus = Col(schema, "ds", "DailySupport", "Status");
+        string? dsPriority = Col(schema, "ds", "DailySupport", "Priority");
+        string? vDate = Col(schema, "v", "ClientVisiting", "VisitDate");
+        string? vUser = Col(schema, "v", "ClientVisiting", "UserId");
+        string? vStatus = Col(schema, "v", "ClientVisiting", "Status");
+
         // Clients per state.
+        var clientJoins =
+            new List<string> { "FROM [ClientMaster] c" };
+
+        var clientActive =
+            new HashSet<string>(
+                StringComparer.OrdinalIgnoreCase) { "c" };
+
+        if (JoinIf(
+                "LEFT JOIN", schema,
+                "ClientMaster", "StateId", "c",
+                "States", "Id", "st") != null)
+        {
+            clientJoins.Add(
+                $"LEFT JOIN [States] st "
+                + $"ON {stId} = c.[StateId]");
+            clientActive.Add("st");
+        }
+
         var clientFilters = BuildFilters(
             model,
-            "c." + DatabaseMapping.ClientMaster.EntryOn,
-            "c." + DatabaseMapping.ClientMaster.UserId,
+            cEntry,
+            cUserId,
             null,
-            null);
+            null,
+            cStateId,
+            cId);
 
         var clientRows = await GroupByIntAsync(
             connection,
             $@"
                 SELECT
-                    c.{DatabaseMapping.ClientMaster.StateId},
-                    st.{DatabaseMapping.States.StateName},
+                    {Sel(cStateId, clientActive, "c")},
+                    {Sel(stName, clientActive, "st")},
                     COUNT(*)
-                FROM {DatabaseMapping.ClientMaster.Table} c
-                LEFT JOIN {DatabaseMapping.States.Table} st
-                    ON st.{DatabaseMapping.States.Id}
-                    = c.{DatabaseMapping.ClientMaster.StateId}
+                {string.Join("\n            ", clientJoins)}
                 {WhereOf(clientFilters)}
-                GROUP BY
-                    c.{DatabaseMapping.ClientMaster.StateId},
-                    st.{DatabaseMapping.States.StateName}",
-            clientFilters);
+                {GroupClause(cStateId, clientActive, "c",
+                    stName, clientActive, "st")}",
+            clientFilters,
+            cStateId);
 
         // Support per state.
+        var supportJoins =
+            new List<string> { "FROM [DailySupport] ds" };
+
+        var supportActive =
+            new HashSet<string>(
+                StringComparer.OrdinalIgnoreCase) { "ds" };
+
+        if (JoinIf(
+                "INNER JOIN", schema,
+                "DailySupport", "ClientId", "ds",
+                "ClientMaster", "Id", "c") != null)
+        {
+            supportJoins.Add(
+                $"INNER JOIN [ClientMaster] c "
+                + $"ON {cId} = ds.[ClientId]");
+            supportActive.Add("c");
+        }
+
+        if (supportActive.Contains("c")
+            && JoinIf(
+                "LEFT JOIN", schema,
+                "ClientMaster", "StateId", "c",
+                "States", "Id", "st") != null)
+        {
+            supportJoins.Add(
+                $"LEFT JOIN [States] st "
+                + $"ON {stId} = c.[StateId]");
+            supportActive.Add("st");
+        }
+
         var supportFilters = BuildFilters(
             model,
-            "ds." + DatabaseMapping.DailySupport.SupportDate,
-            "ds." + DatabaseMapping.DailySupport.UserId,
-            "ds." + DatabaseMapping.DailySupport.Status,
-            "ds." + DatabaseMapping.DailySupport.Priority);
+            dsDate,
+            dsUser,
+            dsStatus,
+            dsPriority,
+            supportActive.Contains("c") ? cStateId : null,
+            supportActive.Contains("c") ? cId : null);
 
         var supportRows = await GroupByIntAsync(
             connection,
             $@"
                 SELECT
-                    c.{DatabaseMapping.ClientMaster.StateId},
-                    st.{DatabaseMapping.States.StateName},
+                    {Sel(cStateId, supportActive, "c")},
+                    {Sel(stName, supportActive, "st")},
                     COUNT(*)
-                FROM {DatabaseMapping.DailySupport.Table} ds
-                INNER JOIN {DatabaseMapping.ClientMaster.Table} c
-                    ON c.{DatabaseMapping.ClientMaster.Id}
-                    = ds.{DatabaseMapping.DailySupport.ClientId}
-                LEFT JOIN {DatabaseMapping.States.Table} st
-                    ON st.{DatabaseMapping.States.Id}
-                    = c.{DatabaseMapping.ClientMaster.StateId}
+                {string.Join("\n            ", supportJoins)}
                 {WhereOf(supportFilters)}
-                GROUP BY
-                    c.{DatabaseMapping.ClientMaster.StateId},
-                    st.{DatabaseMapping.States.StateName}",
-            supportFilters);
+                {GroupClause(cStateId, supportActive, "c",
+                    stName, supportActive, "st")}",
+            supportFilters,
+            cStateId);
 
         // Visits per state.
+        var visitJoins =
+            new List<string> { "FROM [ClientVisiting] v" };
+
+        var visitActive =
+            new HashSet<string>(
+                StringComparer.OrdinalIgnoreCase) { "v" };
+
+        if (JoinIf(
+                "INNER JOIN", schema,
+                "ClientVisiting", "ClientId", "v",
+                "ClientMaster", "Id", "c") != null)
+        {
+            visitJoins.Add(
+                $"INNER JOIN [ClientMaster] c "
+                + $"ON {cId} = v.[ClientId]");
+            visitActive.Add("c");
+        }
+
+        if (visitActive.Contains("c")
+            && JoinIf(
+                "LEFT JOIN", schema,
+                "ClientMaster", "StateId", "c",
+                "States", "Id", "st") != null)
+        {
+            visitJoins.Add(
+                $"LEFT JOIN [States] st "
+                + $"ON {stId} = c.[StateId]");
+            visitActive.Add("st");
+        }
+
         var visitFilters = BuildFilters(
             model,
-            "v." + DatabaseMapping.ClientVisiting.VisitDate,
-            "v." + DatabaseMapping.ClientVisiting.UserId,
-            "v." + DatabaseMapping.ClientVisiting.Status,
-            null);
+            vDate,
+            vUser,
+            vStatus,
+            null,
+            visitActive.Contains("c") ? cStateId : null,
+            visitActive.Contains("c") ? cId : null);
 
         var visitRows = await GroupByIntAsync(
             connection,
             $@"
                 SELECT
-                    c.{DatabaseMapping.ClientMaster.StateId},
-                    st.{DatabaseMapping.States.StateName},
+                    {Sel(cStateId, visitActive, "c")},
+                    {Sel(stName, visitActive, "st")},
                     COUNT(*)
-                FROM {DatabaseMapping.ClientVisiting.Table} v
-                INNER JOIN {DatabaseMapping.ClientMaster.Table} c
-                    ON c.{DatabaseMapping.ClientMaster.Id}
-                    = v.{DatabaseMapping.ClientVisiting.ClientId}
-                LEFT JOIN {DatabaseMapping.States.Table} st
-                    ON st.{DatabaseMapping.States.Id}
-                    = c.{DatabaseMapping.ClientMaster.StateId}
+                {string.Join("\n            ", visitJoins)}
                 {WhereOf(visitFilters)}
-                GROUP BY
-                    c.{DatabaseMapping.ClientMaster.StateId},
-                    st.{DatabaseMapping.States.StateName}",
-            visitFilters);
+                {GroupClause(cStateId, visitActive, "c",
+                    stName, visitActive, "st")}",
+            visitFilters,
+            cStateId);
 
         var keys = new HashSet<int>();
 
@@ -515,10 +736,19 @@ public partial class ReportsController
         GroupByIntAsync(
             SqlConnection connection,
             string sql,
-            List<ReportFilter> filters)
+            List<ReportFilter> filters,
+            string? keyColumn)
     {
         var result =
             new Dictionary<int, (string Name, int Count)>();
+
+        // Without the grouping key column the report cannot
+        // group at all — degrade to "no rows" instead of
+        // generating invalid SQL.
+        if (string.IsNullOrWhiteSpace(keyColumn))
+        {
+            return result;
+        }
 
         using var command = new SqlCommand();
 
@@ -547,5 +777,34 @@ public partial class ReportsController
         }
 
         return result;
+    }
+
+
+    // Builds a "GROUP BY a, b" clause that only lists
+    // columns which actually exist and are joined in.
+    private static string GroupClause(
+        string? colA,
+        HashSet<string> activeAliases,
+        string aliasA,
+        string? colB,
+        HashSet<string> activeAliasesB,
+        string aliasB)
+    {
+        var parts = new List<string>();
+
+        if (colA != null && activeAliases.Contains(aliasA))
+        {
+            parts.Add(colA);
+        }
+
+        if (colB != null
+            && activeAliasesB.Contains(aliasB))
+        {
+            parts.Add(colB);
+        }
+
+        return parts.Count == 0
+            ? ""
+            : "GROUP BY " + string.Join(", ", parts);
     }
 }

@@ -6,8 +6,9 @@ namespace Master.Models;
 
 // Reports page (standalone /Reports) model.
 // IMPORTANT: this is an INDEPENDENT filter system — it does NOT
-// reuse the Dashboard global filters. It reads real data from the
-// existing tables through DatabaseMapping only.
+// reuse the Dashboard global filters. All table/column names used
+// by the report builders are resolved at runtime from live SQL
+// Server metadata (see DynamicTableService.SchemaColumns).
 public class ReportsViewModel
 {
     // ---- Report type keys ----

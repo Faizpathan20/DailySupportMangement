@@ -11,6 +11,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
 
+// Dynamic, metadata-driven table service (replaces
+// the static FieldRegistry-based field generation).
+builder.Services.AddSingleton<Master.Configuration.DynamicTableService>();
+
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 

@@ -12,170 +12,26 @@ namespace Master.Controllers;
 public class ClientsController : Controller
 {
     private readonly IConfiguration _configuration;
+    private readonly DynamicTableService _tableService;
 
     public ClientsController(
-        IConfiguration configuration)
+        IConfiguration configuration,
+        DynamicTableService tableService)
     {
         _configuration = configuration;
+        _tableService = tableService;
     }
 
     private bool IsAjax =>
-        DynamicTableHelper.IsAjaxRequest(
+        DynamicTableService.IsAjaxRequest(
             Request);
 
-
-    // ============================================
-    // REGISTRY OF ALL KNOWN CLIENT MASTER COLUMNS
-    // Only columns that actually exist in the
-    // database table are used dynamically.
-    // ============================================
-
-    private static readonly List<MasterColumnViewModel> FieldRegistry =
-        new()
-        {
-            new MasterColumnViewModel
-            {
-                Name = "Id",
-                Display = "ID",
-                Type = "number",
-                SortType = "num",
-                Width = 7
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "ClientName",
-                Display = "Client Name",
-                Type = "text",
-                SortType = "text",
-                InputType = "text",
-                Required = true,
-                Editable = true,
-                Width = 10
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "ContactPerson",
-                Display = "Contact Person",
-                Type = "text",
-                SortType = "text",
-                InputType = "text",
-                Editable = true,
-                Width = 9
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "MobileNo",
-                Display = "Mobile No",
-                Type = "text",
-                SortType = "text",
-                InputType = "tel",
-                Editable = true,
-                Width = 8
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "AlternateMobileNo",
-                Display = "Alt Mobile No",
-                Type = "text",
-                SortType = "text",
-                InputType = "tel",
-                Editable = true,
-                Width = 8
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "Email",
-                Display = "Email",
-                Type = "text",
-                SortType = "text",
-                InputType = "email",
-                Editable = true,
-                Width = 12
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "Address",
-                Display = "Address",
-                Type = "text",
-                SortType = "text",
-                Control = "textarea",
-                Editable = true,
-                Width = 12
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "City",
-                Display = "City",
-                Type = "text",
-                SortType = "text",
-                InputType = "text",
-                Editable = true,
-                Width = 7
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "StateId",
-                Display = "State",
-                Type = "dropdown",
-                SortType = "text",
-                Control = "select",
-                Required = true,
-                Editable = true,
-                LookupKey = "States",
-                Width = 8
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "UserId",
-                Display = "User Name",
-                Type = "lookup",
-                SortType = "text",
-                LookupKey = "Users",
-                Width = 8
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "EntryOn",
-                Display = "Entry On",
-                Type = "date",
-                SortType = "date",
-                Width = 12
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "IsActive",
-                Display = "Status",
-                Type = "status",
-                SortType = "status",
-                Width = 7
-            }
-        };
-
-
-    private static readonly string[] ClientSearchableFields =
-    {
-        "ClientName",
-        "ContactPerson",
-        "MobileNo",
-        "AlternateMobileNo",
-        "Email",
-        "City"
-    };
-
+    private const string TableName = "ClientMaster";
 
     // ============================================
     // CLIENT LIST
+    // Fields, KPI columns and grid columns are all
+    // derived from live SQL Server metadata.
     // ============================================
 
     [HttpGet]
@@ -202,16 +58,10 @@ public class ClientsController : Controller
         await connection.OpenAsync();
 
 
-        HashSet<string> columns =
-            await DynamicTableHelper.GetTableColumnsAsync(
-                connection,
-                DatabaseMapping.ClientMaster.Table);
-
-
         List<MasterColumnViewModel> fields =
-            DynamicTableHelper.BuildActiveFields(
-                FieldRegistry,
-                columns);
+            await _tableService.GetTableFieldsAsync(
+                connection,
+                TableName);
 
 
         ClientMasterViewModel model =
@@ -225,12 +75,16 @@ public class ClientsController : Controller
                 .ToList();
 
         model.HasLastWeekKpi =
-            columns.Contains(
-                DatabaseMapping.ClientMaster.EntryOn);
+            fields.Any(
+                f => f.Name.Equals(
+                    "EntryOn",
+                    StringComparison.OrdinalIgnoreCase));
 
         model.HasActiveKpi =
-            columns.Contains(
-                DatabaseMapping.ClientMaster.IsActive);
+            fields.Any(
+                f => f.Name.Equals(
+                    "IsActive",
+                    StringComparison.OrdinalIgnoreCase));
 
 
         // ========================================
@@ -243,30 +97,42 @@ public class ClientsController : Controller
         };
 
 
-        if (columns.Contains(
-                DatabaseMapping.ClientMaster.EntryOn))
+        if (model.HasLastWeekKpi)
         {
+            string entryOn =
+                fields.First(
+                    f => f.Name.Equals(
+                        "EntryOn",
+                        StringComparison.OrdinalIgnoreCase))
+                .Name;
+
             kpiSelect.Add(
                 $"SUM(CASE WHEN " +
-                $"{DatabaseMapping.ClientMaster.EntryOn}" +
+                $"[{entryOn}]" +
                 $" >= DATEADD(DAY, -7, GETDATE()) " +
                 $"THEN 1 ELSE 0 END) " +
                 $"AS LastWeekRecords");
         }
 
 
-        if (columns.Contains(
-                DatabaseMapping.ClientMaster.IsActive))
+        if (model.HasActiveKpi)
         {
+            string active =
+                fields.First(
+                    f => f.Name.Equals(
+                        "IsActive",
+                        StringComparison.OrdinalIgnoreCase))
+                .Name;
+
             kpiSelect.Add(
                 $"SUM(CASE WHEN " +
-                $"{DatabaseMapping.ClientMaster.IsActive}" +
+                $"[{active}]" +
                 $" = 1 THEN 1 ELSE 0 END) " +
                 $"AS ActiveRecords");
 
             kpiSelect.Add(
                 $"SUM(CASE WHEN " +
-                $"{DatabaseMapping.ClientMaster.IsActive}" +
+                $"[{active}]" +
                 $" = 0 THEN 1 ELSE 0 END) " +
                 $"AS NonActiveRecords");
         }
@@ -274,7 +140,7 @@ public class ClientsController : Controller
 
         string kpiQuery =
             $"SELECT {string.Join(", ", kpiSelect)} " +
-            $"FROM {DatabaseMapping.ClientMaster.Table}";
+            $"FROM {TableName}";
 
 
         using SqlCommand kpiCommand =
@@ -318,42 +184,102 @@ public class ClientsController : Controller
         kpiReader.Close();
 
 
+        string idColumn =
+            fields.FirstOrDefault(
+                    f => f.IsPrimaryKey)
+                ?.Name ?? "Id";
+
+
         // ========================================
         // LOAD CLIENTS LIST (dynamic columns)
+        // Foreign key fields are joined to their
+        // referenced table for a friendly display.
         // ========================================
-
-        bool joinState =
-            columns.Contains("StateId");
-
-        bool joinUser =
-            columns.Contains("UserId");
-
 
         var selectParts =
             new List<string>();
 
+        var joinClauses =
+            new List<string>();
 
         var searchParts =
             new List<string>();
 
+        var joinAliases =
+            new Dictionary<string, string>(
+                StringComparer.OrdinalIgnoreCase);
+
+        int joinIndex = 0;
+
 
         foreach (var field in fields)
         {
-            if (field.Name == "StateId" && joinState)
+            if (field.LookupKey != null
+                && _tableService.TryGetLookupDisplayColumn(
+                    field.LookupKey,
+                    out string displayColumn))
             {
+                string joinKey =
+                    $"{field.LookupKey}|{field.Name}";
+
+                string alias =
+                    joinAliases.TryGetValue(
+                        joinKey,
+                        out string? existing)
+                        ? existing
+                        : string.Empty;
+
+                if (string.IsNullOrWhiteSpace(alias))
+                {
+                    alias = $"j{joinIndex++}";
+
+                    joinAliases[joinKey] = alias;
+
+                    joinClauses.Add(
+                        $" INNER JOIN {field.LookupKey} {alias} " +
+                        $"ON {alias}.{field.LookupRefColumn ?? "Id"} " +
+                        $"= c.{field.Name}");
+                }
+
                 selectParts.Add(
-                    $"st.{DatabaseMapping.States.StateName} AS {field.Name}");
-            }
-            else if (field.Name == "UserId" && joinUser)
-            {
-                selectParts.Add(
-                    $"lu.{DatabaseMapping.LoginUsers.UserName} AS {field.Name}");
+                    $"{alias}.{displayColumn} AS {field.Name}");
+
+                // Raw FK id, used to pre-fill the dropdown
+                // when the Edit modal opens.
+                if (field.Editable
+                    && field.Control == "select")
+                {
+                    selectParts.Add(
+                        $"c.{field.Name} AS {field.Name}_key");
+                }
+
+                searchParts.Add(
+                    $"{alias}.{displayColumn} " +
+                    $"LIKE '%' + @Search + '%'");
             }
             else
             {
                 selectParts.Add(
                     $"c.{field.Name}");
+
+                if (DynamicTableService.IsText(field.SqlType))
+                {
+                    searchParts.Add(
+                        $"c.{field.Name} " +
+                        $"LIKE '%' + @Search + '%'");
+                }
             }
+        }
+
+
+        if (fields.Any(
+                f => f.Name.Equals(
+                    idColumn,
+                    StringComparison.OrdinalIgnoreCase)))
+        {
+            searchParts.Add(
+                $"CAST(c.{idColumn} AS NVARCHAR(10)) " +
+                $"LIKE '%' + @Search + '%'");
         }
 
 
@@ -363,58 +289,11 @@ public class ClientsController : Controller
         sql.Append(
             string.Join(", ", selectParts));
 
-        sql.Append($" FROM {DatabaseMapping.ClientMaster.Table} c");
+        sql.Append($" FROM {TableName} c");
 
-
-        if (joinState)
+        foreach (string join in joinClauses)
         {
-            sql.Append(
-                $" INNER JOIN {DatabaseMapping.States.Table} st " +
-                $"ON st.{DatabaseMapping.States.Id} " +
-                $"= c.{DatabaseMapping.ClientMaster.StateId}");
-        }
-
-
-        if (joinUser)
-        {
-            sql.Append(
-                $" INNER JOIN {DatabaseMapping.LoginUsers.Table} lu " +
-                $"ON lu.{DatabaseMapping.LoginUsers.Id} " +
-                $"= c.{DatabaseMapping.ClientMaster.UserId}");
-        }
-
-
-        foreach (var name in ClientSearchableFields)
-        {
-            if (columns.Contains(name))
-            {
-                searchParts.Add(
-                    $"c.{name} LIKE '%' + @Search + '%'");
-            }
-        }
-
-
-        if (columns.Contains("Id"))
-        {
-            searchParts.Add(
-                "CAST(c.Id AS NVARCHAR(10)) " +
-                "LIKE '%' + @Search + '%'");
-        }
-
-
-        if (joinState)
-        {
-            searchParts.Add(
-                $"st.{DatabaseMapping.States.StateName} " +
-                $"LIKE '%' + @Search + '%'");
-        }
-
-
-        if (joinUser)
-        {
-            searchParts.Add(
-                $"lu.{DatabaseMapping.LoginUsers.UserName} " +
-                $"LIKE '%' + @Search + '%'");
+            sql.Append(join);
         }
 
 
@@ -431,10 +310,13 @@ public class ClientsController : Controller
         }
 
 
-        if (columns.Contains("Id"))
+        if (fields.Any(
+                f => f.Name.Equals(
+                    idColumn,
+                    StringComparison.OrdinalIgnoreCase)))
         {
             sql.Append(
-                " ORDER BY c.Id ASC");
+                $" ORDER BY c.{idColumn} ASC");
         }
         else
         {
@@ -471,37 +353,21 @@ public class ClientsController : Controller
             {
                 object value = reader[field.Name];
 
-                switch (field.Type)
+                row.Values[field.Name] =
+                    DynamicTableService.FormatCellValue(
+                        field,
+                        value);
+
+                if (field.Editable
+                    && field.Control == "select")
                 {
-                    case "date":
+                    object? keyValue =
+                        reader[$"{field.Name}_key"];
 
-                        row.Values[field.Name] =
-                            value == DBNull.Value
-                                ? ""
-                                : Convert.ToDateTime(value)
-                                    .ToString(
-                                        "dd/MM/yyyy hh:mm tt");
-
-                        break;
-
-                    case "status":
-
-                        row.Values[field.Name] =
-                            value != DBNull.Value
-                                && Convert.ToBoolean(value)
-                                    ? "Active"
-                                    : "Non Active";
-
-                        break;
-
-                    default:
-
-                        row.Values[field.Name] =
-                            value == DBNull.Value
-                                ? ""
-                                : value.ToString() ?? "";
-
-                        break;
+                    row.Values[$"{field.Name}_key"] =
+                        keyValue == DBNull.Value
+                            ? ""
+                            : keyValue.ToString() ?? "";
                 }
             }
 
@@ -513,7 +379,7 @@ public class ClientsController : Controller
 
 
         // ========================================
-        // LOAD DROPDOWNS (e.g. States)
+        // LOAD DROPDOWNS (metadata driven)
         // ========================================
 
         var dropdowns =
@@ -521,58 +387,59 @@ public class ClientsController : Controller
                 StringComparer.OrdinalIgnoreCase);
 
 
-        if (fields.Any(
-                f => f.Editable
-                     && f.Control == "select"))
+        foreach (var field in model.FormFields.Where(
+                     f => f.Control == "select"
+                          && f.LookupKey != null))
         {
-            string statesQuery = $@"
+            string displayColumn =
+                _tableService.GetLookupDisplayColumn(
+                    field.LookupKey!);
+
+            string refColumn =
+                field.LookupRefColumn ?? "Id";
+
+            string lookupQuery = $@"
                 SELECT
-                    {DatabaseMapping.States.Id},
-                    {DatabaseMapping.States.StateName}
+                    [{refColumn}],
+                    [{displayColumn}]
 
                 FROM
-                    {DatabaseMapping.States.Table}
+                    [{field.LookupKey}]
 
                 ORDER BY
-                    {DatabaseMapping.States.StateName} ASC";
+                    [{displayColumn}] ASC";
 
 
-            using SqlCommand statesCommand =
-                new SqlCommand(statesQuery, connection);
-                statesCommand.CommandTimeout = 0;
-
-
-            using SqlDataReader statesReader =
-                await statesCommand.ExecuteReaderAsync();
+            using SqlCommand lookupCommand =
+                new SqlCommand(lookupQuery, connection);
+                lookupCommand.CommandTimeout = 0;
 
 
             var options =
                 new List<LookupOptionViewModel>();
 
 
-            while (await statesReader.ReadAsync())
+            using SqlDataReader lookupReader =
+                await lookupCommand.ExecuteReaderAsync();
+
+
+            while (await lookupReader.ReadAsync())
             {
                 options.Add(
                     new LookupOptionViewModel
                     {
                         Id =
                             Convert.ToInt32(
-                                statesReader[
-                                    DatabaseMapping
-                                        .States
-                                        .Id]),
+                                lookupReader[refColumn]),
 
                         Name =
-                            statesReader[
-                                DatabaseMapping
-                                    .States
-                                    .StateName]
-                            .ToString() ?? ""
+                            lookupReader[displayColumn]
+                                .ToString() ?? ""
                     });
             }
 
 
-            dropdowns["States"] = options;
+            dropdowns[field.LookupKey!] = options;
         }
 
 
@@ -585,7 +452,11 @@ public class ClientsController : Controller
 
 
     // ============================================
-    // CREATE (dynamic columns)
+    // CREATE (metadata driven)
+    // Server-generated and auto columns (UserId,
+    // IsActive, defaults, identity) need no form
+    // entry; everything else comes from the form
+    // with type-safe parameterized SQL.
     // ============================================
 
     [HttpPost]
@@ -600,9 +471,8 @@ public class ClientsController : Controller
 
 
         string? loggedInUserId =
-            User.FindFirst(
-                ClaimTypes.NameIdentifier)
-            ?.Value;
+            DynamicTableService.GetLoggedInUserId(
+                User);
 
 
         using SqlConnection connection =
@@ -612,23 +482,20 @@ public class ClientsController : Controller
         await connection.OpenAsync();
 
 
-        HashSet<string> columns =
-            await DynamicTableHelper.GetTableColumnsAsync(
-                connection,
-                DatabaseMapping.ClientMaster.Table);
-
-
         List<MasterColumnViewModel> fields =
-            DynamicTableHelper.BuildActiveFields(
-                    FieldRegistry,
-                    columns)
-                .Where(f => f.Editable)
+            await _tableService.GetTableFieldsAsync(
+                connection,
+                TableName);
+
+
+        var formFields =
+            fields.Where(f => f.Editable)
                 .ToList();
 
 
         string? validationError =
-            DynamicTableHelper.ValidateRequiredFields(
-                fields,
+            _tableService.ValidateRequiredFields(
+                formFields,
                 form);
 
 
@@ -651,7 +518,8 @@ public class ClientsController : Controller
         }
 
 
-        if (columns.Contains("UserId")
+        if (fields.Any(
+                f => f.AutoWrite == "auth-user")
             && string.IsNullOrWhiteSpace(loggedInUserId))
         {
             if (IsAjax)
@@ -676,62 +544,62 @@ public class ClientsController : Controller
 
 
         using SqlCommand command =
-            new SqlCommand();
-            command.CommandTimeout = 0;
+            new SqlCommand
+            {
+                Connection = connection,
+                CommandTimeout = 0
+            };
 
-        command.Connection = connection;
-        command.CommandTimeout = 0;
 
-
-        foreach (var field in fields)
+        foreach (var field in formFields)
         {
+            if (field.AutoWrite != null)
+            {
+                continue;
+            }
+
             insertColumns.Add(field.Name);
 
             placeholders.Add($"@{field.Name}");
 
-            DynamicTableHelper.AddEditableParameter(
+            _tableService.AddParameter(
                 command,
                 field,
                 form[field.Name].ToString());
         }
 
 
-        if (columns.Contains("EntryOn"))
+        foreach (var auto in fields.Where(
+                     f => f.AutoWrite != null))
         {
-            insertColumns.Add("EntryOn");
+            if (auto.AutoWrite == "auth-user"
+                && !string.IsNullOrWhiteSpace(loggedInUserId))
+            {
+                insertColumns.Add(auto.Name);
 
-            placeholders.Add("GETDATE()");
-        }
+                placeholders.Add($"@{auto.Name}");
 
+                command.Parameters.Add(
+                    new SqlParameter(
+                        $"@{auto.Name}",
+                        System.Data.SqlDbType.Int)
+                    {
+                        Value =
+                            Convert.ToInt32(
+                                loggedInUserId)
+                    });
+            }
+            else if (auto.AutoWrite == "true")
+            {
+                insertColumns.Add(auto.Name);
 
-        if (columns.Contains("UserId"))
-        {
-            insertColumns.Add("UserId");
-
-            placeholders.Add("@UserId");
-
-            command.Parameters.Add(
-                new SqlParameter(
-                    "@UserId",
-                    System.Data.SqlDbType.Int)
-                {
-                    Value =
-                        Convert.ToInt32(
-                            loggedInUserId)
-                });
-        }
-
-
-        if (columns.Contains("IsActive"))
-        {
-            insertColumns.Add("IsActive");
-
-            placeholders.Add("1");
+                placeholders.Add("1");
+            }
         }
 
 
         command.CommandText =
-            $"INSERT INTO {DatabaseMapping.ClientMaster.Table} " +
+            $"INSERT INTO {TableName} " +
             $"({string.Join(", ", insertColumns)}) " +
             $"VALUES ({string.Join(", ", placeholders)})";
 
@@ -782,7 +650,7 @@ public class ClientsController : Controller
 
 
     // ============================================
-    // EDIT (dynamic columns)
+    // EDIT (metadata driven)
     // ============================================
 
     [HttpPost]
@@ -804,24 +672,28 @@ public class ClientsController : Controller
         await connection.OpenAsync();
 
 
-        HashSet<string> columns =
-            await DynamicTableHelper.GetTableColumnsAsync(
-                connection,
-                DatabaseMapping.ClientMaster.Table);
-
-
         List<MasterColumnViewModel> fields =
-            DynamicTableHelper.BuildActiveFields(
-                    FieldRegistry,
-                    columns)
-                .Where(f => f.Editable
-                            && !f.CreateOnly)
+            await _tableService.GetTableFieldsAsync(
+                connection,
+                TableName);
+
+
+        var editFields =
+            fields.Where(
+                    f => f.Editable
+                         && !f.CreateOnly)
                 .ToList();
 
 
+        string idColumn =
+            fields.FirstOrDefault(
+                    f => f.IsPrimaryKey)
+                ?.Name ?? "Id";
+
+
         string? validationError =
-            DynamicTableHelper.ValidateRequiredFields(
-                fields,
+            _tableService.ValidateRequiredFields(
+                editFields,
                 form);
 
 
@@ -847,12 +719,14 @@ public class ClientsController : Controller
         var setParts =
             new List<string>();
 
-        using SqlCommand command =
-            new SqlCommand();
-            command.CommandTimeout = 0;
 
-        command.Connection = connection;
-        command.CommandTimeout = 0;
+        using SqlCommand command =
+            new SqlCommand
+            {
+                Connection = connection,
+                CommandTimeout = 0
+            };
+
 
         command.Parameters.Add(
             new SqlParameter(
@@ -863,27 +737,35 @@ public class ClientsController : Controller
             });
 
 
-        foreach (var field in fields)
+        foreach (var field in editFields)
         {
-            setParts.Add($"{field.Name} = @{field.Name}");
+            if (field.AutoWrite != null)
+            {
+                continue;
+            }
 
-            DynamicTableHelper.AddEditableParameter(
+            setParts.Add(
+                $"{field.Name} = @{field.Name}");
+
+            _tableService.AddParameter(
                 command,
                 field,
                 form[field.Name].ToString());
         }
 
 
-        if (columns.Contains("IsActive"))
+        foreach (var auto in fields.Where(
+                     f => f.AutoWrite == "true"))
         {
-            setParts.Add("IsActive = 1");
+            setParts.Add(
+                $"{auto.Name} = 1");
         }
 
 
         command.CommandText =
-            $"UPDATE {DatabaseMapping.ClientMaster.Table} " +
+            $"UPDATE {TableName} " +
             $"SET {string.Join(", ", setParts)} " +
-            $"WHERE {DatabaseMapping.ClientMaster.Id} = @Id";
+            $"WHERE {idColumn} = @Id";
 
 
         try
@@ -967,19 +849,41 @@ public class ClientsController : Controller
         await connection.OpenAsync();
 
 
-        (string Table, string Column, string Label)[] checks =
+        string idColumn =
+            await _tableService
+                .GetPrimaryKeyColumnAsync(
+                    connection,
+                    TableName);
+
+
+        DynamicTableService.SchemaColumns schema =
+            await _tableService.GetSchemaAsync(
+                connection,
+                "ClientVisiting",
+                "DailySupport");
+
+
+        var checks =
+            new List<(string Table,
+                string Column,
+                string Label)>();
+
+        if (schema.Has("ClientVisiting", "ClientId"))
         {
-            (
-                DatabaseMapping.ClientVisiting.Table,
-                DatabaseMapping.ClientVisiting.ClientId,
-                "visit"
-            ),
-            (
-                DatabaseMapping.DailySupport.Table,
-                DatabaseMapping.DailySupport.ClientId,
-                "support"
-            )
-        };
+            checks.Add(
+                ("ClientVisiting",
+                 "ClientId",
+                 "visit"));
+        }
+
+        if (schema.Has("DailySupport", "ClientId"))
+        {
+            checks.Add(
+                ("DailySupport",
+                 "ClientId",
+                 "support"));
+        }
+
 
         var dependencies =
             new List<string>();
@@ -1037,10 +941,10 @@ public class ClientsController : Controller
 
         string query = $@"
             DELETE FROM
-                {DatabaseMapping.ClientMaster.Table}
+                {TableName}
 
             WHERE
-                {DatabaseMapping.ClientMaster.Id}
+                {idColumn}
                 = @Id";
 
 

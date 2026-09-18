@@ -13,6 +13,14 @@ public class ClientVisitingViewModel
 
     public int CancelledCount { get; set; }
 
+    public bool HasStatusKpi { get; set; }
+
+    public List<MasterColumnViewModel> Fields { get; set; }
+        = new();
+
+    public List<MasterColumnViewModel> FormFields { get; set; }
+        = new();
+
     public List<MasterRowViewModel> Visits { get; set; }
         = new();
 

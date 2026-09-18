@@ -25,4 +25,28 @@ public class MasterColumnViewModel
     public string? LookupKey { get; set; }
 
     public double Width { get; set; } = 10;
+
+    // ============================================
+    // METADATA (populated from the database by
+    // DynamicTableService; views and grid ignore
+    // these unless a control needs them).
+    // ============================================
+
+    public string? SqlType { get; set; }
+
+    public int? MaxLength { get; set; }
+
+    public bool IsPrimaryKey { get; set; }
+
+    public bool IsIdentity { get; set; }
+
+    public bool HasDefault { get; set; }
+
+    public string? LookupRefColumn { get; set; }
+
+    // Write convention for system columns:
+    //   null      -> value comes from the form
+    //   "auth-user" -> value comes from the signed-in user (UserId)
+    //   "true"    -> always written as 1 (IsActive)
+    public string? AutoWrite { get; set; }
 }

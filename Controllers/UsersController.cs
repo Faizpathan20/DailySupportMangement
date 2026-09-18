@@ -11,79 +11,26 @@ namespace Master.Controllers;
 public class UsersController : Controller
 {
     private readonly IConfiguration _configuration;
+    private readonly DynamicTableService _tableService;
 
     public UsersController(
-        IConfiguration configuration)
+        IConfiguration configuration,
+        DynamicTableService tableService)
     {
         _configuration = configuration;
+        _tableService = tableService;
     }
 
     private bool IsAjax =>
-        DynamicTableHelper.IsAjaxRequest(
+        DynamicTableService.IsAjaxRequest(
             Request);
 
-
-    // ============================================
-    // REGISTRY OF ALL KNOWN USER MASTER COLUMNS
-    // ============================================
-
-    private static readonly List<MasterColumnViewModel> FieldRegistry =
-        new()
-        {
-            new MasterColumnViewModel
-            {
-                Name = "Id",
-                Display = "ID",
-                Type = "number",
-                SortType = "num",
-                Width = 10
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "UserName",
-                Display = "User Name",
-                Type = "text",
-                SortType = "text",
-                InputType = "text",
-                Required = true,
-                Editable = true,
-                Width = 55
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "Password",
-                Display = "Password",
-                Type = "password",
-                SortType = "text",
-                InputType = "password",
-                Required = true,
-                Editable = true,
-                CreateOnly = true,
-                ShowInTable = false,
-                Width = 25
-            },
-
-            new MasterColumnViewModel
-            {
-                Name = "IsActive",
-                Display = "Status",
-                Type = "status",
-                SortType = "status",
-                Width = 16
-            }
-        };
-
-
-    private static readonly string[] UserSearchableFields =
-    {
-        "UserName"
-    };
-
+    private const string TableName = "LoginUsers";
 
     // ============================================
     // USER LIST
+    // Fields, KPI columns and grid columns are all
+    // derived from live SQL Server metadata.
     // ============================================
 
     [HttpGet]
@@ -110,16 +57,10 @@ public class UsersController : Controller
         await connection.OpenAsync();
 
 
-        HashSet<string> columns =
-            await DynamicTableHelper.GetTableColumnsAsync(
-                connection,
-                DatabaseMapping.LoginUsers.Table);
-
-
         List<MasterColumnViewModel> fields =
-            DynamicTableHelper.BuildActiveFields(
-                FieldRegistry,
-                columns);
+            await _tableService.GetTableFieldsAsync(
+                connection,
+                TableName);
 
 
         UserMasterViewModel model =
@@ -136,8 +77,10 @@ public class UsersController : Controller
                 .ToList();
 
         model.HasActiveKpi =
-            columns.Contains(
-                DatabaseMapping.LoginUsers.IsActive);
+            fields.Any(
+                f => f.Name.Equals(
+                    "IsActive",
+                    StringComparison.OrdinalIgnoreCase));
 
 
         // ========================================
@@ -150,18 +93,24 @@ public class UsersController : Controller
         };
 
 
-        if (columns.Contains(
-                DatabaseMapping.LoginUsers.IsActive))
+        if (model.HasActiveKpi)
         {
+            string active =
+                fields.First(
+                    f => f.Name.Equals(
+                        "IsActive",
+                        StringComparison.OrdinalIgnoreCase))
+                .Name;
+
             kpiSelect.Add(
                 $"SUM(CASE WHEN " +
-                $"{DatabaseMapping.LoginUsers.IsActive}" +
+                $"[{active}]" +
                 $" = 1 THEN 1 ELSE 0 END) " +
                 $"AS ActiveRecords");
 
             kpiSelect.Add(
                 $"SUM(CASE WHEN " +
-                $"{DatabaseMapping.LoginUsers.IsActive}" +
+                $"[{active}]" +
                 $" = 0 THEN 1 ELSE 0 END) " +
                 $"AS NonActiveRecords");
         }
@@ -169,7 +118,7 @@ public class UsersController : Controller
 
         string kpiQuery =
             $"SELECT {string.Join(", ", kpiSelect)} " +
-            $"FROM {DatabaseMapping.LoginUsers.Table}";
+            $"FROM {TableName}";
 
 
         using SqlCommand kpiCommand =
@@ -206,6 +155,12 @@ public class UsersController : Controller
         kpiReader.Close();
 
 
+        string idColumn =
+            fields.FirstOrDefault(
+                    f => f.IsPrimaryKey)
+                ?.Name ?? "Id";
+
+
         // ========================================
         // LOAD USERS LIST (dynamic columns)
         // ========================================
@@ -217,10 +172,28 @@ public class UsersController : Controller
             new List<string>();
 
 
-        foreach (var field in fields.Where(f => f.ShowInTable))
+        foreach (var field in model.Fields)
         {
             selectParts.Add(
                 $"u.{field.Name}");
+
+            if (DynamicTableService.IsText(field.SqlType))
+            {
+                searchParts.Add(
+                    $"u.{field.Name} " +
+                    $"LIKE '%' + @Search + '%'");
+            }
+        }
+
+
+        if (fields.Any(
+                f => f.Name.Equals(
+                    idColumn,
+                    StringComparison.OrdinalIgnoreCase)))
+        {
+            searchParts.Add(
+                $"CAST(u.{idColumn} AS NVARCHAR(10)) " +
+                $"LIKE '%' + @Search + '%'");
         }
 
 
@@ -231,25 +204,7 @@ public class UsersController : Controller
             string.Join(", ", selectParts));
 
         sql.Append(
-            $" FROM {DatabaseMapping.LoginUsers.Table} u");
-
-
-        foreach (var name in UserSearchableFields)
-        {
-            if (columns.Contains(name))
-            {
-                searchParts.Add(
-                    $"u.{name} LIKE '%' + @Search + '%'");
-            }
-        }
-
-
-        if (columns.Contains("Id"))
-        {
-            searchParts.Add(
-                "CAST(u.Id AS NVARCHAR(10)) " +
-                "LIKE '%' + @Search + '%'");
-        }
+            $" FROM {TableName} u");
 
 
         if (searchParts.Count > 0)
@@ -265,10 +220,13 @@ public class UsersController : Controller
         }
 
 
-        if (columns.Contains("Id"))
+        if (fields.Any(
+                f => f.Name.Equals(
+                    idColumn,
+                    StringComparison.OrdinalIgnoreCase)))
         {
             sql.Append(
-                " ORDER BY u.Id ASC");
+                $" ORDER BY u.{idColumn} ASC");
         }
         else
         {
@@ -301,25 +259,14 @@ public class UsersController : Controller
         {
             var row = new MasterRowViewModel();
 
-            foreach (var field in fields.Where(f => f.ShowInTable))
+            foreach (var field in model.Fields)
             {
                 object value = reader[field.Name];
 
-                if (field.Type == "status")
-                {
-                    row.Values[field.Name] =
-                        value != DBNull.Value
-                            && Convert.ToBoolean(value)
-                                ? "Active"
-                                : "Non Active";
-                }
-                else
-                {
-                    row.Values[field.Name] =
-                        value == DBNull.Value
-                            ? ""
-                            : value.ToString() ?? "";
-                }
+                row.Values[field.Name] =
+                    DynamicTableService.FormatCellValue(
+                        field,
+                        value);
             }
 
             model.Users.Add(row);
@@ -340,7 +287,7 @@ public class UsersController : Controller
 
 
     // ============================================
-    // CREATE (dynamic columns)
+    // CREATE (metadata driven)
     // ============================================
 
     [HttpPost]
@@ -361,23 +308,20 @@ public class UsersController : Controller
         await connection.OpenAsync();
 
 
-        HashSet<string> columns =
-            await DynamicTableHelper.GetTableColumnsAsync(
-                connection,
-                DatabaseMapping.LoginUsers.Table);
-
-
         List<MasterColumnViewModel> fields =
-            DynamicTableHelper.BuildActiveFields(
-                    FieldRegistry,
-                    columns)
-                .Where(f => f.Editable)
+            await _tableService.GetTableFieldsAsync(
+                connection,
+                TableName);
+
+
+        var formFields =
+            fields.Where(f => f.Editable)
                 .ToList();
 
 
         string? validationError =
-            DynamicTableHelper.ValidateRequiredFields(
-                fields,
+            _tableService.ValidateRequiredFields(
+                formFields,
                 form);
 
 
@@ -408,36 +352,45 @@ public class UsersController : Controller
 
 
         using SqlCommand command =
-            new SqlCommand();
-            command.CommandTimeout = 0;
+            new SqlCommand
+            {
+                Connection = connection,
+                CommandTimeout = 0
+            };
 
-        command.Connection = connection;
-        command.CommandTimeout = 0;
 
-
-        foreach (var field in fields)
+        foreach (var field in formFields)
         {
+            if (field.AutoWrite != null)
+            {
+                continue;
+            }
+
             insertColumns.Add(field.Name);
 
             placeholders.Add($"@{field.Name}");
 
-            DynamicTableHelper.AddEditableParameter(
+            _tableService.AddParameter(
                 command,
                 field,
                 form[field.Name].ToString());
         }
 
 
-        if (columns.Contains("IsActive"))
+        foreach (var auto in fields.Where(
+                     f => f.AutoWrite != null))
         {
-            insertColumns.Add("IsActive");
+            if (auto.AutoWrite == "true")
+            {
+                insertColumns.Add(auto.Name);
 
-            placeholders.Add("1");
+                placeholders.Add("1");
+            }
         }
 
 
         command.CommandText =
-            $"INSERT INTO {DatabaseMapping.LoginUsers.Table} " +
+            $"INSERT INTO {TableName} " +
             $"({string.Join(", ", insertColumns)}) " +
             $"VALUES ({string.Join(", ", placeholders)})";
 
@@ -488,7 +441,7 @@ public class UsersController : Controller
 
 
     // ============================================
-    // EDIT (dynamic columns, excludes create-only)
+    // EDIT (metadata driven, excludes create-only)
     // ============================================
 
     [HttpPost]
@@ -510,24 +463,28 @@ public class UsersController : Controller
         await connection.OpenAsync();
 
 
-        HashSet<string> columns =
-            await DynamicTableHelper.GetTableColumnsAsync(
-                connection,
-                DatabaseMapping.LoginUsers.Table);
-
-
         List<MasterColumnViewModel> fields =
-            DynamicTableHelper.BuildActiveFields(
-                    FieldRegistry,
-                    columns)
-                .Where(f => f.Editable
-                            && !f.CreateOnly)
+            await _tableService.GetTableFieldsAsync(
+                connection,
+                TableName);
+
+
+        var editFields =
+            fields.Where(
+                    f => f.Editable
+                         && !f.CreateOnly)
                 .ToList();
 
 
+        string idColumn =
+            fields.FirstOrDefault(
+                    f => f.IsPrimaryKey)
+                ?.Name ?? "Id";
+
+
         string? validationError =
-            DynamicTableHelper.ValidateRequiredFields(
-                fields,
+            _tableService.ValidateRequiredFields(
+                editFields,
                 form);
 
 
@@ -553,12 +510,14 @@ public class UsersController : Controller
         var setParts =
             new List<string>();
 
-        using SqlCommand command =
-            new SqlCommand();
-            command.CommandTimeout = 0;
 
-        command.Connection = connection;
-        command.CommandTimeout = 0;
+        using SqlCommand command =
+            new SqlCommand
+            {
+                Connection = connection,
+                CommandTimeout = 0
+            };
+
 
         command.Parameters.Add(
             new SqlParameter(
@@ -569,27 +528,35 @@ public class UsersController : Controller
             });
 
 
-        foreach (var field in fields)
+        foreach (var field in editFields)
         {
-            setParts.Add($"{field.Name} = @{field.Name}");
+            if (field.AutoWrite != null)
+            {
+                continue;
+            }
 
-            DynamicTableHelper.AddEditableParameter(
+            setParts.Add(
+                $"{field.Name} = @{field.Name}");
+
+            _tableService.AddParameter(
                 command,
                 field,
                 form[field.Name].ToString());
         }
 
 
-        if (columns.Contains("IsActive"))
+        foreach (var auto in fields.Where(
+                     f => f.AutoWrite == "true"))
         {
-            setParts.Add("IsActive = 1");
+            setParts.Add(
+                $"{auto.Name} = 1");
         }
 
 
         command.CommandText =
-            $"UPDATE {DatabaseMapping.LoginUsers.Table} " +
+            $"UPDATE {TableName} " +
             $"SET {string.Join(", ", setParts)} " +
-            $"WHERE {DatabaseMapping.LoginUsers.Id} = @Id";
+            $"WHERE {idColumn} = @Id";
 
 
         try
@@ -670,12 +637,22 @@ public class UsersController : Controller
             new SqlConnection(connectionString);
 
 
+        await connection.OpenAsync();
+
+
+        string idColumn =
+            await _tableService
+                .GetPrimaryKeyColumnAsync(
+                    connection,
+                    TableName);
+
+
         string query = $@"
             DELETE FROM
-                {DatabaseMapping.LoginUsers.Table}
+                {TableName}
 
             WHERE
-                {DatabaseMapping.LoginUsers.Id}
+                {idColumn}
                 = @Id";
 
 
@@ -687,9 +664,6 @@ public class UsersController : Controller
         command.Parameters.AddWithValue(
             "@Id",
             id);
-
-
-        await connection.OpenAsync();
 
 
         int rows =

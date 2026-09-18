@@ -543,6 +543,7 @@
                                    id="edit_@field.Name"
                                    name="@field.Name"
                                    @(field.Required
+                                       && field.InputType != "checkbox"
                                        ? "required"
                                        : null)
                                    pattern="@(field.InputType == "tel"
@@ -1573,22 +1574,55 @@ if (
 
                 var key = null;
 
-                for (var fieldName in data) {
+                if (element.tagName === "SELECT") {
+
+                    var numericKey = name + "_key";
 
                     if (
-                        data.hasOwnProperty(fieldName)
-                        && fieldName.toLowerCase()
-                           === name.toLowerCase()
+                        data.hasOwnProperty(numericKey)
+                        && data[numericKey] !== ""
+                        && data[numericKey] !== null
                     ) {
-                        key = fieldName;
-                        break;
+                        key = numericKey;
+                    }
+
+                }
+
+                if (key === null) {
+
+                    for (var fieldName in data) {
+
+                        if (
+                            data.hasOwnProperty(fieldName)
+                            && fieldName.toLowerCase()
+                               === name.toLowerCase()
+                        ) {
+                            key = fieldName;
+                            break;
+                        }
+
                     }
 
                 }
 
 
                 if (key) {
-                    element.value = data[key];
+
+                    if (element.type === "checkbox") {
+
+                        var rawValue = data[key];
+
+                        element.checked =
+                            rawValue === "true"
+                            || rawValue === "1"
+                            || rawValue === "Active";
+
+                    } else {
+
+                        element.value = data[key];
+
+                    }
+
                 }
 
             }

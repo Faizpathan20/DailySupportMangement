@@ -12,10 +12,14 @@ namespace Master.Controllers;
 public class AccountController : Controller
 {
     private readonly IConfiguration _configuration;
+    private readonly DynamicTableService _tableService;
 
-    public AccountController(IConfiguration configuration)
+    public AccountController(
+        IConfiguration configuration,
+        DynamicTableService tableService)
     {
         _configuration = configuration;
+        _tableService = tableService;
     }
 
 
@@ -83,22 +87,72 @@ public class AccountController : Controller
         }
 
 
+        const string LoginUsersTable = "LoginUsers";
+
+
         using SqlConnection connection =
             new SqlConnection(connectionString);
 
 
+        DynamicTableService.SchemaColumns schema =
+            await _tableService.GetSchemaAsync(
+                connection,
+                LoginUsersTable);
+
+
+        string userNameColumn =
+            schema.Column(
+                    LoginUsersTable,
+                    "UserName") ?? "";
+
+        string passwordColumn =
+            schema.Column(
+                    LoginUsersTable,
+                    "Password") ?? "";
+
+        string idColumn =
+            schema.Column(
+                    LoginUsersTable,
+                    "Id") ?? "";
+
+        string? isActiveColumn =
+            schema.Column(
+                    LoginUsersTable,
+                    "IsActive");
+
+
+        // Login cannot work without a username and a
+        // password column on the users table.
+        if (userNameColumn.Length == 0
+            || passwordColumn.Length == 0)
+        {
+            ModelState.AddModelError(
+                "",
+                "User table is missing the UserName or "
+                    + "Password column.");
+
+            return View(model);
+        }
+
+
+        string isActiveSelect =
+            isActiveColumn is not null
+                ? $", {isActiveColumn}"
+                : "";
+
+
         string query = $@"
             SELECT
-                {DatabaseMapping.LoginUsers.Id},
-                {DatabaseMapping.LoginUsers.UserName},
-                {DatabaseMapping.LoginUsers.Password},
-                {DatabaseMapping.LoginUsers.IsActive}
+                {idColumn},
+                {userNameColumn},
+                {passwordColumn}
+                {isActiveSelect}
 
             FROM
-                {DatabaseMapping.LoginUsers.Table}
+                {LoginUsersTable}
 
             WHERE
-                {DatabaseMapping.LoginUsers.UserName}
+                {userNameColumn}
                 = @UserName";
 
 
@@ -134,37 +188,30 @@ public class AccountController : Controller
         }
 
 
-        bool isActive =
-            Convert.ToBoolean(
-                reader[
-                    DatabaseMapping
-                        .LoginUsers
-                        .IsActive]);
-
-
-        if (!isActive)
+        if (isActiveColumn is not null)
         {
-            ModelState.AddModelError(
-                "",
-                "This user is inactive.");
+            bool isActive =
+                Convert.ToBoolean(
+                    reader[isActiveColumn]);
 
-            return View(model);
+            if (!isActive)
+            {
+                ModelState.AddModelError(
+                    "",
+                    "This user is inactive.");
+
+                return View(model);
+            }
         }
 
 
         string databaseUserName =
-            reader[
-                DatabaseMapping
-                    .LoginUsers
-                    .UserName]
+            reader[userNameColumn]
             .ToString() ?? "";
 
 
         string databasePassword =
-            reader[
-                DatabaseMapping
-                    .LoginUsers
-                    .Password]
+            reader[passwordColumn]
             .ToString() ?? "";
 
 
@@ -191,10 +238,7 @@ public class AccountController : Controller
 
             new Claim(
                 ClaimTypes.NameIdentifier,
-                reader[
-                    DatabaseMapping
-                        .LoginUsers
-                        .Id]
+                reader[idColumn]
                 .ToString() ?? "")
         };
 
