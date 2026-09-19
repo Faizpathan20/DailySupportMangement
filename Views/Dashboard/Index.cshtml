@@ -392,124 +392,16 @@
 
         // ==========================================
         // DASHBOARD TABLE SORTING
-        // Shared by Recent Support (Component 10) and
-        // Recent Visits (Component 11). Same arrow pattern
-        // as the project module tables: .sortable headers
-        // + .sort-up / .sort-down. State kept per table id.
+        // Shared by Recent Support (Component 10),
+        // Recent Visits (Component 11) and Clients
+        // Overview (Component 12). Same arrow pattern
+        // as the project module tables and the shared
+        // masterSortTable() engine in site.js.
         // ==========================================
-
-        var dashboardSortState = {};
-
 
         function sortDashboardTable(th) {
 
-            var table = th.closest("table");
-
-            var tableId = table.id;
-
-            var headers = Array.from(
-                th.parentNode.children
-            );
-
-            var colIndex = headers.indexOf(th);
-
-            var type =
-                th.getAttribute("data-sort") || "text";
-
-            var state =
-                dashboardSortState[tableId]
-                || { column: -1, direction: "asc" };
-
-            if (state.column === colIndex) {
-                state.direction =
-                    state.direction === "asc"
-                        ? "desc"
-                        : "asc";
-            } else {
-                state.column = colIndex;
-                state.direction = "asc";
-            }
-
-            dashboardSortState[tableId] = state;
-
-            var tbody =
-                table.querySelector("tbody");
-
-            var rows = Array.from(
-                tbody.querySelectorAll("tr")
-            );
-
-            rows.sort(function (a, b) {
-
-                var aVal = a
-                    .querySelectorAll("td")[colIndex]
-                    .innerText.trim();
-
-                var bVal = b
-                    .querySelectorAll("td")[colIndex]
-                    .innerText.trim();
-
-                if (type === "date") {
-
-                    var aTime = Date.parse(aVal) || 0;
-                    var bTime = Date.parse(bVal) || 0;
-
-                    return state.direction === "asc"
-                        ? aTime - bTime
-                        : bTime - aTime;
-
-                } else if (type === "priority") {
-
-                    var rank = {
-                        "Low": 0,
-                        "Medium": 1,
-                        "High": 2,
-                        "Urgent": 3
-                    };
-
-                    var aRank =
-                        rank[aVal] !== undefined ? rank[aVal] : 99;
-                    var bRank =
-                        rank[bVal] !== undefined ? rank[bVal] : 99;
-
-                    return state.direction === "asc"
-                        ? aRank - bRank
-                        : bRank - aRank;
-
-                } else {
-
-                    return state.direction === "asc"
-                        ? aVal.localeCompare(bVal)
-                        : bVal.localeCompare(aVal);
-
-                }
-
-            });
-
-            for (var i = 0; i < rows.length; i++) {
-                tbody.appendChild(rows[i]);
-            }
-
-            var allThs =
-                table.querySelectorAll("th");
-
-            for (var i = 0; i < allThs.length; i++) {
-
-                allThs[i].classList.remove(
-                    "sort-asc", "sort-desc"
-                );
-
-            }
-
-            if (allThs[colIndex]) {
-
-                allThs[colIndex].classList.add(
-                    state.direction === "asc"
-                        ? "sort-asc"
-                        : "sort-desc"
-                );
-
-            }
+            masterSortTable(th);
 
         }
 

@@ -653,7 +653,223 @@ function masterBindModalSubmit(formId, closeFn, modalId) {
 
         });
 
+});
+
+};
+
+
+// ==========================================
+// MASTER TABLE SORT (shared across modules)
+// Reports-style column sorting for any table:
+// .sortable <th> with data-sort =
+// text | num | date | time | status | priority.
+// Sort column / direction / arrow state is
+// kept per table id, so multiple tables on the
+// same page stay independent. "no-data-row"
+// placeholder rows are never sorted into place.
+// ==========================================
+
+var masterSortState = {};
+
+
+function masterSortTable(th) {
+
+    var table = th.closest("table");
+
+    if (!table) {
+        return;
+    }
+
+    var state =
+        masterSortState[table.id]
+        || { column: -1, direction: "asc" };
+
+    var headers = Array.from(th.parentNode.children);
+
+    var colIndex = headers.indexOf(th);
+
+    var type =
+        th.getAttribute("data-sort") || "text";
+
+    if (state.column === colIndex) {
+        state.direction =
+            state.direction === "asc"
+                ? "desc"
+                : "asc";
+    } else {
+        state.column = colIndex;
+        state.direction = "asc";
+    }
+
+    masterSortState[table.id] = state;
+
+    var tbody = table.querySelector("tbody");
+
+    if (!tbody) {
+        return;
+    }
+
+    var rows = Array.from(
+        tbody.querySelectorAll("tr")
+    ).filter(function (row) {
+        return !row.classList.contains("no-data-row");
     });
+
+    rows.sort(function (a, b) {
+
+        var aVal =
+            a.querySelectorAll("td")[colIndex]
+            ?.innerText.trim() || "";
+
+        var bVal =
+            b.querySelectorAll("td")[colIndex]
+            ?.innerText.trim() || "";
+
+        var aRank, bRank, aTime, bTime;
+
+        if (type === "date") {
+
+            aTime = Date.parse(aVal) || 0;
+            bTime = Date.parse(bVal) || 0;
+
+            return state.direction === "asc"
+                ? aTime - bTime
+                : bTime - aTime;
+
+        } else if (type === "time") {
+
+            aTime = masterTimeToMinutes(aVal);
+            bTime = masterTimeToMinutes(bVal);
+
+            return state.direction === "asc"
+                ? aTime - bTime
+                : bTime - aTime;
+
+        } else if (type === "num") {
+
+            aRank = parseFloat(aVal);
+            bRank = parseFloat(bVal);
+
+            if (isNaN(aRank) && isNaN(bRank)) {
+
+                var cmpNum = aVal.localeCompare(bVal);
+
+                return state.direction === "asc"
+                    ? cmpNum
+                    : -cmpNum;
+
+            }
+
+            aRank = aRank || 0;
+            bRank = bRank || 0;
+
+            return state.direction === "asc"
+                ? aRank - bRank
+                : bRank - aRank;
+
+        } else if (type === "status") {
+
+            var statusRank = {
+                "Open": 0,
+                "In Progress": 1,
+                "Pending": 2,
+                "Planned": 2,
+                "Completed": 3,
+                "Cancelled": 4,
+                "Active": 5,
+                "Inactive": 6
+            };
+
+            aRank = statusRank[aVal] !== undefined
+                ? statusRank[aVal]
+                : 99;
+
+            bRank = statusRank[bVal] !== undefined
+                ? statusRank[bVal]
+                : 99;
+
+            return state.direction === "asc"
+                ? aRank - bRank
+                : bRank - aRank;
+
+        } else if (type === "priority") {
+
+            var priorityRank = {
+                "Low": 0,
+                "Medium": 1,
+                "High": 2,
+                "Urgent": 3
+            };
+
+            aRank = priorityRank[aVal] !== undefined
+                ? priorityRank[aVal]
+                : 99;
+
+            bRank = priorityRank[bVal] !== undefined
+                ? priorityRank[bVal]
+                : 99;
+
+            return state.direction === "asc"
+                ? aRank - bRank
+                : bRank - aRank;
+
+        } else {
+
+            var cmp = aVal.localeCompare(bVal);
+
+            return state.direction === "asc"
+                ? cmp
+                : -cmp;
+
+        }
+
+    });
+
+    for (var i = 0; i < rows.length; i++) {
+        tbody.appendChild(rows[i]);
+    }
+
+    var allThs = table.querySelectorAll("th");
+
+    for (var i = 0; i < allThs.length; i++) {
+
+        allThs[i].classList.remove(
+            "sort-asc", "sort-desc"
+        );
+
+    }
+
+    if (allThs[colIndex]) {
+
+        allThs[colIndex].classList.add(
+            state.direction === "asc"
+                ? "sort-asc"
+                : "sort-desc"
+        );
+
+    }
+
+}
+
+
+function masterTimeToMinutes(value) {
+
+    var match =
+        value.match(
+            /^(\d{1,2}):(\d{2})\s*([AP]M)$/i
+        );
+
+    if (!match) {
+        return 0;
+    }
+
+    var hours = parseInt(match[1], 10) % 12;
+
+    if (/pm/i.test(match[3])) {
+        hours += 12;
+    }
+
+    return hours * 60 + parseInt(match[2], 10);
 
 }
 

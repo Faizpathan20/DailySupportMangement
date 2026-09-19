@@ -610,7 +610,16 @@ ORDER BY c.ORDINAL_POSITION";
             field.Editable = true;
             field.Required = !nullable;
             field.Type = "options";
-            field.SortType = "text";
+            field.SortType =
+                name.Contains(
+                    "Status",
+                    StringComparison.OrdinalIgnoreCase)
+                    ? "status"
+                    : name.Contains(
+                        "Priority",
+                        StringComparison.OrdinalIgnoreCase)
+                        ? "priority"
+                        : "text";
             field.Control = "select";
             field.InputType = "select";
             field.Width = 15;
