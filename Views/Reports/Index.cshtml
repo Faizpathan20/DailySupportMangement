@@ -19,6 +19,19 @@
 
 <!-- ================= FILTER SECTION ================= -->
 
+<!--
+    The filter bar is a real GET form, the same way the Dashboard's
+    filter bar is. That gives us:
+      - Apply is a genuine form submit, so Enter applies the filters
+      - Reset is a native form reset, so the browser restores the
+        server-rendered defaults for EVERY field automatically
+      - no hand-maintained list of field ids that can drift out of
+        sync with the markup
+-->
+<form method="get"
+      id="reportFilterForm"
+      action="@Url.Action("Index", "Reports")">
+
 <div class="report-filters" id="reportFilters">
 
     <div class="filter-row">
@@ -27,7 +40,8 @@
 
             <label>Report Type</label>
 
-            <select id="filterReportType">
+            <select id="filterReportType"
+                    name="reportType">
                 @foreach (var rt in Model.ReportTypes)
                 {
                     <option value="@rt.Key"
@@ -44,6 +58,7 @@
             <label>From Date</label>
 
             <input type="date" id="filterFromDate"
+                   name="fromDate"
                    value="@Model.FromDate?.ToString("yyyy-MM-dd")" />
 
         </div>
@@ -53,6 +68,7 @@
             <label>To Date</label>
 
             <input type="date" id="filterToDate"
+                   name="toDate"
                    value="@Model.ToDate?.ToString("yyyy-MM-dd")" />
 
         </div>
@@ -61,11 +77,16 @@
 
             <label>State</label>
 
-            <select id="filterStateId" data-searchable>
+            <select id="filterStateId"
+                    name="stateId"
+                    data-searchable
+                    data-cascade-group="reportFilters"
+                    data-cascade-parent="filterUserId:parent">
                 <option value="">All States</option>
                 @foreach (var s in Model.States)
                 {
                     <option value="@s.Id"
+                            data-parent="@s.ParentId"
                             selected="@(s.Id == Model.StateId)">
                         @s.Name
                     </option>
@@ -82,7 +103,10 @@
 
             <label>User</label>
 
-            <select id="filterUserId" data-searchable>
+            <select id="filterUserId"
+                    name="userId"
+                    data-searchable
+                    data-cascade-group="reportFilters">
                 <option value="">All Users</option>
                 @foreach (var u in Model.Users)
                 {
@@ -99,11 +123,17 @@
 
             <label>Client</label>
 
-            <select id="filterClientId" data-searchable>
+            <select id="filterClientId"
+                    name="clientId"
+                    data-searchable
+                    data-cascade-group="reportFilters"
+                    data-cascade-parent="filterUserId:parent;filterStateId:group">
                 <option value="">All Clients</option>
                 @foreach (var c in Model.Clients)
                 {
                     <option value="@c.Id"
+                            data-parent="@c.ParentId"
+                            data-group="@c.GroupId"
                             selected="@(c.Id == Model.ClientId)">
                         @c.Name
                     </option>
@@ -116,7 +146,8 @@
 
             <label>Status</label>
 
-            <select id="filterStatus">
+            <select id="filterStatus"
+                    name="status">
                 @foreach (var st in Model.StatusOptions)
                 {
                     <option value="@st"
@@ -132,7 +163,8 @@
 
             <label>Priority</label>
 
-            <select id="filterPriority">
+            <select id="filterPriority"
+                    name="priority">
                 @foreach (var p in Model.PriorityOptions)
                 {
                     <option value="@p"
@@ -148,15 +180,13 @@
 
     <div class="filter-actions">
 
-        <button type="button"
-                class="primary-btn"
-                onclick="reportApplyFilters()">
+        <button type="submit"
+                class="primary-btn">
             Apply Filters
         </button>
 
-        <button type="button"
-                class="cancel-btn"
-                onclick="reportResetFilters()">
+        <button type="reset"
+                class="cancel-btn">
             Reset
         </button>
 
@@ -171,6 +201,8 @@
     </div>
 
 </div>
+
+</form>
 
 
 <!-- ================= RESULTS ================= -->
@@ -345,43 +377,200 @@
 
 
     // ==========================================
-    // RESET FILTERS
+    // FILTER BAR: SUBMIT + RESET
     // ==========================================
+    //
+    // The filter bar is a real <form>, so Apply is a
+    // genuine submit and Enter applies the filters.
+    //
+    // Reset cannot rely on the browser's native form
+    // reset: the cascade rewrites the State / Client
+    // option lists, and a rewritten option list no
+    // longer holds the server's "selected" option, so
+    // form.reset() silently drops those three back to
+    // "All ..." instead of putting them back.
+    //
+    // So we snapshot the values the server rendered on
+    // load and restore from that. Same result as the
+    // Dashboard, which re-renders its filter bar from
+    // the server on reset, but without a round trip and
+    // without a hardcoded list of field ids.
+    var reportFilterDefaults = null;
 
-    function reportResetFilters() {
 
-        document.getElementById(
-            "filterReportType").value = "support";
+    function reportCaptureFilterDefaults() {
 
-        document.getElementById(
-            "filterFromDate").value = "";
+        var form =
+            document.getElementById(
+                "reportFilterForm");
 
-        document.getElementById(
-            "filterToDate").value = "";
-
-        document.getElementById(
-            "filterStateId").value = "";
-
-        document.getElementById(
-            "filterUserId").value = "";
-
-        document.getElementById(
-            "filterClientId").value = "";
-
-        document.getElementById(
-            "filterStatus").value = "All";
-
-        document.getElementById(
-            "filterPriority").value = "All";
-
-        if (
-            typeof masterSyncSearchableSelects
-                === "function"
-        ) {
-            masterSyncSearchableSelects(document);
+        if (!form) {
+            return;
         }
 
-        reportApplyFilters();
+        reportFilterDefaults = {};
+
+        var controls =
+            form.querySelectorAll(
+                "select[name], input[name]");
+
+        for (
+            var i = 0;
+            i < controls.length;
+            i++
+        ) {
+            reportFilterDefaults[
+                controls[i].name
+            ] = controls[i].value;
+        }
+
+    }
+
+
+    function reportRestoreFilterDefaults() {
+
+        if (!reportFilterDefaults) {
+            return;
+        }
+
+        var form =
+            document.getElementById(
+                "reportFilterForm");
+
+        if (!form) {
+            return;
+        }
+
+        var controls =
+            form.querySelectorAll(
+                "select[name], input[name]");
+
+        for (
+            var i = 0;
+            i < controls.length;
+            i++
+        ) {
+            var name = controls[i].name;
+
+            if (
+                !Object.prototype
+                    .hasOwnProperty.call(
+                        reportFilterDefaults,
+                        name)
+            ) {
+                continue;
+            }
+
+            controls[i].value =
+                reportFilterDefaults[name];
+
+        }
+
+    }
+
+
+    // Puts every cascade-managed select's option list back to
+    // the full set. Clearing the selection first means the
+    // cascade sees no parent constraint, so it restores every
+    // option it snapshotted at load.
+    function reportExpandFilterLists() {
+
+        var selects =
+            document.querySelectorAll(
+                "#reportFilterForm "
+                + "select[data-cascade-group]");
+
+        for (
+            var i = 0;
+            i < selects.length;
+            i++
+        ) {
+            selects[i].value = "";
+        }
+
+        if (
+            typeof masterInitCascadingFilters
+                === "function"
+        ) {
+            masterInitCascadingFilters(
+                document);
+        }
+
+    }
+
+
+    function reportBindFilterForm() {
+
+        var form =
+            document.getElementById(
+                "reportFilterForm");
+
+        if (!form) {
+            return;
+        }
+
+        reportCaptureFilterDefaults();
+
+        // Apply Filters is a real submit; we upgrade it to
+        // the same in-place AJAX refresh the page already
+        // uses for filters, so the results update without a
+        // full page load.
+        form.addEventListener(
+            "submit",
+            function (event) {
+                event.preventDefault();
+                reportApplyFilters();
+            });
+
+        form.addEventListener(
+            "reset",
+            function () {
+                // Let the browser apply its own reset
+                // first, then rebuild the filter bar the way
+                // the Dashboard does when it re-renders from
+                // the server:
+                //   1. put the option lists back in full
+                //   2. put the server-rendered values back
+                //   3. let the cascade prune to those values
+                //   4. repaint the combobox triggers
+                // Steps 1 and 2 have to be in that order,
+                // otherwise a restored value can name an
+                // option that the cascade had pruned away.
+                window.setTimeout(
+                    function () {
+                        reportExpandFilterLists();
+
+                        reportRestoreFilterDefaults();
+
+                        if (
+                            typeof masterInitCascadingFilters
+                                === "function"
+                        ) {
+                            masterInitCascadingFilters(
+                                document);
+                        }
+
+                        if (
+                            typeof masterSyncSearchableSelects
+                                === "function"
+                        ) {
+                            masterSyncSearchableSelects(
+                                document);
+                        }
+
+                        var dateError =
+                            document.getElementById(
+                                "reportDateError");
+
+                        if (dateError) {
+                            dateError.style.display =
+                                "none";
+                        }
+
+                        reportApplyFilters();
+
+                    }, 0);
+            });
 
     }
 
@@ -953,6 +1142,8 @@
     document.addEventListener(
         "DOMContentLoaded",
         function () {
+
+            reportBindFilterForm();
 
             reportInitTable();
 

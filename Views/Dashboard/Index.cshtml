@@ -221,6 +221,21 @@
                             );
                         }
 
+                        // The freshly rendered filter bar
+                        // ships the complete State / User /
+                        // Client lists again, so the
+                        // cascade has to narrow them back
+                        // down to what the current
+                        // selection actually allows.
+                        if (
+                            typeof masterInitCascadingFilters
+                                === "function"
+                        ) {
+                            masterInitCascadingFilters(
+                                dashContent
+                            );
+                        }
+
                     })
                     .catch(function () {
 

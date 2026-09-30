@@ -98,7 +98,9 @@
                 </span>
 
                 <select name="stateId"
-                        data-searchable>
+                        data-searchable
+                        data-cascade-group="dashFilters"
+                        data-cascade-parent="userId:parent">
 
                     <option value="">
                         All States
@@ -107,6 +109,7 @@
                     @foreach (var state in Model.States)
                     {
                         <option value="@state.Id"
+                                data-parent="@state.ParentId"
                                 selected="@(Model.StateId == state.Id)">
 
                             @state.Name
@@ -126,7 +129,8 @@
                 </span>
 
                 <select name="userId"
-                        data-searchable>
+                        data-searchable
+                        data-cascade-group="dashFilters">
 
                     <option value="">
                         All Users
@@ -154,7 +158,9 @@
                 </span>
 
                 <select name="clientId"
-                        data-searchable>
+                        data-searchable
+                        data-cascade-group="dashFilters"
+                        data-cascade-parent="userId:parent;stateId:group">
 
                     <option value="">
                         All Clients
@@ -163,6 +169,8 @@
                     @foreach (var client in Model.Clients)
                     {
                         <option value="@client.Id"
+                                data-parent="@client.ParentId"
+                                data-group="@client.GroupId"
                                 selected="@(Model.ClientId == client.Id)">
 
                             @client.Name

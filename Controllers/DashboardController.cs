@@ -86,18 +86,25 @@ public class DashboardController : Controller
                     schema);
 
             // Drop selected ids that are not in the
-            // lookup lists (invalid / stale values).
-            viewModel.StateId = DashboardViewModel.NormalizeId(
-                viewModel.StateId,
-                viewModel.States);
+            // lookup lists (invalid / stale values) and
+            // keep the three filters consistent with each
+            // other, so a hand typed URL can never select
+            // a combination the cascading dropdowns would
+            // not allow.
+            CascadeSelection cascade =
+                FilterCascade.Normalize(
+                    viewModel.StateId,
+                    viewModel.UserId,
+                    viewModel.ClientId,
+                    viewModel.States,
+                    viewModel.Users,
+                    viewModel.Clients);
 
-            viewModel.UserId = DashboardViewModel.NormalizeId(
-                viewModel.UserId,
-                viewModel.Users);
+            viewModel.StateId = cascade.StateId;
 
-            viewModel.ClientId = DashboardViewModel.NormalizeId(
-                viewModel.ClientId,
-                viewModel.Clients);
+            viewModel.UserId = cascade.UserId;
+
+            viewModel.ClientId = cascade.ClientId;
 
 
             // The analytics + tab queries are NOT dependent
@@ -2975,6 +2982,12 @@ public class DashboardController : Controller
         string? sIsActive =
             Col(schema, "States", "IsActive");
 
+        // Every state belongs to one user, which is
+        // what makes the User filter the parent of
+        // the State filter.
+        string? sUserId =
+            Col(schema, "States", "UserId");
+
         if (sId == null || sName == null)
         {
             return new List<LookupOptionViewModel>();
@@ -2985,10 +2998,16 @@ public class DashboardController : Controller
                 ? $"WHERE {sIsActive} = 1"
                 : "";
 
+        string userIdSelect =
+            sUserId != null
+                ? sUserId
+                : "NULL";
+
         string query = $@"
             SELECT
                 {sId},
-                {sName}
+                {sName},
+                {userIdSelect}
 
             FROM
                 [States]
@@ -3013,7 +3032,10 @@ public class DashboardController : Controller
             items.Add(new LookupOptionViewModel
             {
                 Id = reader.GetInt32(0),
-                Name = reader.GetString(1)
+                Name = reader.GetString(1),
+                ParentId = reader.IsDBNull(2)
+                    ? null
+                    : reader.GetInt32(2)
             });
         }
 
@@ -3097,6 +3119,14 @@ public class DashboardController : Controller
         string? cIsActive =
             Col(schema, "ClientMaster", "IsActive");
 
+        // A client points at both a user and a state,
+        // so it is the leaf of the filter cascade.
+        string? cUserId =
+            Col(schema, "ClientMaster", "UserId");
+
+        string? cStateId =
+            Col(schema, "ClientMaster", "StateId");
+
         if (cId == null || cName == null)
         {
             return new List<LookupOptionViewModel>();
@@ -3107,10 +3137,22 @@ public class DashboardController : Controller
                 ? $"WHERE {cIsActive} = 1"
                 : "";
 
+        string userIdSelect =
+            cUserId != null
+                ? cUserId
+                : "NULL";
+
+        string stateIdSelect =
+            cStateId != null
+                ? cStateId
+                : "NULL";
+
         string query = $@"
             SELECT
                 {cId},
-                {cName}
+                {cName},
+                {userIdSelect},
+                {stateIdSelect}
 
             FROM
                 [ClientMaster]
@@ -3135,7 +3177,13 @@ public class DashboardController : Controller
             items.Add(new LookupOptionViewModel
             {
                 Id = reader.GetInt32(0),
-                Name = reader.GetString(1)
+                Name = reader.GetString(1),
+                ParentId = reader.IsDBNull(2)
+                    ? null
+                    : reader.GetInt32(2),
+                GroupId = reader.IsDBNull(3)
+                    ? null
+                    : reader.GetInt32(3)
             });
         }
 

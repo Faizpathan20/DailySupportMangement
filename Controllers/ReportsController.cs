@@ -165,14 +165,22 @@ public partial class ReportsController : Controller
         model.Users = await LoadUsersAsync(connection);
         model.Clients = await LoadClientsAsync(connection);
 
-        // Drop stale ids, like the Dashboard does.
-        model.StateId =
-            DashboardViewModel.NormalizeId(model.StateId, model.States);
-        model.UserId =
-            DashboardViewModel.NormalizeId(model.UserId, model.Users);
-        model.ClientId =
-            DashboardViewModel.NormalizeId(
-                model.ClientId, model.Clients);
+        // Drop stale ids and keep the three filters
+        // consistent with each other, matching the
+        // Dashboard, so the exported PDF always shows
+        // the same rows the on-screen report shows.
+        CascadeSelection cascade =
+            FilterCascade.Normalize(
+                model.StateId,
+                model.UserId,
+                model.ClientId,
+                model.States,
+                model.Users,
+                model.Clients);
+
+        model.StateId = cascade.StateId;
+        model.UserId = cascade.UserId;
+        model.ClientId = cascade.ClientId;
 
         FillFilterSummary(model);
 
@@ -560,10 +568,19 @@ public partial class ReportsController : Controller
                 ? "WHERE [IsActive] = 1"
                 : "";
 
+        // Every state belongs to one user, which is
+        // what makes the User filter the parent of
+        // the State filter.
+        string userIdSelect =
+            schema.Has("States", "UserId")
+                ? "[UserId]"
+                : "NULL";
+
         string query = $@"
             SELECT
                 [Id],
-                [StateName]
+                [StateName],
+                {userIdSelect}
             FROM [States]
             {isActive}
             ORDER BY [StateName]";
@@ -622,10 +639,24 @@ public partial class ReportsController : Controller
                 ? "WHERE [IsActive] = 1"
                 : "";
 
+        // A client points at both a user and a state,
+        // so it is the leaf of the filter cascade.
+        string userIdSelect =
+            schema.Has("ClientMaster", "UserId")
+                ? "[UserId]"
+                : "NULL";
+
+        string stateIdSelect =
+            schema.Has("ClientMaster", "StateId")
+                ? "[StateId]"
+                : "NULL";
+
         string query = $@"
             SELECT
                 [Id],
-                [ClientName]
+                [ClientName],
+                {userIdSelect},
+                {stateIdSelect}
             FROM [ClientMaster]
             {isActive}
             ORDER BY [ClientName]";
@@ -648,11 +679,28 @@ public partial class ReportsController : Controller
 
         while (await reader.ReadAsync())
         {
-            items.Add(new LookupOptionViewModel
+            var option = new LookupOptionViewModel
             {
                 Id = reader.GetInt32(0),
                 Name = reader.GetString(1)
-            });
+            };
+
+            // Optional cascade keys: States carries its
+            // owning user, ClientMaster carries both its
+            // user and its state.
+            if (reader.FieldCount > 2
+                && !reader.IsDBNull(2))
+            {
+                option.ParentId = reader.GetInt32(2);
+            }
+
+            if (reader.FieldCount > 3
+                && !reader.IsDBNull(3))
+            {
+                option.GroupId = reader.GetInt32(3);
+            }
+
+            items.Add(option);
         }
 
         return items;
