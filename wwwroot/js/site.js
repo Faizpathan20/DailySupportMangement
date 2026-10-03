@@ -145,10 +145,30 @@
 
     var navInProgress = false;
 
-    function injectScripts(doc) {
+    // Injects scripts from the fetched page into the
+    // current document, then calls onAllLoaded once every
+    // external script has fired its load event.
+    //
+    // IMPORTANT: old.src is the IDL attribute, which the
+    // DOMParser resolves against the parsed document's base
+    // URL (about:blank). That turns /js/import.js into
+    // about:///js/import.js — an invalid URL that silently
+    // fails to load. getAttribute("src") returns the raw
+    // content-attribute value (/js/import.js), which the
+    // browser resolves against window.location correctly.
+    function injectScripts(doc, onAllLoaded) {
 
         var scripts =
             doc.querySelectorAll("script");
+
+        var pending = 0;
+
+        function done() {
+            pending--;
+            if (pending <= 0 && onAllLoaded) {
+                onAllLoaded();
+            }
+        }
 
         for (var i = 0; i < scripts.length; i++) {
 
@@ -157,11 +177,19 @@
             var fresh =
                 document.createElement("script");
 
-            if (old.src) {
+            // Use getAttribute to get the raw src path so the
+            // browser resolves it against window.location, not
+            // the DOMParser document's about:blank base URL.
+            var rawSrc = old.getAttribute("src");
 
-                fresh.src = old.src;
-                fresh.defer = old.defer;
+            if (rawSrc) {
+
+                pending++;
+                fresh.src = rawSrc;
+                fresh.defer = false;
                 fresh.async = false;
+                fresh.addEventListener("load", done);
+                fresh.addEventListener("error", done);
 
             } else if (old.textContent) {
 
@@ -176,6 +204,12 @@
 
             document.body.appendChild(fresh);
 
+        }
+
+        // If there were no external scripts at all, fire
+        // the callback immediately.
+        if (pending === 0 && onAllLoaded) {
+            onAllLoaded();
         }
 
     }
@@ -197,17 +231,21 @@
             history.pushState({}, "", url);
         }
 
-        injectScripts(doc);
+        // Inject scripts and dispatch DOMContentLoaded only
+        // after every external script has loaded. Without
+        // this, pages whose init code runs on DOMContentLoaded
+        // would fire before their own scripts had executed.
+        injectScripts(doc, function () {
 
-        // Let the new page's script blocks that wait
-        // for the load event run against the new DOM.
-        document.dispatchEvent(
-            new Event("DOMContentLoaded")
-        );
+            document.dispatchEvent(
+                new Event("DOMContentLoaded")
+            );
 
-        window.scrollTo(0, 0);
-        hideAppLoader();
-        navInProgress = false;
+            window.scrollTo(0, 0);
+            hideAppLoader();
+            navInProgress = false;
+
+        });
 
     }
 

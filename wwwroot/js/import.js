@@ -692,18 +692,65 @@ function readCsvText(file, done, fail) {
 }
 
 
-function loadFile(file) {
+// The reader is a deferred script, so it is still arriving
+// when a fast user reaches the file picker. Waiting for it is
+// the right move: telling them to refresh only worked because
+// the second visit found it cached. It is already downloading
+// in parallel, so the wait is normally a fraction of a second.
 
-    if (!file) {
+function readerReady() {
+
+    return typeof XLSX !== "undefined"
+        && XLSX
+        && typeof XLSX.read === "function";
+
+}
+
+// Two minutes is far longer than a 932 KB file can need over
+// any link that has not already failed, so reaching this means
+// the file itself is missing rather than slow.
+var READER_TIMEOUT = 120000;
+
+function whenReaderReady(done) {
+
+    if (readerReady()) {
+        done();
         return;
     }
 
-    if (typeof XLSX === "undefined" || !XLSX || !XLSX.read) {
+    showProgress("Preparing the Excel reader…", null);
 
-        showToast("The Excel reader (xlsx.full.min.js) "
-            + "did not load, so the file cannot be read. "
-            + "Please refresh the page.", true);
+    var started = Date.now();
 
+    var wait = setInterval(function () {
+
+        if (readerReady()) {
+            clearInterval(wait);
+            hideProgress();
+            done();
+            return;
+        }
+
+        if (Date.now() - started > READER_TIMEOUT) {
+
+            clearInterval(wait);
+            hideProgress();
+
+            showToast("The Excel reader "
+                + "(xlsx.full.min.js) did not load, so the "
+                + "file cannot be read. Please check your "
+                + "connection and refresh the page.", true);
+
+        }
+
+    }, 120);
+
+}
+
+
+function loadFile(file) {
+
+    if (!file) {
         return;
     }
 
@@ -732,11 +779,20 @@ function loadFile(file) {
         showToast(message, true);
     };
 
+    var start = function () {
+
+        readWorkbook(file, wanted, onDone, onFail);
+
+    };
+
+    // csv and txt never touch the reader, so they are not made
+    // to wait for it. Only the workbook formats need XLSX.
     if (/\.csv$/.test(name) || /\.txt$/.test(name)) {
         readCsvText(file, onDone, onFail);
-    } else {
-        readWorkbook(file, wanted, onDone, onFail);
+        return;
     }
+
+    whenReaderReady(start);
 
 }
 
@@ -875,6 +931,17 @@ function applyMatrix(fileName, sheets, sheetName, matrix) {
 
     $("dzIdle").hidden = true;
     $("dzLoaded").hidden = false;
+
+    // Opening the picker left focus on the file input, and
+    // that input now sits inside the panel just hidden. Focus
+    // cannot stay on a hidden element, and leaving it there
+    // means the next Tab starts from the top of the document.
+    // It is dropped deliberately so the move is predictable.
+    var picker = $("importFile");
+
+    if (picker && picker === document.activeElement) {
+        picker.blur();
+    }
 
     $("tableName").value =
         cleanName(/\.(csv|txt)$/i.test(fileName)
@@ -2112,8 +2179,11 @@ function refreshSaveBar() {
     var ready = $("stickyInfo");
 
     if (ready) {
-        ready.hidden = state.readOnly;
 
+        // Whether the bar is wanted at all is decided by
+        // syncStickyBar, which knows whether the real save
+        // button is currently on screen. This block only
+        // fills in the numbers.
         if (!state.readOnly) {
             $("stickyRows").innerText =
                 picked.toLocaleString()
@@ -2148,6 +2218,109 @@ function refreshSaveBar() {
     }
 
     syncSteps();
+    syncStickyBar();
+
+}
+
+
+// ==========================================
+// STICKY SAVE BAR
+// ==========================================
+
+// The page carries two save buttons: the real one on the
+// save card, and a copy pinned to the bottom of the window
+// for when the grid is being read and the card has
+// scrolled away. Both being on screen at once made one
+// action look like it was offered twice, so the copy is
+// only revealed once the real button is out of sight.
+//
+// It is still the same action, still wired to the same
+// handler, and the disabled state is kept in step by
+// refreshSaveBar, so nothing about the save itself changed.
+
+// Set once, on first use. Recreating the observer on every
+// refresh would leave the old ones attached to a detached
+// node.
+var saveCardWatcher = null;
+
+function syncStickyBar() {
+
+    var sticky = $("stickyInfo");
+    var card = $("saveSection");
+
+    if (!sticky || !card) {
+        return;
+    }
+
+    if (state.readOnly) {
+
+        // Nothing to save, so the bar is not wanted at all.
+        sticky.hidden = true;
+
+        if (saveCardWatcher) {
+            saveCardWatcher.disconnect();
+            saveCardWatcher = null;
+        }
+
+        return;
+    }
+
+    // A card that is on screen means the real button can be
+    // pressed, so the pinned copy stays out of the way. The
+    // observer only ever reports a change in this direction.
+    function reveal() {
+        sticky.hidden = false;
+    }
+
+    function conceal() {
+        sticky.hidden = true;
+    }
+
+    if (typeof IntersectionObserver === "undefined") {
+
+        // No observer support. Showing the copy is the safe
+        // direction, because a hidden save would look like a
+        // page that cannot save.
+        reveal();
+        return;
+    }
+
+    if (!saveCardWatcher) {
+
+        saveCardWatcher = new IntersectionObserver(
+            function (entries) {
+                if (entries[0].isIntersecting) {
+                    conceal();
+                } else {
+                    reveal();
+                }
+            },
+            // rootMargin of 0 means "any part off screen". The
+            // small positive bottom margin lets the copy come up
+            // just as the real button leaves, rather than after a
+            // visible gap where neither is on screen.
+            { threshold: 0, rootMargin: "-64px 0px 0px 0px" }
+        );
+
+        saveCardWatcher.observe(card);
+    }
+
+    // The position is read here rather than left to the first
+    // callback. The observer reports asynchronously, so waiting
+    // for it shows the copy alongside the real button for a
+    // frame, and leaves it showing for good on any browser that
+    // never reports at all. Reading the box makes this call
+    // correct on its own, whichever way it is reached.
+    var box = card.getBoundingClientRect();
+
+    var onScreen = box.bottom > 0
+        && box.top < (window.innerHeight || 0);
+
+    if (onScreen) {
+        conceal();
+    } else {
+        reveal();
+    }
 
 }
 
@@ -2206,6 +2379,14 @@ function clearAll() {
     var sticky = $("stickyInfo");
     if (sticky) {
         sticky.hidden = true;
+    }
+
+    // The watcher is bound to the save card, which is about
+    // to go away with the file. Leaving it attached would
+    // keep firing against a hidden section on the next load.
+    if (saveCardWatcher) {
+        saveCardWatcher.disconnect();
+        saveCardWatcher = null;
     }
 
     var bar = $("selectionBar");
@@ -2691,6 +2872,19 @@ function refreshHistory() {
                         + ' aria-hidden="true">'
                         + '<use href="#i-edit"></use></svg>'
                         + "</button>"
+                        + '<button type="button"'
+                        + ' class="action-btn delete-btn"'
+                        + ' data-table="'
+                        + escapeHtml(h.tableName)
+                        + '" title="Delete '
+                        + escapeHtml(h.tableName)
+                        + '" aria-label="Delete '
+                        + escapeHtml(h.tableName)
+                        + '">'
+                        + '<svg class="ip-ico" viewBox="0 0 24 24"'
+                        + ' aria-hidden="true">'
+                        + '<use href="#i-trash"></use></svg>'
+                        + "</button>"
                         + "</div></td>"
                     + "</tr>";
 
@@ -2705,12 +2899,230 @@ function refreshHistory() {
 
 
 // ==========================================
+// DELETE A SAVED TABLE
+// ==========================================
+
+// The rows of an import live in the table it was written
+// to and nowhere else, so deleting the file means dropping
+// that table. There is no undo from here, so the question
+// names the table and says what goes with it, rather than
+// leaving the user to guess from a one-word prompt.
+function deleteSavedTable(tableName) {
+
+    if (!confirm(
+        "Delete \"" + tableName + "\"?\n\n"
+        + "The table and every row in it are "
+        + "dropped from the database, along with "
+        + "its entry in the list below.\n\n"
+        + "This cannot be undone.")) {
+        return;
+    }
+
+    busyOverlay("saveLoading", true);
+
+    fetch("/Import/DeleteSaved", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "RequestVerificationToken":
+                window.IMPORT_TOKEN,
+            "X-Requested-With": "XMLHttpRequest"
+        },
+        body: JSON.stringify({ table: tableName })
+    })
+        .then(function (response) {
+            return response.json();
+        })
+        .then(function (data) {
+
+            busyOverlay("saveLoading", false);
+
+            if (!data || !data.success) {
+                showToast(
+                    (data && data.message)
+                        || "The table could not be "
+                            + "deleted.",
+                    true);
+                return;
+            }
+
+            // A grid still sitting on the table that has
+            // just gone would be showing rows that do not
+            // exist, so it is closed first.
+            if (state.loadedFrom === tableName) {
+                clearAll();
+            }
+
+            showToast(data.message);
+
+            // The list is the only thing that can be out
+            // of date now, so it is the only thing redrawn.
+            refreshHistory();
+
+        })
+        .catch(function () {
+
+            busyOverlay("saveLoading", false);
+
+            showToast("The table could not be "
+                + "deleted. Please try again.", true);
+
+        });
+
+}
+
+
+// ==========================================
 // INIT
 // ==========================================
 
-document.addEventListener(
-    "DOMContentLoaded",
-    function () {
+// This used to be wrapped in a DOMContentLoaded listener,
+// which turned out to be the reason a first upload did
+// nothing at all.
+//
+// xlsx.full.min.js is a 932 KB deferred script, and
+// deferred scripts have to finish downloading before
+// DOMContentLoaded fires. Until that finished, every
+// listener below was missing, so the page was completely
+// inert. The dropzone is a <label for="importFile">, so it
+// still opened the file picker with no JavaScript involved
+// - the user could pick a file and the change event landed
+// on a page with nothing listening to it. A silent no-op,
+// which read as a broken upload. A refresh fixed it only
+// because the reader was cached by then and DOMContentLoaded
+// arrived quickly.
+//
+// import.js is a classic script at the end of <body>, so
+// everything it needs is already parsed by the time it
+// runs. Wiring up straight away is both correct and
+// immediate; the reader is no longer on the critical path
+// for the page becoming usable.
+
+// Everything bound to the document rather than to one
+// element. The action column of the saved list is drawn
+// twice - once by the server on the first paint and again
+// by refreshHistory() - so its buttons are matched by class
+// from whatever was actually clicked, which is why this
+// cannot be a per-button binding.
+//
+// Called first in initImportPage, before the bindings that
+// look elements up by id: one of those throwing used to
+// take this delegation down with it, which left View and
+// Update looking like dead buttons.
+function wireDocumentEvents() {
+
+    document.addEventListener("click",
+        function (event) {
+
+            var origin = event.target;
+
+            if (!origin
+                || !origin.closest) {
+                return;
+            }
+
+            var button = origin.closest(".view-btn");
+
+            if (button) {
+                openTable(button.dataset.table, false);
+                return;
+            }
+
+            var update = origin.closest(".update-btn");
+
+            if (update) {
+
+                // Confirming first, because Update does
+                // not start from a fresh copy. The rows
+                // that come back are the rows that will
+                // be written over, and anything ticked
+                // is what changes.
+                if (confirm(
+                    "Open \"" + update.dataset.table
+                        + "\" for updating?\n\n"
+                        + "The rows are loaded into the "
+                        + "grid so you can change them. "
+                        + "Nothing is written to the "
+                        + "table until you press Save.")) {
+
+                    openTable(
+                        update.dataset.table, true);
+                }
+
+                return;
+            }
+
+            var remove = origin.closest(".delete-btn");
+
+            if (remove) {
+
+                // The question inside names the table and
+                // what goes with it, because the prompt is
+                // the last thing standing between a click
+                // and a dropped table.
+                deleteSavedTable(
+                    remove.dataset.table);
+
+                return;
+            }
+
+            // Clicking the dimmed area around the
+            // dialog closes it, the same as the
+            // button does.
+            if (origin.id === "errorModal") {
+                closeErrorModal();
+            }
+
+        });
+
+    document.addEventListener("keydown",
+        function (event) {
+
+            if ((event.ctrlKey || event.metaKey)
+                && event.key.toLowerCase() === "s") {
+
+                event.preventDefault();
+
+                if (!$("saveSection").hidden
+                    && !$("btnSave").disabled) {
+                    saveToDatabase();
+                }
+
+                return;
+            }
+
+            if (event.key !== "Escape") {
+                return;
+            }
+
+            // Escape backs out of one thing at a time:
+            // an open cell is already handled by its own
+            // handler, so the next thing is the failure
+            // list, then a running load, and only then
+            // the file itself.
+            if (errorModalOpen()) {
+                event.preventDefault();
+                closeErrorModal();
+                return;
+            }
+
+            if (loading.active) {
+                event.preventDefault();
+                cancelLoad();
+                return;
+            }
+
+            if (state.headers.length > 0) {
+                event.preventDefault();
+                $("btnClear").click();
+            }
+
+        });
+
+}
+
+
+function initImportPage() {
 
         var file = $("importFile");
         var zone = $("dropzone");
@@ -2763,7 +3175,27 @@ document.addEventListener(
 
         });
 
-$("btnRemove").addEventListener("click", clearAll);
+        // The document-level handlers are registered before
+        // anything else on the page. Every one of the bindings
+        // below reaches straight into the markup for an element
+        // it expects to be there, so a single missing id used to
+        // throw here and silently take the rest of the file
+        // with it - the click delegation for View, Update and
+        // Delete among them. Going first means a later slip can
+        // only cost the control it belongs to, never the page.
+        wireDocumentEvents();
+
+        // The only optional control in here: the sticky copy of
+        // the save button. syncStickyBar treats it as optional
+        // too, because a page without it still saves.
+        var stickySave = $("stickySave");
+
+        if (stickySave) {
+            stickySave.addEventListener(
+                "click", saveToDatabase);
+        }
+
+        $("btnRemove").addEventListener("click", clearAll);
 
         $("btnClear").addEventListener("click", function () {
 
@@ -2805,9 +3237,6 @@ $("btnRemove").addEventListener("click", clearAll);
             "click", function () {
                 setAllRows(false);
             });
-
-        $("stickySave").addEventListener(
-            "click", saveToDatabase);
 
         // The mapping panel folds away so a wide sheet
         // still has room to breathe.
@@ -2912,98 +3341,52 @@ $("btnRemove").addEventListener("click", clearAll);
         $("btnErrorCsv").addEventListener(
             "click", downloadFailures);
 
-        document.addEventListener("click",
-            function (event) {
+        // The document-level handlers moved out to
+        // wireDocumentEvents() so they are in place before
+        // the bindings that reach into the markup.
 
-                var origin = event.target;
+        // First paint.
+        //
+        // The markup ships in its empty state on purpose, so
+        // the grid, the footer counts, the pagination, the
+        // stats and the table hint all arrive blank. Left
+        // alone, the page sat half-built until the user
+        // happened to click something that happened to call a
+        // render. Everything below is safe on an empty state
+        // and only fills in what the server already knows.
+        syncSteps();
+        renderStats();
+        refreshSaveBar();
+        renderBody();
 
-                if (!origin
-                    || !origin.closest) {
-                    return;
-                }
+        // The saved list is rendered server side, so this is
+        // not needed to see anything. It is here so the page
+        // is live from the first paint and the list does not
+        // depend on somebody saving a file to look current.
+        refreshHistory();
 
-                var button = origin.closest(".view-btn");
+}
 
-                if (button) {
-                    openTable(button.dataset.table, false);
-                    return;
-                }
-
-                var update = origin.closest(".update-btn");
-
-                if (update) {
-
-                    // Confirming first, because Update does
-                    // not start from a fresh copy. The rows
-                    // that come back are the rows that will
-                    // be written over, and anything ticked
-                    // is what changes.
-                    if (confirm(
-                        "Open \"" + update.dataset.table
-                            + "\" for updating?\n\n"
-                            + "The rows are loaded into the "
-                            + "grid so you can change them. "
-                            + "Nothing is written to the "
-                            + "table until you press Save.")) {
-
-                        openTable(
-                            update.dataset.table, true);
-                    }
-
-                    return;
-                }
-
-                // Clicking the dimmed area around the
-                // dialog closes it, the same as the
-                // button does.
-                if (origin.id === "errorModal") {
-                    closeErrorModal();
-                }
-
-            });
-
-        document.addEventListener("keydown",
-            function (event) {
-
-                if ((event.ctrlKey || event.metaKey)
-                    && event.key.toLowerCase() === "s") {
-
-                    event.preventDefault();
-
-                    if (!$("saveSection").hidden
-                        && !$("btnSave").disabled) {
-                        saveToDatabase();
-                    }
-
-                    return;
-                }
-
-                if (event.key !== "Escape") {
-                    return;
-                }
-
-                // Escape backs out of one thing at a time:
-                // an open cell is already handled by its own
-                // handler, so the next thing is the failure
-                // list, then a running load, and only then
-                // the file itself.
-                if (errorModalOpen()) {
-                    event.preventDefault();
-                    closeErrorModal();
-                    return;
-                }
-
-                if (loading.active) {
-                    event.preventDefault();
-                    cancelLoad();
-                    return;
-                }
-
-                if (state.headers.length > 0) {
-                    event.preventDefault();
-                    $("btnClear").click();
-                }
-
-            });
-
-    });
+// Normally the document is already parsed when this runs, so
+// init goes ahead straight away.
+//
+// The check is on the markup rather than on readyState. While
+// the document is still being parsed readyState is "loading",
+// so the old version waited for DOMContentLoaded - and that
+// event cannot fire until the deferred xlsx.full.min.js has
+// finished downloading. The saved list is drawn by the server
+// and the action buttons on it were therefore painted but dead
+// until the 932 KB reader arrived, which is the whole reason
+// this file is not allowed to wait for it. whenReaderReady()
+// is the only thing that should.
+//
+// The fallback is kept for the case the check cannot cover:
+// this file loaded with defer, or moved into <head>, where
+// importFile does not exist yet.
+if (document.readyState === "loading"
+    && !document.getElementById("importFile")) {
+    document.addEventListener(
+        "DOMContentLoaded", initImportPage);
+} else {
+    initImportPage();
+}

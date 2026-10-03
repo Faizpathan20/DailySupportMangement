@@ -7,34 +7,88 @@
    screen reads as part of the same product rather than a
    bolt-on. */
 .import-page {
+    /* -----------------------------------------
+       Accent. Taken straight from the app so the
+       import screen is not a second colour system.
+       ----------------------------------------- */
     --ip-accent: #2563eb;
     --ip-accent-dark: #1d4ed8;
+    --ip-accent-darker: #1e40af;
     --ip-accent-soft: #eef4ff;
     --ip-accent-line: #dbe7ff;
+    --ip-accent-hover-line: #bfd6ff;
+    --ip-accent-line-soft: #93c5fd;
+    --ip-accent-softest: #eff6ff;
+    --ip-accent-mid: #3b82f6;
 
+    /* -----------------------------------------
+       Ink. Slate scale, darkest to lightest.
+       ----------------------------------------- */
     --ip-ink: #0f172a;
     --ip-body: #334155;
     --ip-muted: #64748b;
     --ip-faint: #94a3b8;
+    --ip-strong: #1e293b;
 
+    /* -----------------------------------------
+       Lines and surfaces.
+       ----------------------------------------- */
     --ip-line: #e2e8f0;
     --ip-line-soft: #f1f5f9;
+    --ip-line-strong: #cbd5e1;
+    --ip-surface: #ffffff;
+    --ip-surface-subtle: #f8fafc;
 
+    /* -----------------------------------------
+       Semantic. Each one ships a text shade, a
+       border and a soft fill so a state never has
+       to invent a colour of its own.
+       ----------------------------------------- */
     --ip-green: #16a34a;
+    --ip-green-dark: #15803d;
+    --ip-green-line: #bbf7d0;
+    --ip-green-soft: #f0fdf4;
+    --ip-green-text: #166534;
+
     --ip-amber: #d97706;
-    --ip-red: #b91c1c;
+    --ip-amber-dark: #b45309;
+    --ip-amber-line: #fde68a;
+    --ip-amber-soft: #fffbeb;
+    --ip-amber-text: #92400e;
 
-    --ip-radius: 16px;
+    --ip-red: #dc2626;
+    --ip-red-dark: #b91c1c;
+    --ip-red-line: #fecaca;
+    --ip-red-soft: #fef2f2;
+    --ip-green-bright-soft: #dcfce7;
+    --ip-red-line-mid: #fca5a5;
+    --ip-red-text: #991b1b;
+    --ip-red-bright: #ef4444;
+    --ip-red-line-soft: #fee2e2;
 
-    /* The app draws its cards and buttons at 8px, so the
-       import screen sticks to the same corner weight
-       rather than looking rounder than every other page. */
+    /* -----------------------------------------
+       Corner weight. Four steps, and they step
+       down as things nest: a card inside a card
+       is never drawn rounder than the card that
+       holds it. These mirror the values the rest
+       of the app already uses.
+       ----------------------------------------- */
+    --ip-radius-section: 12px;
     --ip-radius-card: 10px;
     --ip-radius-control: 8px;
+    --ip-radius-badge: 6px;
+    --ip-radius-pill: 999px;
 
     --ip-shadow:
         0 1px 2px rgba(15, 23, 42, 0.04),
         0 10px 26px -16px rgba(15, 23, 42, 0.18);
+
+    /* Comfortable density. The grid itself stays
+       tight because a data table should, but
+       everything around it gets room to breathe. */
+    --ip-pad-chip: 5px 11px;
+    --ip-pad-step: 13px 16px;
+    --ip-pad-sticky: 13px 18px;
 
     display: flex;
     flex-direction: column;
@@ -71,7 +125,7 @@
 
 .import-page .state-section {
     border: 1px solid var(--ip-line-soft);
-    border-radius: var(--ip-radius);
+    border-radius: var(--ip-radius-section);
     box-shadow: var(--ip-shadow);
 }
 
@@ -93,8 +147,8 @@
     flex: 0 0 auto;
     width: 46px;
     height: 46px;
-    border-radius: 13px;
-    background: linear-gradient(135deg, var(--ip-accent), #4f8bff);
+    border-radius: var(--ip-radius-section);
+    background: var(--ip-accent);
     color: #ffffff;
     font-size: 22px;
     box-shadow: 0 6px 14px -6px rgba(37, 99, 235, 0.6);
@@ -107,7 +161,7 @@
 }
 
 .import-page-header p {
-    color: #475569;
+    color: var(--ip-body);
     margin-top: 3px;
     font-size: 14px;
 }
@@ -166,7 +220,7 @@
     flex: 0 0 auto;
     width: 3px;
     height: 16px;
-    border-radius: 2px;
+    border-radius: var(--ip-radius-badge);
     background: var(--ip-accent);
 }
 
@@ -192,9 +246,9 @@
 ========================================= */
 
 .import-dropzone {
-    border: 2px dashed #cbd5e1;
-    border-radius: var(--ip-radius);
-    background: #fbfcfe;
+    border: 2px dashed var(--ip-line-strong);
+    border-radius: var(--ip-radius-section);
+    background: var(--ip-surface-subtle);
     padding: clamp(28px, 4vw, 52px);
     cursor: pointer;
     transition:
@@ -204,8 +258,8 @@
 }
 
 .import-dropzone:hover {
-    border-color: #a8c2f0;
-    background: #f8faff;
+    border-color: var(--ip-accent-hover-line);
+    background: var(--ip-surface-subtle);
 }
 
 .import-dropzone.is-over {
@@ -234,6 +288,20 @@
     cursor: pointer;
     pointer-events: none;
     user-select: none;
+}
+
+/* The input is moved off screen rather than hidden, so it
+   still takes focus from the keyboard. None of it would be
+   visible when that happens, so the ring is drawn on the
+   label it points at instead. Without this, tabbing onto the
+   file input looked like focus had simply vanished. */
+.dz-idle:focus-within {
+    outline: 2px solid var(--ip-accent);
+    outline-offset: 3px;
+}
+
+.dz-idle:focus-within .dz-browse {
+    box-shadow: 0 0 0 3px var(--ip-accent-soft);
 }
 
 .dz-loaded {
@@ -286,7 +354,7 @@
     justify-content: center;
     width: 48px;
     height: 48px;
-    border-radius: 12px;
+    border-radius: var(--ip-radius-section);
     background: var(--ip-accent-soft);
     color: var(--ip-accent);
     font-size: 22px;
@@ -303,7 +371,7 @@
 
 .dz-file-name {
     font-weight: 700;
-    color: #0f172a;
+    color: var(--ip-ink);
     font-size: clamp(15px, 2vw, 18px);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -311,7 +379,7 @@
 }
 
 .dz-file-info {
-    color: #64748b;
+    color: var(--ip-muted);
     font-size: clamp(12px, 2vw, 13px);
     display: flex;
     flex-wrap: wrap;
@@ -331,9 +399,9 @@
     min-width: 140px;
     height: 40px;
     padding: 8px 10px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--ip-line-strong);
     border-radius: 10px;
-    background: #ffffff;
+    background: var(--ip-surface);
 }
 
 .icon-btn {
@@ -341,7 +409,7 @@
     height: 40px;
     border-radius: 10px;
     border: 1px solid var(--ip-line);
-    background: #ffffff;
+    background: var(--ip-surface);
     color: var(--ip-body);
     cursor: pointer;
     display: flex;
@@ -356,8 +424,8 @@
 
 /* Removing a file is destructive, so the hover says so. */
 .icon-btn:hover {
-    background: #fef2f2;
-    border-color: #fecaca;
+    background: var(--ip-red-soft);
+    border-color: var(--ip-red-line);
     color: var(--ip-red);
 }
 
@@ -371,9 +439,9 @@
     gap: 10px;
     padding: 10px 14px;
     border-radius: 10px;
-    border: 1px solid #fde68a;
-    background: #fffbeb;
-    color: #92400e;
+    border: 1px solid var(--ip-amber-line);
+    background: var(--ip-amber-soft);
+    color: var(--ip-amber-text);
     margin-bottom: 14px;
     font-size: 13px;
 }
@@ -381,7 +449,7 @@
 .import-banner-view {
     border-color: var(--ip-accent-line);
     background: var(--ip-accent-soft);
-    color: #1e40af;
+    color: var(--ip-accent-darker);
 }
 
 .ib-icon {
@@ -420,8 +488,8 @@
     gap: 3px;
     padding: 11px 14px 11px 17px;
     border: 1px solid var(--ip-line);
-    border-radius: 12px;
-    background: #ffffff;
+    border-radius: var(--ip-radius-section);
+    background: var(--ip-surface);
     overflow: hidden;
 }
 
@@ -477,11 +545,11 @@
 }
 
 .istat-value.is-green {
-    color: #15803d;
+    color: var(--ip-green-dark);
 }
 
 .istat-value.is-amber {
-    color: #b45309;
+    color: var(--ip-amber-dark);
 }
 
 .istat-value.is-slate {
@@ -520,15 +588,15 @@
 /* The source rows are dense and repetitive, and on a big
    file the eye loses its place between them. */
 .import-table tbody tr:hover td {
-    background: #f8faff;
+    background: var(--ip-surface-subtle);
 }
 
 .import-table tbody tr:nth-child(even) td {
-    background: #fcfdff;
+    background: var(--ip-surface-subtle);
 }
 
 .import-table tbody tr:nth-child(even):hover td {
-    background: #f5f9ff;
+    background: var(--ip-surface-subtle);
 }
 
 .import-th-sub {
@@ -553,8 +621,8 @@
     flex-wrap: wrap;
     padding: clamp(14px, 2vw, 18px);
     border: 1px solid var(--ip-line);
-    border-radius: 14px;
-    background: #f8fafc;
+    border-radius: var(--ip-radius-card);
+    background: var(--ip-surface-subtle);
 }
 
 .isb-field {
@@ -576,9 +644,9 @@
     width: 100%;
     min-width: 0;
     padding: 0 12px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--ip-line-strong);
     border-radius: 10px;
-    background: #ffffff;
+    background: var(--ip-surface);
     font-size: 14px;
     transition:
         border-color 0.15s ease,
@@ -598,15 +666,15 @@
 }
 
 .isb-hint.is-info {
-    color: #1e40af;
+    color: var(--ip-accent-darker);
 }
 
 .isb-hint.is-new {
-    color: #15803d;
+    color: var(--ip-green-dark);
 }
 
 .isb-hint.is-warn {
-    color: #b45309;
+    color: var(--ip-amber-dark);
 }
 
 /* Used when the choice on screen would lose data: a
@@ -614,6 +682,49 @@
 .isb-hint.is-danger {
     color: var(--ip-red);
     font-weight: 600;
+}
+
+/* =========================================
+   SAVE / CLEAR
+   ========================================== */
+
+/* .save-btn is styled in site.css as green, which is
+   the app's "saved a record" colour. This page is
+   blue, so the button is re-coloured here to keep one
+   colour language. Scoped to .import-page, so every
+   other page keeps its green save. */
+.import-page .save-btn {
+    background: var(--ip-accent);
+    color: #ffffff;
+    padding: 11px 24px;
+    font-weight: 600;
+    border-radius: var(--ip-radius-control);
+    transition: background 0.15s ease;
+}
+
+.import-page .save-btn:hover:not(:disabled) {
+    background: var(--ip-accent-dark);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.import-page .save-btn:disabled {
+    background: var(--ip-line-strong);
+    color: #ffffff;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.import-page .cancel-btn {
+    background: var(--ip-line);
+    color: var(--ip-body);
+    padding: 11px 24px;
+    font-weight: 500;
+    border-radius: var(--ip-radius-control);
+    transition: background 0.15s ease;
+}
+
+.import-page .cancel-btn:hover:not(:disabled) {
+    background: var(--ip-line-strong);
 }
 
 .isb-actions {
@@ -679,10 +790,10 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 4px 9px;
+    padding: var(--ip-pad-chip);
     border: 1px solid var(--ip-line);
-    border-radius: 999px;
-    background: #ffffff;
+    border-radius: var(--ip-radius-pill);
+    background: var(--ip-surface);
     font-size: 11px;
     color: var(--ip-muted);
     white-space: nowrap;
@@ -690,10 +801,10 @@
 
 .ip-chip kbd {
     padding: 1px 5px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--ip-line-strong);
     border-bottom-width: 2px;
-    border-radius: 4px;
-    background: #f8fafc;
+    border-radius: var(--ip-radius-badge);
+    background: var(--ip-surface-subtle);
     font-family: inherit;
     font-size: 10px;
     font-weight: 700;
@@ -728,10 +839,10 @@
     gap: 10px;
     flex: 1 1 0;
     min-width: 0;
-    padding: 11px 14px;
+    padding: var(--ip-pad-step);
     border: 1px solid var(--ip-line-soft);
     border-radius: var(--ip-radius-card);
-    background: #ffffff;
+    background: var(--ip-surface);
     transition:
         border-color .18s ease,
         background .18s ease,
@@ -762,7 +873,7 @@
     height: 26px;
     border-radius: 50%;
     border: 1px solid var(--ip-line);
-    background: #f8fafc;
+    background: var(--ip-surface-subtle);
     font-size: 12px;
     font-weight: 700;
     color: var(--ip-muted);
@@ -866,8 +977,8 @@
     margin-top: 18px;
     padding: 12px 14px;
     border: 1px solid var(--ip-accent-line);
-    border-radius: 12px;
-    background: #ffffff;
+    border-radius: var(--ip-radius-section);
+    background: var(--ip-surface);
 }
 
 .ip-progress-head {
@@ -891,8 +1002,8 @@
     flex: 0 0 auto;
     padding: 3px 10px;
     border: 1px solid var(--ip-line);
-    border-radius: 7px;
-    background: #ffffff;
+    border-radius: var(--ip-radius-control);
+    background: var(--ip-surface);
     font-size: 12px;
     font-weight: 600;
     color: var(--ip-body);
@@ -900,14 +1011,14 @@
 }
 
 .ip-progress-cancel:hover {
-    background: #fef2f2;
-    border-color: #fecaca;
+    background: var(--ip-red-soft);
+    border-color: var(--ip-red-line);
     color: var(--ip-red);
 }
 
 .ip-progress-track {
     height: 7px;
-    border-radius: 999px;
+    border-radius: var(--ip-radius-pill);
     background: var(--ip-line-soft);
     overflow: hidden;
 }
@@ -915,11 +1026,11 @@
 .ip-progress-fill {
     height: 100%;
     width: 0;
-    border-radius: 999px;
+    border-radius: var(--ip-radius-pill);
     background: linear-gradient(
         90deg,
         var(--ip-accent),
-        #4f8bff);
+        var(--ip-accent-dark));
     transition: width .12s linear;
 }
 
@@ -967,8 +1078,8 @@
 .ip-typemap {
     margin-bottom: 14px;
     border: 1px solid var(--ip-line);
-    border-radius: 12px;
-    background: #ffffff;
+    border-radius: var(--ip-radius-section);
+    background: var(--ip-surface);
     overflow: hidden;
 }
 
@@ -979,7 +1090,7 @@
     gap: 8px;
     padding: 11px 14px;
     border: 0;
-    background: #f8fafc;
+    background: var(--ip-surface-subtle);
     font-size: 13px;
     font-weight: 700;
     color: var(--ip-body);
@@ -988,7 +1099,7 @@
 }
 
 .ip-typemap-toggle:hover {
-    background: #f1f5f9;
+    background: var(--ip-line-soft);
 }
 
 .ip-typemap-body {
@@ -1014,7 +1125,7 @@
     z-index: 1;
     padding: 8px 14px;
     border-bottom: 1px solid var(--ip-line);
-    background: #ffffff;
+    background: var(--ip-surface);
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: .05em;
@@ -1053,9 +1164,9 @@
 .ipm-select {
     height: 32px;
     padding: 0 8px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--ip-line-strong);
     border-radius: 8px;
-    background: #ffffff;
+    background: var(--ip-surface);
     font-size: 13px;
     min-width: 150px;
 }
@@ -1079,7 +1190,7 @@
     justify-content: flex-end;
     padding: 10px 14px;
     border-top: 1px solid var(--ip-line-soft);
-    background: #f8fafc;
+    background: var(--ip-surface-subtle);
 }
 
 
@@ -1117,7 +1228,7 @@
 .ip-sel-info {
     font-size: 13px;
     font-weight: 600;
-    color: #1e40af;
+    color: var(--ip-accent-darker);
 }
 
 .ip-sel-actions {
@@ -1128,8 +1239,8 @@
 .ip-mini-btn {
     padding: 4px 10px;
     border: 1px solid var(--ip-accent-line);
-    border-radius: 7px;
-    background: #ffffff;
+    border-radius: var(--ip-radius-control);
+    background: var(--ip-surface);
     font-size: 12px;
     font-weight: 600;
     color: var(--ip-accent-dark);
@@ -1137,8 +1248,8 @@
 }
 
 .ip-mini-btn:hover {
-    background: #dbe7ff;
-    border-color: #bfd6ff;
+    background: var(--ip-accent-line);
+    border-color: var(--ip-accent-hover-line);
 }
 
 
@@ -1154,7 +1265,7 @@
    file is closed, so an edit cannot be missed further
    down the page. */
 .import-table td.cell-edited {
-    background: #fffbeb !important;
+    background: var(--ip-amber-soft) !important;
     box-shadow: inset 3px 0 0 var(--ip-amber);
 }
 
@@ -1174,11 +1285,11 @@
     min-width: 90px;
     padding: 2px 5px;
     border: 2px solid var(--ip-accent);
-    border-radius: 5px;
+    border-radius: var(--ip-radius-badge);
     font-family: inherit;
     font-size: 13px;
     color: var(--ip-ink);
-    background: #ffffff;
+    background: var(--ip-surface);
 }
 
 .cell-edit:focus {
@@ -1188,7 +1299,7 @@
 /* A type the user picked is called out in the header so
    the grid does not quietly disagree with the panel. */
 .import-th-sub.is-overridden {
-    color: #b45309;
+    color: var(--ip-amber-dark);
     font-weight: 700;
 }
 
@@ -1225,7 +1336,7 @@
     padding: 10px 12px;
     border: 1px solid var(--ip-line);
     border-radius: var(--ip-radius-card);
-    background: #ffffff;
+    background: var(--ip-surface);
     cursor: pointer;
     transition:
         border-color .15s ease,
@@ -1256,10 +1367,10 @@
    both being blue, because the two do not carry the same
    risk. */
 .ip-mode:has(input[value="replace"]:checked) {
-    border-color: #fca5a5;
-    background: #fef2f2;
+    border-color: var(--ip-red-line-mid);
+    background: var(--ip-red-soft);
     box-shadow:
-        0 0 0 1px #ef4444 inset,
+        0 0 0 1px var(--ip-red-bright) inset,
         0 1px 2px rgba(220, 38, 38, .1);
 }
 
@@ -1267,10 +1378,10 @@
    is neither an addition nor a wipe, so it gets its own
    tint to match the tag it puts in the saved list. */
 .ip-mode:has(input[value="update"]:checked) {
-    border-color: #93c5fd;
-    background: #eff6ff;
+    border-color: var(--ip-accent-line-soft);
+    background: var(--ip-accent-softest);
     box-shadow:
-        0 0 0 1px #3b82f6 inset,
+        0 0 0 1px var(--ip-accent-mid) inset,
         0 1px 2px rgba(37, 99, 235, .12);
 }
 
@@ -1304,25 +1415,25 @@
 .ipm-tag {
     display: inline-block;
     padding: 2px 8px;
-    border-radius: 999px;
+    border-radius: var(--ip-radius-pill);
     font-size: 11px;
     font-weight: 700;
     white-space: nowrap;
 }
 
 .ipm-tag.is-append {
-    background: #dcfce7;
-    color: #15803d;
+    background: var(--ip-green-bright-soft);
+    color: var(--ip-green-dark);
 }
 
 .ipm-tag.is-replace {
-    background: #fee2e2;
-    color: #b91c1c;
+    background: var(--ip-red-line-soft);
+    color: var(--ip-red-dark);
 }
 
 .ipm-tag.is-update {
-    background: #dbeafe;
-    color: #1d4ed8;
+    background: var(--ip-accent-soft);
+    color: var(--ip-accent-dark);
 }
 
 /* =========================================
@@ -1345,13 +1456,13 @@
 
     border: 1px solid var(--ip-line);
     border-radius: var(--ip-radius-card);
-    background: #ffffff;
+    background: var(--ip-surface);
 
     /* The scrollbar is the one control everyone already
        knows, and it only shows up when there is actually
        something to scroll to. */
     scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 #f1f5f9;
+    scrollbar-color: var(--ip-line-strong) var(--ip-line-soft);
 }
 
 .ip-history-scroll::-webkit-scrollbar {
@@ -1361,17 +1472,17 @@
 
 .ip-history-scroll::-webkit-scrollbar-track {
     background: var(--ip-line-soft);
-    border-radius: 999px;
+    border-radius: var(--ip-radius-pill);
 }
 
 .ip-history-scroll::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: var(--ip-line-strong);
     border: 2px solid var(--ip-line-soft);
-    border-radius: 999px;
+    border-radius: var(--ip-radius-pill);
 }
 
 .ip-history-scroll::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+    background: var(--ip-faint);
 }
 
 /* The inner container already scrolled sideways on its
@@ -1403,8 +1514,8 @@
     position: sticky;
     top: 0;
     z-index: 2;
-    background: #f8fafc;
-    color: #475569;
+    background: var(--ip-surface-subtle);
+    color: var(--ip-body);
     font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
@@ -1419,16 +1530,16 @@
     right: 0;
     bottom: 0;
     height: 1px;
-    background: #e2e8f0;
+    background: var(--ip-line);
 }
 
 .ip-history-scroll #historyTable tbody td {
-    background: #ffffff;
-    border-bottom: 1px solid #f1f5f9;
+    background: var(--ip-surface);
+    border-bottom: 1px solid var(--ip-line-soft);
 }
 
 .ip-history-scroll #historyTable tbody tr:hover td {
-    background: #f8fafc;
+    background: var(--ip-surface-subtle);
 }
 
 /* The last row has nothing under it to divide, so the
@@ -1489,15 +1600,15 @@
 
 /* View only reads, so it stays quiet. */
 .action-btn.view-btn {
-    background: #fff;
-    color: #475569;
+    background: #ffffff;
+    color: var(--ip-body);
     border-color: var(--ip-line);
 }
 
 .action-btn.view-btn:hover {
     background: var(--ip-line-soft);
-    border-color: #cbd5e1;
-    color: #1e293b;
+    border-color: var(--ip-line-strong);
+    color: var(--ip-strong);
 }
 
 /* Update writes back onto real rows, so it carries the
@@ -1505,14 +1616,30 @@
    so View is the quiet outline beside it. */
 .action-btn.update-btn {
     background: var(--ip-accent);
-    color: #fff;
+    color: #ffffff;
     border-color: var(--ip-accent);
 }
 
 .action-btn.update-btn:hover {
-    background: #1d4ed8;
-    border-color: #1d4ed8;
-    color: #fff;
+    background: var(--ip-accent-dark);
+    border-color: var(--ip-accent-dark);
+    color: #ffffff;
+}
+
+/* Delete drops a table and cannot be undone, so it is the
+   one action in the row that wears the warning colour. It
+   stays an outline because a third filled button in a row
+   of three would leave nothing standing out. */
+.action-btn.delete-btn {
+    background: #ffffff;
+    color: #b42318;
+    border-color: var(--ip-line);
+}
+
+.action-btn.delete-btn:hover {
+    background: #fef3f2;
+    border-color: #fda29b;
+    color: #912018;
 }
 
 .col-mode {
@@ -1541,7 +1668,7 @@
     flex-wrap: wrap;
 
     margin-top: 14px;
-    padding: 11px 16px;
+    padding: var(--ip-pad-sticky);
 
     border: 1px solid var(--ip-accent-line);
     border-radius: var(--ip-radius-card);
@@ -1624,19 +1751,19 @@
 .ip-error-list li {
     margin-bottom: 7px;
     padding: 7px 10px;
-    border: 1px solid #fecaca;
+    border: 1px solid var(--ip-red-line);
     border-radius: 8px;
-    background: #fef2f2;
+    background: var(--ip-red-soft);
     font-size: 12.5px;
     line-height: 1.5;
-    color: #991b1b;
+    color: var(--ip-red-text);
     word-break: break-word;
 }
 
 .ip-error-list li:last-child {
     margin-bottom: 0;
     border-style: dashed;
-    background: #ffffff;
+    background: var(--ip-surface);
     color: var(--ip-muted);
 }
 
@@ -1659,7 +1786,7 @@
     ):focus-visible {
     outline: 2px solid var(--ip-accent);
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: var(--ip-radius-badge);
 }
 
 /* A tick that is not ticked all the way should not read
@@ -1694,7 +1821,7 @@
 .badge-active,
 .badge-cancelled,
 .badge-default {
-    border-radius: 999px;
+    border-radius: var(--ip-radius-pill);
     font-weight: 600;
     font-size: 12px;
 }
@@ -1723,7 +1850,7 @@
     padding: 34px 16px;
     color: var(--ip-muted);
     font-size: 13px;
-    background: #ffffff;
+    background: var(--ip-surface);
 }
 
 

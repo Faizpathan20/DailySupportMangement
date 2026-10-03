@@ -692,18 +692,65 @@ function readCsvText(file, done, fail) {
 }
 
 
-function loadFile(file) {
+// The reader is a deferred script, so it is still arriving
+// when a fast user reaches the file picker. Waiting for it is
+// the right move: telling them to refresh only worked because
+// the second visit found it cached. It is already downloading
+// in parallel, so the wait is normally a fraction of a second.
 
-    if (!file) {
+function readerReady() {
+
+    return typeof XLSX !== "undefined"
+        && XLSX
+        && typeof XLSX.read === "function";
+
+}
+
+// Two minutes is far longer than a 932 KB file can need over
+// any link that has not already failed, so reaching this means
+// the file itself is missing rather than slow.
+var READER_TIMEOUT = 120000;
+
+function whenReaderReady(done) {
+
+    if (readerReady()) {
+        done();
         return;
     }
 
-    if (typeof XLSX === "undefined" || !XLSX || !XLSX.read) {
+    showProgress("Preparing the Excel reader…", null);
 
-        showToast("The Excel reader (xlsx.full.min.js) "
-            + "did not load, so the file cannot be read. "
-            + "Please refresh the page.", true);
+    var started = Date.now();
 
+    var wait = setInterval(function () {
+
+        if (readerReady()) {
+            clearInterval(wait);
+            hideProgress();
+            done();
+            return;
+        }
+
+        if (Date.now() - started > READER_TIMEOUT) {
+
+            clearInterval(wait);
+            hideProgress();
+
+            showToast("The Excel reader "
+                + "(xlsx.full.min.js) did not load, so the "
+                + "file cannot be read. Please check your "
+                + "connection and refresh the page.", true);
+
+        }
+
+    }, 120);
+
+}
+
+
+function loadFile(file) {
+
+    if (!file) {
         return;
     }
 
@@ -732,11 +779,20 @@ function loadFile(file) {
         showToast(message, true);
     };
 
+    var start = function () {
+
+        readWorkbook(file, wanted, onDone, onFail);
+
+    };
+
+    // csv and txt never touch the reader, so they are not made
+    // to wait for it. Only the workbook formats need XLSX.
     if (/\.csv$/.test(name) || /\.txt$/.test(name)) {
         readCsvText(file, onDone, onFail);
-    } else {
-        readWorkbook(file, wanted, onDone, onFail);
+        return;
     }
+
+    whenReaderReady(start);
 
 }
 
@@ -875,6 +931,17 @@ function applyMatrix(fileName, sheets, sheetName, matrix) {
 
     $("dzIdle").hidden = true;
     $("dzLoaded").hidden = false;
+
+    // Opening the picker left focus on the file input, and
+    // that input now sits inside the panel just hidden. Focus
+    // cannot stay on a hidden element, and leaving it there
+    // means the next Tab starts from the top of the document.
+    // It is dropped deliberately so the move is predictable.
+    var picker = $("importFile");
+
+    if (picker && picker === document.activeElement) {
+        picker.blur();
+    }
 
     $("tableName").value =
         cleanName(/\.(csv|txt)$/i.test(fileName)
@@ -2112,8 +2179,11 @@ function refreshSaveBar() {
     var ready = $("stickyInfo");
 
     if (ready) {
-        ready.hidden = state.readOnly;
 
+        // Whether the bar is wanted at all is decided by
+        // syncStickyBar, which knows whether the real save
+        // button is currently on screen. This block only
+        // fills in the numbers.
         if (!state.readOnly) {
             $("stickyRows").innerText =
                 picked.toLocaleString()
@@ -2148,6 +2218,109 @@ function refreshSaveBar() {
     }
 
     syncSteps();
+    syncStickyBar();
+
+}
+
+
+// ==========================================
+// STICKY SAVE BAR
+// ==========================================
+
+// The page carries two save buttons: the real one on the
+// save card, and a copy pinned to the bottom of the window
+// for when the grid is being read and the card has
+// scrolled away. Both being on screen at once made one
+// action look like it was offered twice, so the copy is
+// only revealed once the real button is out of sight.
+//
+// It is still the same action, still wired to the same
+// handler, and the disabled state is kept in step by
+// refreshSaveBar, so nothing about the save itself changed.
+
+// Set once, on first use. Recreating the observer on every
+// refresh would leave the old ones attached to a detached
+// node.
+var saveCardWatcher = null;
+
+function syncStickyBar() {
+
+    var sticky = $("stickyInfo");
+    var card = $("saveSection");
+
+    if (!sticky || !card) {
+        return;
+    }
+
+    if (state.readOnly) {
+
+        // Nothing to save, so the bar is not wanted at all.
+        sticky.hidden = true;
+
+        if (saveCardWatcher) {
+            saveCardWatcher.disconnect();
+            saveCardWatcher = null;
+        }
+
+        return;
+    }
+
+    // A card that is on screen means the real button can be
+    // pressed, so the pinned copy stays out of the way. The
+    // observer only ever reports a change in this direction.
+    function reveal() {
+        sticky.hidden = false;
+    }
+
+    function conceal() {
+        sticky.hidden = true;
+    }
+
+    if (typeof IntersectionObserver === "undefined") {
+
+        // No observer support. Showing the copy is the safe
+        // direction, because a hidden save would look like a
+        // page that cannot save.
+        reveal();
+        return;
+    }
+
+    if (!saveCardWatcher) {
+
+        saveCardWatcher = new IntersectionObserver(
+            function (entries) {
+                if (entries[0].isIntersecting) {
+                    conceal();
+                } else {
+                    reveal();
+                }
+            },
+            // rootMargin of 0 means "any part off screen". The
+            // small positive bottom margin lets the copy come up
+            // just as the real button leaves, rather than after a
+            // visible gap where neither is on screen.
+            { threshold: 0, rootMargin: "-64px 0px 0px 0px" }
+        );
+
+        saveCardWatcher.observe(card);
+    }
+
+    // The position is read here rather than left to the first
+    // callback. The observer reports asynchronously, so waiting
+    // for it shows the copy alongside the real button for a
+    // frame, and leaves it showing for good on any browser that
+    // never reports at all. Reading the box makes this call
+    // correct on its own, whichever way it is reached.
+    var box = card.getBoundingClientRect();
+
+    var onScreen = box.bottom > 0
+        && box.top < (window.innerHeight || 0);
+
+    if (onScreen) {
+        conceal();
+    } else {
+        reveal();
+    }
 
 }
 
@@ -2206,6 +2379,14 @@ function clearAll() {
     var sticky = $("stickyInfo");
     if (sticky) {
         sticky.hidden = true;
+    }
+
+    // The watcher is bound to the save card, which is about
+    // to go away with the file. Leaving it attached would
+    // keep firing against a hidden section on the next load.
+    if (saveCardWatcher) {
+        saveCardWatcher.disconnect();
+        saveCardWatcher = null;
     }
 
     var bar = $("selectionBar");
@@ -2708,9 +2889,29 @@ function refreshHistory() {
 // INIT
 // ==========================================
 
-document.addEventListener(
-    "DOMContentLoaded",
-    function () {
+// This used to be wrapped in a DOMContentLoaded listener,
+// which turned out to be the reason a first upload did
+// nothing at all.
+//
+// xlsx.full.min.js is a 932 KB deferred script, and
+// deferred scripts have to finish downloading before
+// DOMContentLoaded fires. Until that finished, every
+// listener below was missing, so the page was completely
+// inert. The dropzone is a <label for="importFile">, so it
+// still opened the file picker with no JavaScript involved
+// - the user could pick a file and the change event landed
+// on a page with nothing listening to it. A silent no-op,
+// which read as a broken upload. A refresh fixed it only
+// because the reader was cached by then and DOMContentLoaded
+// arrived quickly.
+//
+// import.js is a classic script at the end of <body>, so
+// everything it needs is already parsed by the time it
+// runs. Wiring up straight away is both correct and
+// immediate; the reader is no longer on the critical path
+// for the page becoming usable.
+
+function initImportPage() {
 
         var file = $("importFile");
         var zone = $("dropzone");
@@ -2993,17 +3194,49 @@ $("btnRemove").addEventListener("click", clearAll);
                     return;
                 }
 
-                if (loading.active) {
-                    event.preventDefault();
-                    cancelLoad();
-                    return;
-                }
+if (loading.active) {
+                        event.preventDefault();
+                        cancelLoad();
+                        return;
+                    }
 
-                if (state.headers.length > 0) {
-                    event.preventDefault();
-                    $("btnClear").click();
-                }
+                    if (state.headers.length > 0) {
+                        event.preventDefault();
+                        $("btnClear").click();
+                    }
 
-            });
+                });
 
-    });
+        // First paint.
+        //
+        // The markup ships in its empty state on purpose, so
+        // the grid, the footer counts, the pagination, the
+        // stats and the table hint all arrive blank. Left
+        // alone, the page sat half-built until the user
+        // happened to click something that happened to call a
+        // render. Everything below is safe on an empty state
+        // and only fills in what the server already knows.
+        syncSteps();
+        renderStats();
+        refreshSaveBar();
+        renderBody();
+
+        // The saved list is rendered server side, so this is
+        // not needed to see anything. It is here so the page
+        // is live from the first paint and the list does not
+        // depend on somebody saving a file to look current.
+        refreshHistory();
+
+}
+
+// Normally the document is already parsed when this runs, so
+// init goes ahead straight away. The readyState check keeps
+// the page working if this file is ever loaded with defer or
+// moved into <head>, where the elements it needs would not
+// exist yet.
+if (document.readyState === "loading") {
+    document.addEventListener(
+        "DOMContentLoaded", initImportPage);
+} else {
+    initImportPage();
+}

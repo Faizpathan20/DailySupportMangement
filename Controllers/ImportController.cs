@@ -254,6 +254,25 @@ public class ImportController : Controller
     }
 
 
+    // Body of "Delete" on a saved file.
+    public class ImportDeleteRequest
+    {
+        public string Table { get; set; } = "";
+    }
+
+
+    public class ImportDeleteResponse
+    {
+        public bool Success { get; set; }
+
+        public string Message { get; set; } = "";
+
+        public string Table { get; set; } = "";
+
+        public int RowsDeleted { get; set; }
+    }
+
+
     public class ImportResultViewModel
     {
         public string Table { get; set; } = "";
@@ -450,6 +469,15 @@ public class ImportController : Controller
     // ============================================
 
     [HttpGet]
+
+    // The page carries the asset URLs. If the browser is
+    // allowed to keep this HTML, a new build keeps handing
+    // out yesterday's URLs and the old css/js keep loading,
+    // which looks exactly like a deploy that did nothing.
+    // The html is cheap and the assets are versioned by
+    // content hash, so it is always revalidated.
+    [ResponseCache(NoStore = true,
+        Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Index()
     {
         var model = new ImportViewModel();
@@ -944,6 +972,221 @@ public class ImportController : Controller
 
         }
 
+    }
+
+
+    // ============================================
+    // DELETE A SAVED FILE
+    // ============================================
+
+    // The table *is* the file. The rows of an import only
+    // exist in the table they were written to, so a delete
+    // that emptied it would leave the list offering an
+    // action that could not honestly be called done. The
+    // table is dropped instead, and its log lines go in the
+    // same transaction: a table that is gone must not keep
+    // claiming rows were saved into it.
+    //
+    // There is no undo, which is why the browser asks
+    // first and names what is about to go.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteSaved(
+        [FromBody] ImportDeleteRequest? request)
+    {
+        if (request == null)
+        {
+            return BadRequestJson(
+                "No data was received.");
+        }
+
+        string tableName =
+            CleanName(request.Table);
+
+        if (tableName.Length == 0)
+        {
+            return BadRequestJson(
+                "That is not a table this page "
+                    + "can delete.");
+        }
+
+        // The log table is the page's own bookkeeping and
+        // the migrations history belongs to EF. Neither is
+        // ever an import, however they were reached.
+        if (tableName is "ImportHistory"
+            or "__EFMigrationsHistory")
+        {
+            return BadRequestJson(
+                "That table cannot be deleted "
+                    + "from here.");
+        }
+
+        SqlConnection connection;
+
+        try
+        {
+            connection =
+                await OpenConnectionAsync();
+        }
+        catch (Exception ex)
+        {
+            return BadRequestJson(
+                FriendlyDatabaseError(ex));
+        }
+
+        using (connection)
+        {
+
+        try
+        {
+
+        // Checked against sys.tables rather than taken on
+        // trust, so a name that slipped through still only
+        // ever refers to a real table in dbo that SQL
+        // Server did not ship itself.
+        if (!await IsDeletableTableAsync(
+                connection, tableName))
+        {
+            return BadRequestJson(
+                $"Table '{tableName}' does not "
+                    + "exist any more.");
+        }
+
+        // Created on demand like everywhere else, so a
+        // delete cannot fail on a database that has never
+        // had a save.
+        await EnsureHistoryTableAsync(connection);
+
+        int rows = 0;
+
+        await using SqlTransaction transaction =
+            (SqlTransaction)
+                await connection.BeginTransactionAsync();
+
+        try
+        {
+
+            using SqlCommand count =
+                new SqlCommand(
+                    "SELECT COUNT_BIG(*) "
+                        + "FROM [dbo].["
+                        + tableName + "]",
+                    connection,
+                    transaction);
+                count.CommandTimeout = 0;
+
+            rows = (int)Math.Min(
+                Convert.ToInt64(
+                    await count.ExecuteScalarAsync()),
+                int.MaxValue);
+
+            using SqlCommand drop =
+                new SqlCommand(
+                    "DROP TABLE [dbo].["
+                        + tableName + "]",
+                    connection,
+                    transaction);
+                drop.CommandTimeout = 0;
+
+            await drop.ExecuteNonQueryAsync();
+
+            await DeleteHistoryAsync(
+                connection,
+                transaction,
+                tableName);
+
+            await transaction.CommitAsync();
+
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+
+            throw;
+        }
+
+        return Json(new ImportDeleteResponse
+        {
+            Success = true,
+            Message =
+                $"'{tableName}' was deleted.",
+            Table = tableName,
+            RowsDeleted = rows
+        });
+
+        }
+
+        catch (Exception ex)
+        {
+            return BadRequestJson(
+                FriendlyDatabaseError(ex));
+        }
+
+        }
+
+    }
+
+
+    // True only for a real table in dbo. is_ms_shipped is
+    // what keeps a system table out of reach, even if one
+    // were ever named like this.
+    private async Task<bool> IsDeletableTableAsync(
+        SqlConnection connection,
+        string tableName)
+    {
+        const string sql = @"
+SELECT COUNT(*)
+FROM sys.tables t
+INNER JOIN sys.schemas s
+    ON s.schema_id = t.schema_id
+WHERE t.name = @Table
+  AND s.name = 'dbo'
+  AND t.is_ms_shipped = 0";
+
+        using SqlCommand check =
+            new SqlCommand(sql, connection);
+        check.CommandTimeout = 0;
+
+        check.Parameters.Add(
+            new SqlParameter(
+                "@Table",
+                SqlDbType.NVarChar, 128)
+            {
+                Value = tableName
+            });
+
+        return Convert.ToInt32(
+            await check.ExecuteScalarAsync()) > 0;
+    }
+
+
+    // Every log line naming this table goes with it. The
+    // table is the only record of what was saved, so an
+    // entry left behind would be a View and an Update that
+    // both fail.
+    private async Task DeleteHistoryAsync(
+        SqlConnection connection,
+        SqlTransaction transaction,
+        string tableName)
+    {
+        const string sql = @"
+DELETE FROM dbo.ImportHistory
+WHERE TableName = @Table";
+
+        using SqlCommand remove =
+            new SqlCommand(
+                sql, connection, transaction);
+        remove.CommandTimeout = 0;
+
+        remove.Parameters.Add(
+            new SqlParameter(
+                "@Table",
+                SqlDbType.NVarChar, 200)
+            {
+                Value = tableName
+            });
+
+        await remove.ExecuteNonQueryAsync();
     }
 
 
