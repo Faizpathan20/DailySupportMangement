@@ -653,7 +653,223 @@ function masterBindModalSubmit(formId, closeFn, modalId) {
 
         });
 
+});
+
+};
+
+
+// ==========================================
+// MASTER TABLE SORT (shared across modules)
+// Reports-style column sorting for any table:
+// .sortable <th> with data-sort =
+// text | num | date | time | status | priority.
+// Sort column / direction / arrow state is
+// kept per table id, so multiple tables on the
+// same page stay independent. "no-data-row"
+// placeholder rows are never sorted into place.
+// ==========================================
+
+var masterSortState = {};
+
+
+function masterSortTable(th) {
+
+    var table = th.closest("table");
+
+    if (!table) {
+        return;
+    }
+
+    var state =
+        masterSortState[table.id]
+        || { column: -1, direction: "asc" };
+
+    var headers = Array.from(th.parentNode.children);
+
+    var colIndex = headers.indexOf(th);
+
+    var type =
+        th.getAttribute("data-sort") || "text";
+
+    if (state.column === colIndex) {
+        state.direction =
+            state.direction === "asc"
+                ? "desc"
+                : "asc";
+    } else {
+        state.column = colIndex;
+        state.direction = "asc";
+    }
+
+    masterSortState[table.id] = state;
+
+    var tbody = table.querySelector("tbody");
+
+    if (!tbody) {
+        return;
+    }
+
+    var rows = Array.from(
+        tbody.querySelectorAll("tr")
+    ).filter(function (row) {
+        return !row.classList.contains("no-data-row");
     });
+
+    rows.sort(function (a, b) {
+
+        var aVal =
+            a.querySelectorAll("td")[colIndex]
+            ?.innerText.trim() || "";
+
+        var bVal =
+            b.querySelectorAll("td")[colIndex]
+            ?.innerText.trim() || "";
+
+        var aRank, bRank, aTime, bTime;
+
+        if (type === "date") {
+
+            aTime = Date.parse(aVal) || 0;
+            bTime = Date.parse(bVal) || 0;
+
+            return state.direction === "asc"
+                ? aTime - bTime
+                : bTime - aTime;
+
+        } else if (type === "time") {
+
+            aTime = masterTimeToMinutes(aVal);
+            bTime = masterTimeToMinutes(bVal);
+
+            return state.direction === "asc"
+                ? aTime - bTime
+                : bTime - aTime;
+
+        } else if (type === "num") {
+
+            aRank = parseFloat(aVal);
+            bRank = parseFloat(bVal);
+
+            if (isNaN(aRank) && isNaN(bRank)) {
+
+                var cmpNum = aVal.localeCompare(bVal);
+
+                return state.direction === "asc"
+                    ? cmpNum
+                    : -cmpNum;
+
+            }
+
+            aRank = aRank || 0;
+            bRank = bRank || 0;
+
+            return state.direction === "asc"
+                ? aRank - bRank
+                : bRank - aRank;
+
+        } else if (type === "status") {
+
+            var statusRank = {
+                "Open": 0,
+                "In Progress": 1,
+                "Pending": 2,
+                "Planned": 2,
+                "Completed": 3,
+                "Cancelled": 4,
+                "Active": 5,
+                "Inactive": 6
+            };
+
+            aRank = statusRank[aVal] !== undefined
+                ? statusRank[aVal]
+                : 99;
+
+            bRank = statusRank[bVal] !== undefined
+                ? statusRank[bVal]
+                : 99;
+
+            return state.direction === "asc"
+                ? aRank - bRank
+                : bRank - aRank;
+
+        } else if (type === "priority") {
+
+            var priorityRank = {
+                "Low": 0,
+                "Medium": 1,
+                "High": 2,
+                "Urgent": 3
+            };
+
+            aRank = priorityRank[aVal] !== undefined
+                ? priorityRank[aVal]
+                : 99;
+
+            bRank = priorityRank[bVal] !== undefined
+                ? priorityRank[bVal]
+                : 99;
+
+            return state.direction === "asc"
+                ? aRank - bRank
+                : bRank - aRank;
+
+        } else {
+
+            var cmp = aVal.localeCompare(bVal);
+
+            return state.direction === "asc"
+                ? cmp
+                : -cmp;
+
+        }
+
+    });
+
+    for (var i = 0; i < rows.length; i++) {
+        tbody.appendChild(rows[i]);
+    }
+
+    var allThs = table.querySelectorAll("th");
+
+    for (var i = 0; i < allThs.length; i++) {
+
+        allThs[i].classList.remove(
+            "sort-asc", "sort-desc"
+        );
+
+    }
+
+    if (allThs[colIndex]) {
+
+        allThs[colIndex].classList.add(
+            state.direction === "asc"
+                ? "sort-asc"
+                : "sort-desc"
+        );
+
+    }
+
+}
+
+
+function masterTimeToMinutes(value) {
+
+    var match =
+        value.match(
+            /^(\d{1,2}):(\d{2})\s*([AP]M)$/i
+        );
+
+    if (!match) {
+        return 0;
+    }
+
+    var hours = parseInt(match[1], 10) % 12;
+
+    if (/pm/i.test(match[3])) {
+        hours += 12;
+    }
+
+    return hours * 60 + parseInt(match[2], 10);
 
 }
 
@@ -667,6 +883,12 @@ function masterBindModalSubmit(formId, closeFn, modalId) {
 // ==========================================
 
 (function () {
+
+    // Every enhanced select, kept so the cascading
+    // filter engine can re-read a select's options
+    // after it rebuilt them.
+    var ssInstances = [];
+
 
     function buildSearchableSelect(select) {
 
@@ -764,6 +986,59 @@ function masterBindModalSubmit(formId, closeFn, modalId) {
         );
 
         select.style.display = "none";
+
+
+        // ---------- LABEL SAFETY ----------
+        //
+        // These filters are wrapped in a <label>,
+        // which makes this <button> the label's
+        // first labelable descendant and therefore
+        // its labeled control. A click on any
+        // NON-interactive part of the dropdown is
+        // therefore re-dispatched at the trigger by
+        // the label's activation behaviour, which
+        // immediately reopens the panel the click
+        // just closed.
+        //
+        // Interactive content (the search box) is
+        // exempt, so cancelling the default action
+        // for the option rows and the "No options
+        // found" row is enough. The trigger keeps
+        // its native toggle.
+        wrapper.addEventListener(
+            "click",
+            function (event) {
+
+                var node = event.target;
+
+                if (
+                    !node
+                    || !node.closest
+                ) {
+                    return;
+                }
+
+                if (
+                    node.closest(
+                        ".searchable-select-trigger"
+                    ) === trigger
+                ) {
+                    return;
+                }
+
+                if (
+                    node.closest(
+                        ".searchable-select-options"
+                    ) === null
+                ) {
+                    return;
+                }
+
+                event.preventDefault();
+
+            },
+            true
+        );
 
 
         // ---------- OPTIONS LIST ----------
@@ -1173,9 +1448,44 @@ function masterBindModalSubmit(formId, closeFn, modalId) {
 
         // ---------- INIT ----------
 
+        ssInstances.push({
+            select: select,
+            refresh: function () {
+                refreshOptionsData();
+                syncLabel();
+            }
+        });
+
         refreshOptionsData();
 
         syncLabel();
+
+    }
+
+
+    // Re-reads the native <option> list of an
+    // enhanced select and repaints its trigger label
+    // and its dropdown panel. Needed whenever
+    // something rewrites the options in place (the
+    // cascading filters do exactly that).
+    function masterRefreshSearchableSelect(select) {
+
+        if (!select) {
+            return;
+        }
+
+        for (
+            var i = 0;
+            i < ssInstances.length;
+            i++
+        ) {
+            if (
+                ssInstances[i].select === select
+            ) {
+                ssInstances[i].refresh();
+                return;
+            }
+        }
 
     }
 
@@ -1305,5 +1615,472 @@ function masterBindModalSubmit(formId, closeFn, modalId) {
 
     window.masterSyncSearchableSelects =
         masterSyncSearchableSelects;
+
+    window.masterRefreshSearchableSelect =
+        masterRefreshSearchableSelect;
+
+})();
+
+
+// ==========================================
+// CASCADING FILTERS
+//
+// Makes the relationship filters (State /
+// User / Client) behave as one interlinked
+// set instead of three independent lists.
+//
+// The server renders the COMPLETE option list
+// on every request and stamps each option
+// with the foreign keys that decide whether it
+// is still reachable:
+//
+//   <option value="2"
+//           data-parent="1"   <- owning user id
+//           data-group="4">    <- owning state id
+//
+// A select declares what constrains it via
+// data-cascade-parent:
+//
+//   data-cascade-parent="userId:parent;
+//                         stateId:group"
+//
+// meaning "this option survives only while the
+// User select has an option whose value equals
+// my data-parent, and the State select has an
+// option whose value equals my data-group".
+// An unselected ("All ...") parent imposes no
+// constraint at all.
+//
+// Every select in a group declares the group
+// through data-cascade-group, including the
+// ones that constrain others but are not
+// constrained themselves (the User filter).
+//
+// Selecting a value therefore narrows the
+// sibling lists immediately, and any selection
+// the new value makes impossible is cleared
+// instead of being left to produce an empty,
+// misleading result set. This mirrors the
+// server side FilterCascade.Normalize() rules,
+// so the browser and the SQL agree.
+// ==========================================
+
+(function () {
+
+    // Reads "a:attr;b:attr" into a constraint list.
+    function cascadeParseRules(select) {
+
+        var raw =
+            select.getAttribute(
+                "data-cascade-parent"
+            ) || "";
+
+        var rules = [];
+
+        var parts = raw.split(";");
+
+        for (
+            var i = 0;
+            i < parts.length;
+            i++
+        ) {
+            var piece =
+                parts[i].trim();
+
+            if (!piece) {
+                continue;
+            }
+
+            var separator =
+                piece.indexOf(":");
+
+            if (separator === -1) {
+                continue;
+            }
+
+            rules.push({
+                key: piece
+                    .slice(0, separator)
+                    .trim(),
+                attr: piece
+                    .slice(separator + 1)
+                    .trim()
+            });
+
+        }
+
+        return rules;
+
+    }
+
+
+    // Captures the full option list once, so the
+    // cascading can re-expand a narrowed select
+    // without another server round-trip.
+    function cascadeSnapshot(select) {
+
+        var nodes =
+            select.querySelectorAll("option");
+
+        var items = [];
+
+        for (
+            var i = 0;
+            i < nodes.length;
+            i++
+        ) {
+            items.push({
+                value: nodes[i].value,
+                text:
+                    nodes[i].textContent
+                        .trim(),
+                parent:
+                    nodes[i].getAttribute(
+                        "data-parent"
+                    ) || "",
+                group:
+                    nodes[i].getAttribute(
+                        "data-group"
+                    ) || ""
+            });
+        }
+
+        return items;
+
+    }
+
+
+    // An option survives when every parent it
+    // declares is either unselected or points at
+    // it.
+    function cascadeIsAllowed(
+        option,
+        rules,
+        selectedByKey) {
+
+        // The leading "All ..." placeholder is
+        // always reachable. It carries no
+        // relationship key, and "no selection"
+        // means "no constraint", so pruning it
+        // would trap the user in a narrowed
+        // filter with no way back out short of
+        // the Reset button.
+        if (option.value === "") {
+            return true;
+        }
+
+        for (
+            var i = 0;
+            i < rules.length;
+            i++
+        ) {
+            var parentValue =
+                selectedByKey[rules[i].key] || "";
+
+            if (!parentValue) {
+                continue;
+            }
+
+            if (
+                option[rules[i].attr]
+                    !== parentValue
+            ) {
+                return false;
+            }
+
+        }
+
+        return true;
+
+    }
+
+
+    // Rewrites the native <option> list in place.
+    // Returns false when the current selection is
+    // no longer reachable, which tells the caller
+    // it was cleared and another pass is needed.
+    function cascadeRender(
+        entry,
+        selectedByKey) {
+
+        var select =
+            entry.select;
+
+        var previousValue =
+            select.value;
+
+        var allowed = [];
+
+        for (
+            var i = 0;
+            i < entry.options.length;
+            i++
+        ) {
+            if (
+                cascadeIsAllowed(
+                    entry.options[i],
+                    entry.rules,
+                    selectedByKey
+                )
+            ) {
+                allowed.push(entry.options[i]);
+            }
+        }
+
+        select.innerHTML = "";
+
+        for (
+            var j = 0;
+            j < allowed.length;
+            j++
+        ) {
+
+            var source = allowed[j];
+
+            var node =
+                document.createElement(
+                    "option"
+                );
+
+            node.value = source.value;
+
+            node.textContent = source.text;
+
+            if (source.parent) {
+                node.setAttribute(
+                    "data-parent",
+                    source.parent
+                );
+            }
+
+            if (source.group) {
+                node.setAttribute(
+                    "data-group",
+                    source.group
+                );
+            }
+
+            select.appendChild(node);
+
+        }
+
+        // Restore the selection only if the
+        // rewritten list still offers it,
+        // otherwise fall back to the leading
+        // "All ..." placeholder.
+        var stillSelected = false;
+
+        for (var k = 0; k < allowed.length; k++) {
+
+            if (
+                allowed[k].value
+                    === previousValue
+            ) {
+                select.selectedIndex = k;
+                stillSelected = true;
+                break;
+            }
+
+        }
+
+        if (!stillSelected) {
+            select.selectedIndex = 0;
+        }
+
+        return stillSelected;
+
+    }
+
+
+    function cascadeApply(entries) {
+
+        // Clearing one select can free or forbid
+        // options on another, so re-run until the
+        // selection set stops changing. Every pass
+        // that continues clears at least one
+        // selection, so this always terminates.
+        for (
+            var pass = 0;
+            pass <= entries.length;
+            pass++
+        ) {
+
+            var selectedByKey = {};
+
+            for (
+                var i = 0;
+                i < entries.length;
+                i++
+            ) {
+                var current =
+                    entries[i].select.value;
+
+                // A sibling may be referenced by its
+                // name or by its id, so both resolve
+                // to the same live value.
+                for (
+                    var k = 0;
+                    k < entries[i].keys.length;
+                    k++
+                ) {
+                    selectedByKey[
+                        entries[i].keys[k]
+                    ] = current;
+                }
+
+            }
+
+            var clearedAny = false;
+
+            for (
+                var j = 0;
+                j < entries.length;
+                j++
+            ) {
+                if (
+                    !cascadeRender(
+                        entries[j],
+                        selectedByKey
+                    )
+                ) {
+                    clearedAny = true;
+                }
+            }
+
+            if (!clearedAny) {
+                break;
+            }
+
+        }
+
+
+        // Repaint every combobox trigger / panel that
+        // the rewrite invalidated.
+        for (
+            var k = 0;
+            k < entries.length;
+            k++
+        ) {
+            if (
+                typeof window
+                    .masterRefreshSearchableSelect
+                    === "function"
+            ) {
+                window.masterRefreshSearchableSelect(
+                    entries[k].select
+                );
+            }
+        }
+
+    }
+
+
+    // Wires up every select that declares a
+    // cascade. Safe to call repeatedly, which
+    // matters because the Dashboard and the
+    // Reports re-render their filter bar from an
+    // AJAX partial.
+    function masterInitCascadingFilters(
+        root) {
+
+        var scope = root || document;
+
+        var selects =
+            scope.querySelectorAll(
+                "select[data-cascade-group]"
+            );
+
+        var groups = {};
+
+        for (
+            var i = 0;
+            i < selects.length;
+            i++
+        ) {
+            bindCascadeSelect(selects[i]);
+        }
+
+        for (var name in groups) {
+            if (
+                Object.prototype
+                    .hasOwnProperty.call(
+                        groups, name)
+            ) {
+                cascadeApply(groups[name]);
+            }
+        }
+
+        function bindCascadeSelect(select) {
+
+            var groupName =
+                select.getAttribute(
+                    "data-cascade-group"
+                ) || "default";
+
+            // The entry is cached on the element
+            // so re-running this function does
+            // not snapshot twice or stack a second
+            // change listener.
+            var entry = select.__ssCascade;
+
+            if (!entry) {
+
+                // Siblings may be referenced by
+                // name or by id, so the same select
+                // answers to both.
+                var keys = [];
+
+                if (select.name) {
+                    keys.push(select.name);
+                }
+
+                if (select.id
+                    && keys.indexOf(
+                        select.id) === -1)
+                {
+                    keys.push(select.id);
+                }
+
+                entry = {
+                    select: select,
+                    keys: keys,
+                    rules: cascadeParseRules(select),
+                    options: cascadeSnapshot(select)
+                };
+
+                select.__ssCascade = entry;
+
+                select.addEventListener(
+                    "change",
+                    function () {
+                        cascadeApply(
+                            groups[groupName]);
+                    }
+                );
+
+            }
+
+            if (!groups[groupName]) {
+                groups[groupName] = [];
+            }
+
+            groups[groupName].push(entry);
+
+        }
+
+    }
+
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        function () {
+            masterInitCascadingFilters(
+                document);
+        }
+    );
+
+
+    window.masterInitCascadingFilters =
+        masterInitCascadingFilters;
 
 })();
