@@ -1,0 +1,1806 @@
+/* =========================================
+   IMPORT PAGE — FRESH UI
+   ========================================= */
+
+/* One palette for the whole page. The values match the
+   blue the rest of the app already uses, so the import
+   screen reads as part of the same product rather than a
+   bolt-on. */
+.import-page {
+    --ip-accent: #2563eb;
+    --ip-accent-dark: #1d4ed8;
+    --ip-accent-soft: #eef4ff;
+    --ip-accent-line: #dbe7ff;
+
+    --ip-ink: #0f172a;
+    --ip-body: #334155;
+    --ip-muted: #64748b;
+    --ip-faint: #94a3b8;
+
+    --ip-line: #e2e8f0;
+    --ip-line-soft: #f1f5f9;
+
+    --ip-green: #16a34a;
+    --ip-amber: #d97706;
+    --ip-red: #b91c1c;
+
+    --ip-radius: 16px;
+
+    /* The app draws its cards and buttons at 8px, so the
+       import screen sticks to the same corner weight
+       rather than looking rounder than every other page. */
+    --ip-radius-card: 10px;
+    --ip-radius-control: 8px;
+
+    --ip-shadow:
+        0 1px 2px rgba(15, 23, 42, 0.04),
+        0 10px 26px -16px rgba(15, 23, 42, 0.18);
+
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.ip-sprite {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+}
+
+/* 1em keeps every icon in step with the font-size of
+   whatever it sits in, and currentColor lets it pick up
+   the surrounding text colour instead of being locked to
+   its own. */
+.ip-ico {
+    display: block;
+    width: 1em;
+    height: 1em;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+
+/* CARDS
+   .state-section in site.css is deliberately plain, and
+   is used on other pages, so the lift is applied only
+   here. */
+
+.import-page .state-section {
+    border: 1px solid var(--ip-line-soft);
+    border-radius: var(--ip-radius);
+    box-shadow: var(--ip-shadow);
+}
+
+
+/* PAGE HEADER
+========================================= */
+
+.import-page-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 0;
+}
+
+.iph-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 46px;
+    height: 46px;
+    border-radius: 13px;
+    background: linear-gradient(135deg, var(--ip-accent), #4f8bff);
+    color: #ffffff;
+    font-size: 22px;
+    box-shadow: 0 6px 14px -6px rgba(37, 99, 235, 0.6);
+}
+
+.import-page-header h1 {
+    font-size: 26px;
+    letter-spacing: -0.02em;
+    color: var(--ip-ink);
+}
+
+.import-page-header p {
+    color: #475569;
+    margin-top: 3px;
+    font-size: 14px;
+}
+
+@media (max-width: 520px) {
+    /* The badge takes width the text needs on a narrow
+       screen; the page reads fine without it there. */
+    .iph-badge {
+        display: none;
+    }
+
+    /* "Save to Database" is wider than the card once the
+       layout is down to a phone, and a button will not
+       break its label by default. Full-width stacked
+       buttons read better than a clipped one. */
+    .isb-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .isb-actions .cancel-btn,
+    .isb-actions .save-btn {
+        width: 100%;
+        white-space: normal;
+    }
+}
+
+
+/* SECTION HEADERS
+   The numbered "1 / 2 / 3" captions were replaced with
+   a plain title over its description. A short accent
+   rule keeps the sense of order without the count, so
+   nothing is lost if a step is hidden or added.
+========================================= */
+
+.import-page .section-header {
+    align-items: flex-start;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--ip-line-soft);
+}
+
+.import-page .section-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 0;
+    font-size: 16px;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    color: var(--ip-ink);
+}
+
+.import-page .section-header h2::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 3px;
+    height: 16px;
+    border-radius: 2px;
+    background: var(--ip-accent);
+}
+
+/* Indented to sit flush under the title text, i.e. past
+   the accent rule (3px) and its gap (10px). */
+.import-page .section-header p {
+    margin-top: 5px;
+    padding-left: 13px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ip-muted);
+}
+
+/* #previewSub starts out empty, before a file is
+   picked; an empty paragraph would leave a bare gap
+   under the title. */
+.import-page .section-header p:empty {
+    display: none;
+}
+
+
+/* DROPZONE
+========================================= */
+
+.import-dropzone {
+    border: 2px dashed #cbd5e1;
+    border-radius: var(--ip-radius);
+    background: #fbfcfe;
+    padding: clamp(28px, 4vw, 52px);
+    cursor: pointer;
+    transition:
+        border-color 0.18s ease,
+        background 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+.import-dropzone:hover {
+    border-color: #a8c2f0;
+    background: #f8faff;
+}
+
+.import-dropzone.is-over {
+    border-color: var(--ip-accent);
+    background: var(--ip-accent-soft);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+}
+
+.dz-idle,
+.dz-loaded {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 14px;
+    text-align: center;
+}
+
+/* The idle half is a <label for="importFile">, so it
+   needs cursor:pointer to read as clickable. */
+.dz-idle {
+    cursor: pointer;
+}
+
+.dz-browse {
+    cursor: pointer;
+    pointer-events: none;
+    user-select: none;
+}
+
+.dz-loaded {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    text-align: left;
+    gap: clamp(16px, 3vw, 28px);
+    padding: 0 6px;
+}
+
+/* Round soft badge beats a bare 56px emoji floating in
+   the middle of the box. */
+.dz-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--ip-accent-soft);
+    color: var(--ip-accent);
+    font-size: 28px;
+    line-height: 1;
+    transition: transform 0.18s ease;
+}
+
+.import-dropzone:hover .dz-icon {
+    transform: translateY(-2px);
+}
+
+.dz-title {
+    font-size: clamp(16px, 2.2vw, 19px);
+    font-weight: 700;
+    color: var(--ip-ink);
+    letter-spacing: -0.01em;
+}
+
+.dz-hint {
+    font-size: 12px;
+    /* slate-400 on white only reaches about 2.5:1, which
+       is too faint to read; slate-500 is the lightest
+       that still clears AA. */
+    color: var(--ip-muted);
+}
+
+.dz-file-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--ip-accent-soft);
+    color: var(--ip-accent);
+    font-size: 22px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.dz-file-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.dz-file-name {
+    font-weight: 700;
+    color: #0f172a;
+    font-size: clamp(15px, 2vw, 18px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dz-file-info {
+    color: #64748b;
+    font-size: clamp(12px, 2vw, 13px);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    row-gap: 4px;
+}
+
+.dz-file-side {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.dz-sheet {
+    min-width: 140px;
+    height: 40px;
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid var(--ip-line);
+    background: #ffffff;
+    color: var(--ip-body);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease;
+}
+
+/* Removing a file is destructive, so the hover says so. */
+.icon-btn:hover {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: var(--ip-red);
+}
+
+
+/* BANNER
+========================================= */
+
+.import-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid #fde68a;
+    background: #fffbeb;
+    color: #92400e;
+    margin-bottom: 14px;
+    font-size: 13px;
+}
+
+.import-banner-view {
+    border-color: var(--ip-accent-line);
+    background: var(--ip-accent-soft);
+    color: #1e40af;
+}
+
+.ib-icon {
+    display: flex;
+    flex: 0 0 auto;
+    font-size: 16px;
+    line-height: 1;
+}
+
+
+/* STATS
+========================================= */
+
+.import-stats {
+    display: grid;
+
+    /* min(150px, 100%) instead of a flat 150px: once the
+       content column is narrower than a panel - which
+       happens under ~420px, because the layout keeps a
+       200px sidebar beside the content - a flat minimum
+       pushes the grid wider than its box and the whole
+       page starts scrolling sideways. */
+    grid-template-columns: repeat(
+        auto-fit,
+        minmax(min(150px, 100%), 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.istat {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 3px;
+    padding: 11px 14px 11px 17px;
+    border: 1px solid var(--ip-line);
+    border-radius: 12px;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+/* Colour-keyed spine down the left edge, so the panel is
+   readable at a glance without hunting for the number. */
+.istat::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 9px;
+    bottom: 9px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--ip-line);
+}
+
+.istat.is-blue::before {
+    background: var(--ip-accent);
+}
+
+.istat.is-green::before {
+    background: var(--ip-green);
+}
+
+.istat.is-amber::before {
+    background: var(--ip-amber);
+}
+
+.istat.is-slate::before {
+    background: var(--ip-muted);
+}
+
+.istat-value {
+    font-size: clamp(18px, 2vw, 22px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.istat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ip-muted);
+}
+
+.istat-value.is-blue {
+    color: var(--ip-accent-dark);
+}
+
+.istat-value.is-green {
+    color: #15803d;
+}
+
+.istat-value.is-amber {
+    color: #b45309;
+}
+
+.istat-value.is-slate {
+    color: var(--ip-body);
+}
+
+
+/* TABLE
+========================================= */
+
+.import-toolbar {
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.import-toolbar .toolbar-right {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.import-toolbar #tableSearch {
+    min-width: 0;
+    flex: 1 1 160px;
+}
+
+.import-toolbar .toolbar-left {
+    flex-wrap: wrap;
+}
+
+.import-table td {
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+/* The source rows are dense and repetitive, and on a big
+   file the eye loses its place between them. */
+.import-table tbody tr:hover td {
+    background: #f8faff;
+}
+
+.import-table tbody tr:nth-child(even) td {
+    background: #fcfdff;
+}
+
+.import-table tbody tr:nth-child(even):hover td {
+    background: #f5f9ff;
+}
+
+.import-th-sub {
+    display: block;
+    margin-top: 2px;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--ip-muted);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+
+/* SAVE BAR
+========================================= */
+
+.import-save-bar {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: clamp(14px, 3vw, 24px);
+    flex-wrap: wrap;
+    padding: clamp(14px, 2vw, 18px);
+    border: 1px solid var(--ip-line);
+    border-radius: 14px;
+    background: #f8fafc;
+}
+
+.isb-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1 1 320px;
+    min-width: 0;
+}
+
+.isb-field label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ip-body);
+}
+
+.isb-field input {
+    height: 44px;
+    width: 100%;
+    min-width: 0;
+    padding: 0 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #ffffff;
+    font-size: 14px;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.isb-field input:focus {
+    outline: none;
+    border-color: var(--ip-accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.isb-hint {
+    font-size: 12px;
+    color: var(--ip-muted);
+    min-height: 18px;
+}
+
+.isb-hint.is-info {
+    color: #1e40af;
+}
+
+.isb-hint.is-new {
+    color: #15803d;
+}
+
+.isb-hint.is-warn {
+    color: #b45309;
+}
+
+/* Used when the choice on screen would lose data: a
+   replace, or nothing ticked at all. */
+.isb-hint.is-danger {
+    color: var(--ip-red);
+    font-weight: 600;
+}
+
+.isb-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+
+/* HISTORY
+========================================= */
+
+.hf-table {
+    font-weight: 600;
+    color: var(--ip-ink);
+}
+
+.hf-file {
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.col-num {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.col-nowrap {
+    white-space: nowrap;
+}
+
+/* Two 30px buttons and the 6px gap between them, plus
+   the cell padding on either side. */
+.col-act {
+    width: 96px;
+    text-align: center;
+}
+
+.page-gap {
+    padding: 0 6px;
+    color: var(--ip-faint);
+}
+
+
+/* =========================================
+   KEYBOARD HINTS
+   The shortcuts have always worked but were never
+   written down anywhere on the page.
+   ========================================= */
+
+.ip-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.ip-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border: 1px solid var(--ip-line);
+    border-radius: 999px;
+    background: #ffffff;
+    font-size: 11px;
+    color: var(--ip-muted);
+    white-space: nowrap;
+}
+
+.ip-chip kbd {
+    padding: 1px 5px;
+    border: 1px solid #cbd5e1;
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: #f8fafc;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--ip-body);
+}
+
+@media (max-width: 900px) {
+    /* The hints are a nicety, so they are the first
+       thing to go rather than pushing the title off. */
+    .ip-chips {
+        display: none;
+    }
+}
+
+
+/* =========================================
+   STEPS
+   ========================================= */
+
+.ip-steps {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.ip-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 11px 14px;
+    border: 1px solid var(--ip-line-soft);
+    border-radius: var(--ip-radius-card);
+    background: #ffffff;
+    transition:
+        border-color .18s ease,
+        background .18s ease,
+        box-shadow .18s ease;
+}
+
+/* The band that joins one step to the next. */
+.ip-step + .ip-step {
+    position: relative;
+}
+
+.ip-step + .ip-step::before {
+    content: "";
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    width: 8px;
+    height: 1px;
+    background: var(--ip-line);
+}
+
+.ip-step-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--ip-line);
+    background: #f8fafc;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ip-muted);
+    transition:
+        background .18s ease,
+        color .18s ease,
+        border-color .18s ease;
+}
+
+.ip-step-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.ip-step-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ip-body);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ip-step-note {
+    font-size: 11px;
+    color: var(--ip-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ip-step.is-current {
+    border-color: var(--ip-accent-line);
+    background: var(--ip-accent-soft);
+    box-shadow: 0 1px 2px rgba(37, 99, 235, .08);
+}
+
+.ip-step.is-current .ip-step-num {
+    background: var(--ip-accent);
+    border-color: var(--ip-accent);
+    color: #ffffff;
+}
+
+.ip-step.is-current .ip-step-name {
+    color: var(--ip-accent-dark);
+}
+
+/* A finished step swaps its number for a tick. The digit
+   is pushed out of the way rather than hidden, so the
+   circle keeps its size and the row does not jump. */
+.ip-step.is-done .ip-step-num {
+    position: relative;
+    background: var(--ip-green);
+    border-color: var(--ip-green);
+    color: #ffffff;
+    font-size: 0;
+}
+
+.ip-step.is-done .ip-step-num::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 46%;
+    width: 5px;
+    height: 9px;
+    border: solid #ffffff;
+    border-width: 0 2px 2px 0;
+    transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.ip-step.is-done .ip-step-name {
+    color: var(--ip-green);
+}
+
+@media (max-width: 700px) {
+    .ip-steps {
+        flex-wrap: wrap;
+    }
+
+    .ip-step {
+        flex: 1 1 100%;
+    }
+
+    .ip-step + .ip-step::before {
+        display: none;
+    }
+
+    .ip-step-note {
+        display: none;
+    }
+}
+
+
+/* =========================================
+   PROGRESS
+   ========================================= */
+
+.ip-progress {
+    margin-top: 18px;
+    padding: 12px 14px;
+    border: 1px solid var(--ip-accent-line);
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.ip-progress-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 9px;
+}
+
+.ip-progress-text {
+    font-size: 13px;
+    color: var(--ip-body);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ip-progress-cancel {
+    flex: 0 0 auto;
+    padding: 3px 10px;
+    border: 1px solid var(--ip-line);
+    border-radius: 7px;
+    background: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ip-body);
+    cursor: pointer;
+}
+
+.ip-progress-cancel:hover {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: var(--ip-red);
+}
+
+.ip-progress-track {
+    height: 7px;
+    border-radius: 999px;
+    background: var(--ip-line-soft);
+    overflow: hidden;
+}
+
+.ip-progress-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 999px;
+    background: linear-gradient(
+        90deg,
+        var(--ip-accent),
+        #4f8bff);
+    transition: width .12s linear;
+}
+
+/* While the reader is inside XLSX.read() there is no
+   figure to report, so the bar moves instead. The
+   stripes are what tells the two states apart at a
+   glance. */
+.ip-progress-fill.is-indeterminate {
+    width: 34%;
+    transition: none;
+    background-image:
+        linear-gradient(
+            45deg,
+            rgba(255, 255, 255, .32) 25%,
+            transparent 25%,
+            transparent 50%,
+            rgba(255, 255, 255, .32) 50%,
+            rgba(255, 255, 255, .32) 75%,
+            transparent 75%);
+    background-size: 18px 18px;
+    animation: ip-stripes .7s linear infinite;
+}
+
+@keyframes ip-stripes {
+    from {
+        background-position: 0 0;
+    }
+
+    to {
+        background-position: 18px 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ip-progress-fill.is-indeterminate {
+        animation: none;
+    }
+}
+
+
+/* =========================================
+   COLUMN TYPES
+   ========================================= */
+
+.ip-typemap {
+    margin-bottom: 14px;
+    border: 1px solid var(--ip-line);
+    border-radius: 12px;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.ip-typemap-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 14px;
+    border: 0;
+    background: #f8fafc;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ip-body);
+    cursor: pointer;
+    text-align: left;
+}
+
+.ip-typemap-toggle:hover {
+    background: #f1f5f9;
+}
+
+.ip-typemap-body {
+    border-top: 1px solid var(--ip-line-soft);
+
+    /* A long sheet can have a lot of columns, so the list
+       is capped rather than pushing the grid off the
+       screen. The native scrollbar is kept because it is
+       the one thing keyboard users already know. */
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.ip-typemap-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.ip-typemap-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--ip-line);
+    background: #ffffff;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--ip-muted);
+    text-align: left;
+}
+
+.ip-typemap-body {
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.ip-typemap-table td {
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--ip-line-soft);
+    vertical-align: middle;
+}
+
+.ip-typemap-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.ipm-name {
+    font-weight: 600;
+    color: var(--ip-ink);
+}
+
+.ipm-sample {
+    color: var(--ip-muted);
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ipm-select {
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    font-size: 13px;
+    min-width: 150px;
+}
+
+.ipm-select:focus {
+    outline: none;
+    border-color: var(--ip-accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
+
+.col-type {
+    width: 190px;
+}
+
+.col-sample {
+    width: 40%;
+}
+
+.ip-typemap-foot {
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px 14px;
+    border-top: 1px solid var(--ip-line-soft);
+    background: #f8fafc;
+}
+
+
+/* =========================================
+   ROW SELECTION
+   ========================================= */
+
+.col-tick {
+    width: 38px;
+    text-align: center;
+    padding-right: 0 !important;
+}
+
+.col-tick input {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+    vertical-align: middle;
+    accent-color: var(--ip-accent);
+}
+
+.ip-selbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    border: 1px solid var(--ip-accent-line);
+    border-radius: 10px;
+    background: var(--ip-accent-soft);
+}
+
+.ip-sel-info {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e40af;
+}
+
+.ip-sel-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.ip-mini-btn {
+    padding: 4px 10px;
+    border: 1px solid var(--ip-accent-line);
+    border-radius: 7px;
+    background: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ip-accent-dark);
+    cursor: pointer;
+}
+
+.ip-mini-btn:hover {
+    background: #dbe7ff;
+    border-color: #bfd6ff;
+}
+
+
+/* =========================================
+   EDITING
+   ========================================= */
+
+.import-table td[data-col] {
+    cursor: text;
+}
+
+/* A cell the user typed into stays marked until the
+   file is closed, so an edit cannot be missed further
+   down the page. */
+.import-table td.cell-edited {
+    background: #fffbeb !important;
+    box-shadow: inset 3px 0 0 var(--ip-amber);
+}
+
+.import-table td.cell-edited::after {
+    content: "";
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    margin-left: 6px;
+    border-radius: 50%;
+    background: var(--ip-amber);
+    vertical-align: middle;
+}
+
+.cell-edit {
+    width: 100%;
+    min-width: 90px;
+    padding: 2px 5px;
+    border: 2px solid var(--ip-accent);
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ip-ink);
+    background: #ffffff;
+}
+
+.cell-edit:focus {
+    outline: none;
+}
+
+/* A type the user picked is called out in the header so
+   the grid does not quietly disagree with the panel. */
+.import-th-sub.is-overridden {
+    color: #b45309;
+    font-weight: 700;
+}
+
+
+/* =========================================
+   WRITE MODE
+   ========================================= */
+
+.ip-modes {
+    flex: 1 1 100%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.ip-modes-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ip-body);
+}
+
+.ip-modes-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ip-mode {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    flex: 1 1 190px;
+    padding: 10px 12px;
+    border: 1px solid var(--ip-line);
+    border-radius: var(--ip-radius-card);
+    background: #ffffff;
+    cursor: pointer;
+    transition:
+        border-color .15s ease,
+        background .15s ease,
+        box-shadow .15s ease;
+}
+
+.ip-mode:hover {
+    border-color: var(--ip-accent-line);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+}
+
+.ip-mode input {
+    margin-top: 2px;
+    accent-color: var(--ip-accent);
+    cursor: pointer;
+}
+
+.ip-mode:has(input:checked) {
+    border-color: var(--ip-accent);
+    background: var(--ip-accent-soft);
+    box-shadow:
+        0 0 0 1px var(--ip-accent) inset,
+        0 1px 2px rgba(37, 99, 235, .1);
+}
+
+/* The second option is tinted differently rather than
+   both being blue, because the two do not carry the same
+   risk. */
+.ip-mode:has(input[value="replace"]:checked) {
+    border-color: #fca5a5;
+    background: #fef2f2;
+    box-shadow:
+        0 0 0 1px #ef4444 inset,
+        0 1px 2px rgba(220, 38, 38, .1);
+}
+
+/* Update writes onto rows that are already stored, which
+   is neither an addition nor a wipe, so it gets its own
+   tint to match the tag it puts in the saved list. */
+.ip-mode:has(input[value="update"]:checked) {
+    border-color: #93c5fd;
+    background: #eff6ff;
+    box-shadow:
+        0 0 0 1px #3b82f6 inset,
+        0 1px 2px rgba(37, 99, 235, .12);
+}
+
+.ip-mode-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.ip-mode-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ip-ink);
+}
+
+.ip-mode-note {
+    font-size: 11px;
+    color: var(--ip-muted);
+    line-height: 1.4;
+}
+
+/* :has() is recent enough to be worth a plain fallback
+   for the browsers that lack it. */
+@supports not selector(:has(*)) {
+    .ip-mode input:checked ~ .ip-mode-body .ip-mode-name {
+        color: var(--ip-accent-dark);
+    }
+}
+
+.ipm-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.ipm-tag.is-append {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.ipm-tag.is-replace {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.ipm-tag.is-update {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+/* =========================================
+   SAVED FILES — SCROLLING LIST
+   ========================================= */
+
+/* Ten rows and no more, then the list scrolls. A long
+   history otherwise pushes the rest of the page down and
+   the user has to scroll back up to reach the controls
+   above it.
+
+   464px is ten rows of the 42px the shared table styles
+   give them, plus the heading. A row count rather than an
+   arbitrary height keeps the two in step if the padding
+   ever changes. */
+.ip-history-scroll {
+    max-height: 464px;
+    overflow-y: auto;
+    overflow-x: auto;
+
+    border: 1px solid var(--ip-line);
+    border-radius: var(--ip-radius-card);
+    background: #ffffff;
+
+    /* The scrollbar is the one control everyone already
+       knows, and it only shows up when there is actually
+       something to scroll to. */
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.ip-history-scroll::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.ip-history-scroll::-webkit-scrollbar-track {
+    background: var(--ip-line-soft);
+    border-radius: 999px;
+}
+
+.ip-history-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border: 2px solid var(--ip-line-soft);
+    border-radius: 999px;
+}
+
+.ip-history-scroll::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* The inner container already scrolled sideways on its
+   own, so it must not clip the rounded corners or add a
+   second bar of its own. */
+.ip-history-scroll .master-table {
+    overflow: visible;
+    border: 0;
+}
+
+/* site.css sets border-collapse: collapse on every table.
+   That flattens the cell borders and lets the rows show
+   straight through a heading that is meant to stay put,
+   so the heading gets its own bottom border instead. */
+.ip-history-scroll #historyTable {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+/* Same treatment the rest of the app's tables already
+   have, so this list does not read as a different thing
+   from the tables on the other pages. */
+.ip-history-scroll #historyTable th,
+.ip-history-scroll #historyTable td {
+    padding: 11px 14px;
+}
+
+.ip-history-scroll #historyTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    white-space: nowrap;
+}
+
+.ip-history-scroll #historyTable thead th::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: #e2e8f0;
+}
+
+.ip-history-scroll #historyTable tbody td {
+    background: #ffffff;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.ip-history-scroll #historyTable tbody tr:hover td {
+    background: #f8fafc;
+}
+
+/* The last row has nothing under it to divide, so the
+   border is dropped rather than drawn against the edge of
+   the box. */
+.ip-history-scroll #historyTable tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+/* A row is only as tall as its content once the action
+   buttons are in it, so the rule that keeps a single line
+   of text on one line also keeps the ten row height
+   honest. */
+.ip-history-scroll #historyTable .col-nowrap {
+    white-space: nowrap;
+}
+
+/* View and Update sit side by side. The size and shape
+   live on .action-btn alone so the pair can never drift
+   apart the way a padding on one of them allowed before.
+   Each button then only says what colour it is. */
+.col-act-row {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border-radius: var(--ip-radius-control);
+    border: 1px solid transparent;
+    background: none;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease;
+}
+
+/* The glyph is the whole button now, so it is drawn a
+   little larger than the 12px text it replaced. */
+.action-btn .ip-ico {
+    width: 15px;
+    height: 15px;
+}
+
+.action-btn:focus-visible {
+    outline: 2px solid var(--ip-accent);
+    outline-offset: 2px;
+}
+
+/* View only reads, so it stays quiet. */
+.action-btn.view-btn {
+    background: #fff;
+    color: #475569;
+    border-color: var(--ip-line);
+}
+
+.action-btn.view-btn:hover {
+    background: var(--ip-line-soft);
+    border-color: #cbd5e1;
+    color: #1e293b;
+}
+
+/* Update writes back onto real rows, so it carries the
+   accent. Two filled buttons side by side would shout,
+   so View is the quiet outline beside it. */
+.action-btn.update-btn {
+    background: var(--ip-accent);
+    color: #fff;
+    border-color: var(--ip-accent);
+}
+
+.action-btn.update-btn:hover {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    color: #fff;
+}
+
+.col-mode {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.ip-typemap-foot .cancel-btn {
+    font-size: 12px;
+    padding: 5px 12px;
+}
+
+
+/* =========================================
+   STICKY BAR
+   ========================================= */
+
+.ip-sticky {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 3vw, 26px);
+    flex-wrap: wrap;
+
+    margin-top: 14px;
+    padding: 11px 16px;
+
+    border: 1px solid var(--ip-accent-line);
+    border-radius: var(--ip-radius-card);
+    background: rgba(255, 255, 255, .96);
+    box-shadow:
+        0 -1px 2px rgba(15, 23, 42, .04),
+        0 10px 26px -16px rgba(15, 23, 42, .28);
+
+    backdrop-filter: blur(6px);
+}
+
+.ip-sticky-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.ip-sticky-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--ip-muted);
+}
+
+.ip-sticky-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ip-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+}
+
+.ip-sticky-btn {
+    margin-left: auto;
+}
+
+@media (max-width: 620px) {
+    .ip-sticky {
+        gap: 10px;
+        padding: 10px 12px;
+    }
+
+    /* Stacked, the save button needs the full width or it
+       reads as a side note. */
+    .ip-sticky-btn {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+
+/* =========================================
+   FAILED ROWS
+   ========================================= */
+
+.ip-modal {
+    z-index: 1200;
+}
+
+.ip-modal-body {
+    max-height: 46vh;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.ip-modal-lead {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: var(--ip-body);
+}
+
+.ip-error-list {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.ip-error-list li {
+    margin-bottom: 7px;
+    padding: 7px 10px;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    background: #fef2f2;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #991b1b;
+    word-break: break-word;
+}
+
+.ip-error-list li:last-child {
+    margin-bottom: 0;
+    border-style: dashed;
+    background: #ffffff;
+    color: var(--ip-muted);
+}
+
+
+/* =========================================
+   SHARED DETAILS
+   ========================================= */
+
+/* One focus ring for every control on the page. The
+   browser default is a faint outline that is easy to lose
+   against the soft fills used here, and it is drawn
+   inconsistently across the buttons that are built from
+   a plain <label> or <div>. */
+.import-page :is(
+        button,
+        input,
+        select,
+        textarea,
+        a
+    ):focus-visible {
+    outline: 2px solid var(--ip-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* A tick that is not ticked all the way should not read
+   as settled, so the box gets a little more weight. */
+.import-page input[type="checkbox"] {
+    accent-color: var(--ip-accent);
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+}
+
+.import-page input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--ip-accent);
+    outline-offset: 2px;
+}
+
+/* The row tick sits in a narrow column, so the header
+   checkbox has to line up with the ones under it rather
+   than sit against the row number. */
+.import-page thead .col-tick {
+    width: 34px;
+    text-align: center;
+}
+
+.import-page td.col-tick {
+    text-align: center;
+}
+
+/* Badges are small enough that a soft tint on their own
+   disappears against the white row, so they keep a hair
+   line to hold their edge. */
+.badge-active,
+.badge-cancelled,
+.badge-default {
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+/* The table name is the thing a user recognises their own
+   import by, so it is the one cell given a little more
+   weight and is never wrapped mid word. */
+.ip-history-scroll .hf-table {
+    font-weight: 600;
+    color: var(--ip-ink);
+    white-space: nowrap;
+}
+
+.ip-history-scroll .hf-file {
+    color: var(--ip-muted);
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Nothing saved yet reads better centred and quiet than a
+   blank white band. */
+.ip-history-scroll .empty-state {
+    text-align: center;
+    padding: 34px 16px;
+    color: var(--ip-muted);
+    font-size: 13px;
+    background: #ffffff;
+}
+
+
+/* =========================================
+   RESPONSIVE
+   ========================================= */
+
+@media (max-width: 760px) {
+    .import-save-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    /* An input carries an intrinsic default width (about
+       196px). In the column layout that is wider than the
+       card, and it drags the field out with it, so the
+       field is given a definite width and the input is
+       told to follow it. */
+    .isb-field {
+        width: 100%;
+        flex-basis: auto;
+    }
+
+    .isb-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .isb-actions .cancel-btn,
+    .isb-actions .save-btn {
+        flex: 1;
+    }
+
+    .dz-loaded {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    /* align-items:flex-start sizes these to their content,
+       so a long file name would push the card wider than
+       the screen instead of ellipsing. */
+    .dz-file-meta {
+        width: 100%;
+    }
+
+    .dz-file-name,
+    .dz-file-info {
+        max-width: 100%;
+    }
+
+    .dz-file-side {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .dz-sheet {
+        flex: 1;
+        min-width: 0;
+    }
+
+    /* The pager is a row of fixed-width buttons; let it
+       wrap rather than run off the edge. */
+    .import-page .footer-right {
+        flex-wrap: wrap;
+        max-width: 100%;
+    }
+
+    .ip-selbar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .col-sample {
+        display: none;
+    }
+
+    .col-type {
+        width: auto;
+    }
+}

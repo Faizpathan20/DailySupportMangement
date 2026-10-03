@@ -22,9 +22,14 @@
     <link rel="stylesheet"
           href="~/css/dashboard.css?v=4" />
 
+    <!-- SheetJS reads the .xlsx / .xls / .csv file in
+         the browser. It is served from wwwroot so the
+         Import page keeps working on a machine with no
+         internet; the CDN is only a fallback for when
+         the local copy is missing. -->
     <script defer
-        src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js">
-    </script>
+            src="~/js/xlsx.full.min.js?v=1"
+            onerror="var s=document.createElement('script');s.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';document.head.appendChild(s);"></script>
 
 </head>
 
@@ -169,6 +174,27 @@
 
                         <span class="menu-text">
                             Client Master
+                        </span>
+
+                    </a>
+
+                </div>
+
+
+                <div class="menu-group">
+
+                    <span class="menu-group-label">
+                        Tools
+                    </span>
+
+                    <a asp-controller="Import"
+                       asp-action="Index"
+                       class="menu-item">
+
+                        <span class="menu-icon">📥</span>
+
+                        <span class="menu-text">
+                            Import Excel / CSV
                         </span>
 
                     </a>
