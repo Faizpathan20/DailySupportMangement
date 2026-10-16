@@ -1,0 +1,178 @@
+@model Master.Models.CrmFormViewModel
+@using Master.Models
+
+@{
+    var staticOptions = ViewBag.StaticOptions as Dictionary<string, string[]>
+        ?? new Dictionary<string, string[]>();
+
+    var dropdowns =
+        ViewBag.Dropdowns as Dictionary<string, List<LookupOptionViewModel>>
+        ?? new Dictionary<string, List<LookupOptionViewModel>>();
+
+    string GetVal(string name) => Model.GetFormValue(name);
+
+    string GetErr(string name) => Model.FieldError(name);
+
+    // ---- fields shown in the modal (skip identity / auto columns) ----
+    var fields = Model.FormFields
+        .Where(f => f.AutoWrite == null
+            && !f.Name.Equals("Id", StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    bool isFollowUp = fields.Any(
+        f => f.Name.Equals("FollowUpDate", StringComparison.OrdinalIgnoreCase));
+
+    var layout = isFollowUp
+        ? new (string Title, string[] Names)[]
+        {
+            ("Lead & Schedule",
+                new[] { "LeadId", "FollowUpDate", "FollowUpTime", "ContactMode" }),
+            ("Next Action",
+                new[] { "NextAction", "NextFollowUpDate" }),
+            ("Outcome",
+                new[] { "Remarks", "Status" })
+        }
+        : new (string Title, string[] Names)[]
+        {
+            ("Lead Information",
+                new[] { "LeadDate", "LeadName", "CompanyName", "Source" }),
+            ("Contact Details",
+                new[] { "MobileNo", "Email", "City", "StateId" }),
+            ("Business Details",
+                new[] { "Requirement", "ClientId", "EstimatedValue", "NextFollowUpDate", "Priority" }),
+            ("Assignment & Status",
+                new[] { "AssignedTo", "Status", "LostReason" })
+        };
+
+    var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    var groups = new List<(string Title, List<MasterColumnViewModel> Fields)>();
+
+    foreach (var (title, names) in layout)
+    {
+        var picked = fields
+            .Where(f => names.Contains(f.Name, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+
+        foreach (var p in picked)
+        {
+            used.Add(p.Name);
+        }
+
+        if (picked.Count > 0)
+        {
+            groups.Add((title, picked));
+        }
+    }
+
+    var leftovers = fields.Where(f => !used.Contains(f.Name)).ToList();
+
+    if (leftovers.Count > 0)
+    {
+        groups.Add(("More Information", leftovers));
+    }
+}
+
+@foreach (var group in groups)
+{
+    <div class="crm-form-section">
+
+        <div class="crm-section-title">@group.Title</div>
+
+        <div class="crm-field-grid">
+
+            @foreach (var field in group.Fields)
+            {
+                string val = GetVal(field.Name);
+                string err = GetErr(field.Name);
+
+                bool isTextarea = field.Control == "textarea";
+
+                string cls = "crm-field"
+                    + (isTextarea ? " full" : "")
+                    + (string.IsNullOrWhiteSpace(err) ? "" : " crm-has-error");
+
+                <div class="@cls">
+
+                    <label for="edit_@field.Name">
+                        @field.Display
+                        @if (field.Required)
+                        {
+                            <span class="req">*</span>
+                        }
+                    </label>
+
+                    @if (field.Type == "options")
+                    {
+                        var opts = staticOptions.TryGetValue(field.Name, out var list)
+                            ? list
+                            : Array.Empty<string>();
+
+                        <select name="@field.Name"
+                                id="edit_@field.Name"
+                                @(field.Required ? "required" : null)>
+                            <option value=""
+                                    disabled
+                                    selected="@(string.IsNullOrWhiteSpace(val))">
+                                -- Select @field.Display --
+                            </option>
+                            @foreach (var option in opts)
+                            {
+                                <option value="@option"
+                                        selected="@(val == option)">@option</option>
+                            }
+                        </select>
+                    }
+                    else if (field.Control == "select")
+                    {
+                        var lookupOptions =
+                            field.LookupKey != null
+                            && dropdowns.TryGetValue(field.LookupKey, out var lopts)
+                                ? lopts
+                                : new List<LookupOptionViewModel>();
+
+                        <select name="@field.Name"
+                                id="edit_@field.Name"
+                                @(field.Required ? "required" : null)>
+                            <option value=""
+                                    disabled
+                                    selected="@(string.IsNullOrWhiteSpace(val))">
+                                -- Select @field.Display --
+                            </option>
+                            @foreach (var option in lookupOptions)
+                            {
+                                <option value="@option.Id"
+                                        selected="@(val == option.Id.ToString())">
+                                    @option.Name
+                                </option>
+                            }
+                        </select>
+                    }
+                    else if (isTextarea)
+                    {
+                        <textarea id="edit_@field.Name"
+                                  name="@field.Name"
+                                  rows="3"
+                                  @(field.Required ? "required" : null)>@val</textarea>
+                    }
+                    else
+                    {
+                        <input type="@field.InputType"
+                               id="edit_@field.Name"
+                               name="@field.Name"
+                               value="@val"
+                               @(field.Required ? "required" : null) />
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(err))
+                    {
+                        <span class="crm-field-error">@err</span>
+                    }
+
+                </div>
+            }
+
+        </div>
+
+    </div>
+}

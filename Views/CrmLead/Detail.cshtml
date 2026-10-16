@@ -1,0 +1,354 @@
+@model Master.Models.CrmLeadViewModel
+@using System.Text.Json
+
+@{
+    ViewData["Title"] = "Lead Detail";
+
+    var lead = ViewBag.Lead as MasterRowViewModel;
+
+    var followUps = ViewBag.FollowUps as List<MasterRowViewModel>
+        ?? new List<MasterRowViewModel>();
+
+    var history = ViewBag.History as List<MasterRowViewModel>
+        ?? new List<MasterRowViewModel>();
+
+    var followModel = ViewBag.FollowUpModel as CrmFollowUpViewModel
+        ?? new CrmFollowUpViewModel();
+
+    int leadId = lead != null && int.TryParse(lead.Get("Id"), out int lid)
+        ? lid
+        : 0;
+
+    var detailFields = Model.Fields
+        .Where(f => !f.IsPrimaryKey
+            && !f.Name.Equals("CreatedByUserId", StringComparison.OrdinalIgnoreCase))
+        .ToArray();
+
+    string Chip(string status) =>
+        "crm-chip crm-c-" + (string.IsNullOrWhiteSpace(status)
+            ? "default"
+            : status.ToLower().Replace(" ", ""));
+
+    string EventChip(string eventType) => eventType switch
+    {
+        "Created" => "crm-chip crm-c-new",
+        "Converted" => "crm-chip crm-c-converted",
+        "Lost" => "crm-chip crm-c-lost",
+        "Status Changed" => "crm-chip crm-c-qualified",
+        "Assigned" => "crm-chip crm-c-negotiation",
+        _ => "crm-chip crm-c-default"
+    };
+
+    var leadName = lead?.Get("LeadName") ?? "";
+    var initials = string.IsNullOrWhiteSpace(leadName)
+        ? "?"
+        : leadName.Trim().Substring(0, 1).ToUpper();
+
+    // The follow-up partial reads ViewBag.StaticOptions / Dropdowns,
+    // so point them at the follow-up options before rendering it.
+    ViewData["StaticOptions"] = ViewBag.FollowUpStaticOptions;
+    ViewData["Dropdowns"] = ViewBag.FollowUpDropdowns;
+
+    var config = new Dictionary<string, object?>
+    {
+        ["entityLabel"] = "Follow-up",
+        ["recordsPerPage"] = 10,
+        ["formId"] = "crmForm",
+        ["modalId"] = "crmModal",
+        ["modalTitleId"] = "crmModalTitle",
+        ["submitId"] = "crmSubmit",
+        ["idFieldId"] = "editId",
+        ["saveUrl"] = Url.Action("Save", "CrmFollowUp")
+    };
+}
+
+<div class="crm-page-head">
+
+    <div>
+        <h1>Lead @(lead?.Get("LeadNo"))</h1>
+        <p>@leadName</p>
+    </div>
+
+    <div class="crm-head-actions">
+
+        <a class="crm-btn crm-btn-ghost"
+           href="@Url.Action("Index", "CrmLead")">
+            &larr; Back to Leads
+        </a>
+
+        <button type="button"
+                class="crm-btn crm-btn-primary"
+                onclick="crmOpenAddPrefilled({ LeadId: '@leadId' })">
+            + Add Follow-up
+        </button>
+
+    </div>
+
+</div>
+
+
+<div class="crm-card">
+
+    <div class="crm-profile">
+
+        <div class="crm-avatar">@initials</div>
+
+        <div class="crm-profile-main">
+            <h2>@leadName</h2>
+            <p>
+                @lead?.Get("CompanyName")
+                @if (!string.IsNullOrWhiteSpace(lead?.Get("CompanyName")))
+                {
+                    <span>&middot;</span>
+                }
+                @lead?.Get("LeadNo")
+            </p>
+        </div>
+
+        <div style="margin-left:auto;">
+            <span class="@Chip(lead?.Get("Status") ?? "")">
+                @lead?.Get("Status")
+            </span>
+        </div>
+
+    </div>
+
+    <div class="crm-detail-grid">
+
+        @foreach (var field in detailFields)
+        {
+            <div class="crm-detail-item">
+
+                <span class="crm-detail-label">@field.Display</span>
+
+                <span class="crm-detail-value">
+                    @if (field.Name == "Status")
+                    {
+                        <span class="@Chip(lead?.Get(field.Name) ?? "")">
+                            @lead?.Get(field.Name)
+                        </span>
+                    }
+                    else
+                    {
+                        @(string.IsNullOrWhiteSpace(lead?.Get(field.Name))
+                            ? "-"
+                            : lead?.Get(field.Name))
+                    }
+                </span>
+
+            </div>
+        }
+
+    </div>
+
+</div>
+
+
+<div class="crm-tabs">
+
+    <button type="button"
+            class="crm-tab crm-detail-tab active"
+            data-tab="followups"
+            onclick="crmDetailTab('followups')">
+        Follow-ups
+        <span class="crm-tab-count">@followUps.Count</span>
+    </button>
+
+    <button type="button"
+            class="crm-tab crm-detail-tab"
+            data-tab="history"
+            onclick="crmDetailTab('history')">
+        History
+        <span class="crm-tab-count">@history.Count</span>
+    </button>
+
+</div>
+
+
+<div id="tabFollowUps" class="crm-card">
+
+    <div class="crm-card-head">
+        <h2>Follow-up Timeline</h2>
+        <button type="button"
+                class="crm-btn crm-btn-ghost"
+                onclick="crmOpenAddPrefilled({ LeadId: '@leadId' })">
+            + Add
+        </button>
+    </div>
+
+    @if (followUps.Count == 0)
+    {
+        <p class="crm-empty">No follow-ups yet.</p>
+    }
+    else
+    {
+        <div class="crm-timeline">
+
+            @foreach (var row in followUps)
+            {
+                <div class="crm-tl-item">
+
+                    <div class="crm-tl-dot"></div>
+
+                    <div class="crm-tl-body">
+
+                        <div class="crm-tl-head">
+                            <span class="crm-tl-title">
+                                @row.Get("FollowUpDate")
+                                @if (!string.IsNullOrWhiteSpace(row.Get("FollowUpTime")))
+                                {
+                                    <text> &middot; @row.Get("FollowUpTime")</text>
+                                }
+                            </span>
+
+                            <span class="@Chip(row.Get("Status"))">
+                                @row.Get("Status")
+                            </span>
+                        </div>
+
+                        <div class="crm-tl-text">
+                            <strong>@row.Get("ContactMode")</strong>
+                            @if (!string.IsNullOrWhiteSpace(row.Get("Remarks")))
+                            {
+                                <text> &mdash; @row.Get("Remarks")</text>
+                            }
+                        </div>
+
+                    </div>
+
+                </div>
+            }
+
+        </div>
+    }
+
+</div>
+
+
+<div id="tabHistory" class="crm-card" style="display:none;">
+
+    <div class="crm-card-head">
+        <h2>History Timeline</h2>
+    </div>
+
+    @if (history.Count == 0)
+    {
+        <p class="crm-empty">No history yet.</p>
+    }
+    else
+    {
+        <div class="crm-timeline">
+
+            @foreach (var row in history)
+            {
+                var oldValue = row.Get("OldValue");
+                var newValue = row.Get("NewValue");
+
+                <div class="crm-tl-item">
+
+                    <div class="crm-tl-dot"></div>
+
+                    <div class="crm-tl-body">
+
+                        <div class="crm-tl-head">
+                            <span class="@EventChip(row.Get("EventType"))">
+                                @row.Get("EventType")
+                            </span>
+                            <span class="crm-tl-date">@row.Get("EventDate")</span>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(oldValue)
+                             || !string.IsNullOrWhiteSpace(newValue))
+                        {
+                            <div class="crm-tl-change">
+                                <span class="old">@oldValue</span>
+                                <span class="arrow">&rarr;</span>
+                                <span class="new">@newValue</span>
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(row.Get("Remarks")))
+                        {
+                            <div class="crm-tl-text">@row.Get("Remarks")</div>
+                        }
+
+                    </div>
+
+                </div>
+            }
+
+        </div>
+    }
+
+</div>
+
+
+<div id="crmModal" class="crm-modal">
+
+    <div class="crm-modal-box">
+
+        <div class="crm-modal-head">
+            <h2 id="crmModalTitle">Add Follow-up</h2>
+            <button type="button"
+                    class="crm-modal-x"
+                    onclick="crmCloseModal()">&times;</button>
+        </div>
+
+        <form id="crmForm"
+              method="post"
+              action="@Url.Action("Save", "CrmFollowUp")"
+              onsubmit="return crmSubmitForm(event);"
+              novalidate>
+
+            @Html.AntiForgeryToken()
+
+            <input type="hidden" id="editId" name="id" value="0" />
+
+            <div class="crm-modal-body">
+                <partial name="_CrmFormFields" model="followModel" />
+            </div>
+
+            <div class="crm-modal-foot">
+                <button type="button"
+                        class="crm-btn crm-btn-ghost"
+                        onclick="crmCloseModal()">
+                    Cancel
+                </button>
+                <button type="submit"
+                        id="crmSubmit"
+                        class="crm-btn crm-btn-primary">
+                    Save
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<div class="crm-config" hidden>@Html.Raw(JsonSerializer.Serialize(config))</div>
+
+
+@section Scripts {
+
+    <script src="~/js/crm.js" asp-append-version="true"></script>
+
+    <script>
+        function crmDetailTab(key) {
+            document.querySelectorAll('.crm-detail-tab')
+                .forEach(function (tab) {
+                    tab.classList.toggle(
+                        'active',
+                        tab.getAttribute('data-tab') === key);
+                });
+
+            document.getElementById('tabFollowUps').style.display =
+                key === 'followups' ? '' : 'none';
+
+            document.getElementById('tabHistory').style.display =
+                key === 'history' ? '' : 'none';
+        }
+    </script>
+}

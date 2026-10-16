@@ -17,7 +17,7 @@
     </title>
 
     <link rel="stylesheet"
-          href="~/css/site.css?v=26" />
+          href="~/css/site.css?v=28" />
 
     <link rel="stylesheet"
           href="~/css/dashboard.css?v=4" />
@@ -129,6 +129,68 @@
 
                         <span class="menu-text">
                             Client Visiting
+                        </span>
+
+                    </a>
+
+                </div>
+
+
+                <div class="menu-group">
+
+                    <span class="menu-group-label">
+                        CRM
+                    </span>
+
+                    <a asp-controller="CrmDashboard"
+                       asp-action="Index"
+                       class="menu-item">
+
+                        <span class="menu-icon">📈</span>
+
+                        <span class="menu-text">
+                            CRM Dashboard
+                        </span>
+
+                    </a>
+
+                    <a asp-controller="CrmLead"
+                       asp-action="Index"
+                       class="menu-item">
+
+                        <span class="menu-icon">🎯</span>
+
+                        <span class="menu-text">
+                            Lead Master
+                        </span>
+
+                    </a>
+
+                    <a asp-controller="CrmFollowUp"
+                       asp-action="Index"
+                       class="menu-item">
+
+                        <span class="menu-icon">📞</span>
+
+                        <span class="menu-text">
+                            Daily Follow-up
+                        </span>
+
+                        <span class="menu-badge"
+                              id="navFollowUpBadge"
+                              title="Due today or overdue"
+                              hidden></span>
+
+                    </a>
+
+                    <a asp-controller="CrmLeadHistory"
+                       asp-action="Index"
+                       class="menu-item">
+
+                        <span class="menu-icon">🧾</span>
+
+                        <span class="menu-text">
+                            Lead History
                         </span>
 
                     </a>
@@ -290,7 +352,7 @@
     </div>
 
 
-    <script src="~/js/site.js?v=10">
+    <script src="~/js/site.js?v=11">
     </script>
 
 </body>

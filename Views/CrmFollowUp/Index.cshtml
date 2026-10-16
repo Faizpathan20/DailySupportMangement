@@ -1,0 +1,540 @@
+@model Master.Models.CrmFollowUpViewModel
+@using System.Text.Json
+
+@{
+    ViewData["Title"] = "Daily Follow-up";
+
+    var byName = Model.Fields.ToDictionary(
+        f => f.Name,
+        StringComparer.OrdinalIgnoreCase);
+
+    var wanted = new[]
+    {
+        "FollowUpDate", "FollowUpTime", "LeadId", "ContactMode",
+        "NextAction", "NextFollowUpDate", "Status", "Remarks"
+    };
+
+    var gridColumns = wanted
+        .Where(byName.ContainsKey)
+        .Select(n => byName[n])
+        .ToArray();
+
+    string Chip(string status) =>
+        "crm-chip crm-c-" + (string.IsNullOrWhiteSpace(status)
+            ? "default"
+            : status.ToLower().Replace(" ", ""));
+
+    var staticOptions =
+        ViewBag.StaticOptions as Dictionary<string, string[]>
+        ?? new Dictionary<string, string[]>();
+
+    var contactModes =
+        staticOptions.TryGetValue("ContactMode", out var modes)
+            ? modes
+            : Array.Empty<string>();
+
+    var tabs = new (string Key, string Label, int Count, string Kpi)[]
+    {
+        ("due", "My Day", Model.DueCount, "tabDue"),
+        ("today", "Today", Model.TodayCount, "tabToday"),
+        ("pending", "Pending", Model.PendingCount, "tabPending"),
+        ("overdue", "Overdue", Model.OverdueCount, "tabOverdue"),
+        ("all", "All", Model.TotalRecords, "tabAll"),
+        ("done", "Done", Model.DoneCount, "tabDone")
+    };
+
+    var config = new Dictionary<string, object?>
+    {
+        ["tableId"] = "dataTable",
+        ["searchId"] = "crmSearch",
+        ["recordsId"] = "crmRecords",
+        ["infoId"] = "crmInfo",
+        ["paginationId"] = "crmPagination",
+        ["noRecordsId"] = "crmNoRecords",
+        ["totalRecords"] = Model.FollowUps.Count,
+        ["recordsPerPage"] = 10,
+        ["entityLabel"] = "Follow-up",
+        ["exportName"] = "CRM_FollowUps",
+        ["formId"] = "crmForm",
+        ["modalId"] = "crmModal",
+        ["modalTitleId"] = "crmModalTitle",
+        ["submitId"] = "crmSubmit",
+        ["idFieldId"] = "editId",
+        ["saveUrl"] = Url.Action("Save", "CrmFollowUp"),
+        ["outcomeModalId"] = "crmOutcomeModal",
+        ["outcomeFormId"] = "crmOutcomeForm",
+        ["completeUrl"] = Url.Action("Complete", "CrmFollowUp"),
+        ["snoozeUrl"] = Url.Action("Reschedule", "CrmFollowUp")
+    };
+}
+
+<div class="crm-page-head">
+
+    <div>
+        <h1>Daily Follow-up</h1>
+        <p>Your working list - nothing gets forgotten</p>
+    </div>
+
+    <div class="crm-head-actions">
+
+        <div class="crm-scope"
+             role="group"
+             aria-label="Follow-up scope">
+
+            <a class="@(Model.Scope == "mine" ? "active" : "")"
+               href="@Url.Action("Index", "CrmFollowUp", new { range = Model.Range, scope = "mine" })">
+                Mine
+            </a>
+
+            <a class="@(Model.Scope == "team" ? "active" : "")"
+               href="@Url.Action("Index", "CrmFollowUp", new { range = Model.Range, scope = "team" })">
+                Team
+            </a>
+
+        </div>
+
+        <a class="crm-btn crm-btn-ghost"
+           href="@Url.Action("Index", "CrmLead")">
+            Lead Master
+        </a>
+
+        <button type="button"
+                class="crm-btn crm-btn-primary"
+                onclick="crmOpenAdd()">
+            + Add Follow-up
+        </button>
+
+    </div>
+
+</div>
+
+
+<div class="crm-kpi-grid">
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "My Day", Value = Model.DueCount.ToString(),
+        Icon = "clock", Accent = "#4f46e5", Soft = "#eef2ff",
+        Kpi = "fuDue"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Today", Value = Model.TodayCount.ToString(),
+        Icon = "calendar", Accent = "#0ea5e9", Soft = "#e0f2fe",
+        Kpi = "fuToday"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Pending", Value = Model.PendingCount.ToString(),
+        Icon = "clock", Accent = "#f59e0b", Soft = "#fef3c7",
+        Kpi = "fuPending"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Overdue", Value = Model.OverdueCount.ToString(),
+        Icon = "alert", Accent = "#ef4444", Soft = "#fee2e2",
+        Kpi = "fuOverdue"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Done", Value = Model.DoneCount.ToString(),
+        Icon = "check", Accent = "#10b981", Soft = "#d1fae5",
+        Kpi = "fuDone"
+    })
+
+</div>
+
+
+@if (TempData["Success"] != null)
+{
+    <div class="success-message">@TempData["Success"]</div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="error-message">@Html.Raw(TempData["Error"])</div>
+}
+
+
+<div class="crm-tabs">
+
+    @foreach (var tab in tabs)
+    {
+        <a class="crm-tab @(Model.Range == tab.Key ? "active" : "")"
+           href="@Url.Action("Index", "CrmFollowUp", new { range = tab.Key, scope = Model.Scope })">
+            @tab.Label
+            <span class="crm-tab-count" data-kpi="@tab.Kpi">@tab.Count</span>
+        </a>
+    }
+
+</div>
+
+
+<div class="crm-card">
+
+    <div class="crm-toolbar">
+
+        <div class="crm-toolbar-group">
+
+            <input type="text"
+                   id="crmSearch"
+                   class="crm-input crm-search"
+                   placeholder="Search follow-ups..."
+                   oninput="crmFilter()" />
+
+        </div>
+
+        <div class="crm-toolbar-group">
+
+            <select id="crmRecords"
+                    class="crm-select"
+                    onchange="crmChangeRecordsPerPage()">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+
+            <button type="button"
+                    class="crm-btn crm-btn-ghost"
+                    onclick="crmExportExcel()">
+                Excel
+            </button>
+
+            <button type="button"
+                    class="crm-btn crm-btn-ghost"
+                    onclick="crmExportCSV()">
+                CSV
+            </button>
+
+            <button type="button"
+                    class="crm-btn crm-btn-ghost"
+                    onclick="crmPrint()">
+                Print
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <div class="crm-table-wrap">
+
+        <table id="dataTable" class="crm-table">
+
+            <thead>
+                <tr>
+
+                    @foreach (var col in gridColumns)
+                    {
+                        <th class="crm-sortable"
+                            data-sort="@(col.InputType == "time" ? "time" : col.SortType)"
+                            onclick="crmSort(this)">
+                            @col.Display
+                        </th>
+                    }
+
+                    <th class="crm-actions-col">Actions</th>
+
+                </tr>
+            </thead>
+
+            <tbody>
+
+                @foreach (var row in Model.FollowUps)
+                {
+                    var searchText = string.Join(
+                        " ",
+                        gridColumns.Select(c => row.Get(c.Name)));
+
+                    var statusValue = row.Get("Status");
+                    var rowJson = JsonSerializer.Serialize(row.Values);
+
+                    bool isPending = statusValue == "Pending";
+
+                    bool isOverdue = isPending
+                        && DateTime.TryParse(
+                            row.Get("FollowUpDate_edit"),
+                            out DateTime dueDate)
+                        && dueDate.Date < DateTime.Today;
+
+                    <tr class="@(isOverdue ? "is-overdue" : "")"
+                        data-search="@searchText">
+
+                        @foreach (var col in gridColumns)
+                        {
+                            <td>
+                                @if (col.Name == "Status")
+                                {
+                                    <span class="@Chip(statusValue)">
+                                        @statusValue
+                                    </span>
+                                }
+                                else
+                                {
+                                    @row.Get(col.Name)
+                                }
+                            </td>
+                        }
+
+                        <td class="crm-actions-col">
+                            <div class="crm-actions">
+
+                                <button type="button"
+                                        class="crm-icon-btn"
+                                        title="Edit / reschedule"
+                                        data-json="@rowJson"
+                                        onclick="crmOpenEdit(this)">&#9998;</button>
+
+                                @if (isPending)
+                                {
+                                    <button type="button"
+                                            class="crm-icon-btn ok"
+                                            title="Log outcome"
+                                            data-json="@rowJson"
+                                            data-lead="@row.Get("LeadId")"
+                                            onclick="crmOpenOutcome(this)">&#10003;</button>
+
+                                    <button type="button"
+                                            class="crm-icon-btn"
+                                            title="Snooze to tomorrow"
+                                            data-id="@row.Get("Id")"
+                                            onclick="crmSnooze(this)">&#8594;</button>
+                                }
+
+                                <form asp-controller="CrmFollowUp"
+                                      asp-action="Delete"
+                                      method="post"
+                                      onsubmit="return crmConfirmAndSubmit(this, 'Delete this follow-up?');">
+
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@row.Get("Id")" />
+
+                                    <button type="submit"
+                                            class="crm-icon-btn danger"
+                                            title="Delete">&#10005;</button>
+
+                                </form>
+
+                            </div>
+                        </td>
+
+                    </tr>
+                }
+
+                <tr id="crmNoRecords" class="no-data-row" data-search="" style="@(Model.FollowUps.Count == 0 ? "" : "display:none;")">
+                    <td colspan="@(gridColumns.Length + 1)" class="crm-empty">
+                        Nothing due here. Keep it that way.
+                    </td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <div class="crm-table-foot">
+
+        <div id="crmInfo">Showing 0 to 0 of 0 entries</div>
+
+        <div class="crm-pagination" id="crmPagination"></div>
+
+    </div>
+
+</div>
+
+
+<div id="crmModal" class="crm-modal">
+
+    <div class="crm-modal-box">
+
+        <div class="crm-modal-head">
+            <h2 id="crmModalTitle">Add Follow-up</h2>
+            <button type="button"
+                    class="crm-modal-x"
+                    onclick="crmCloseModal()">&times;</button>
+        </div>
+
+        <form id="crmForm"
+              method="post"
+              action="@Url.Action("Save", "CrmFollowUp")"
+              onsubmit="return crmSubmitForm(event);"
+              novalidate>
+
+            @Html.AntiForgeryToken()
+
+            <input type="hidden" id="editId" name="id" value="0" />
+
+            <div class="crm-modal-body">
+                <partial name="_CrmFormFields" model="Model" />
+            </div>
+
+            <div class="crm-modal-foot">
+                <button type="button"
+                        class="crm-btn crm-btn-ghost"
+                        onclick="crmCloseModal()">
+                    Cancel
+                </button>
+                <button type="submit"
+                        id="crmSubmit"
+                        class="crm-btn crm-btn-primary">
+                    Save
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<div id="crmOutcomeModal" class="crm-modal">
+
+    <div class="crm-modal-box">
+
+        <div class="crm-modal-head">
+            <h2>Log Outcome</h2>
+            <button type="button"
+                    class="crm-modal-x"
+                    onclick="crmCloseOutcome()">&times;</button>
+        </div>
+
+        <form id="crmOutcomeForm"
+              method="post"
+              action="@Url.Action("Complete", "CrmFollowUp")"
+              onsubmit="return crmSubmitOutcome(event);"
+              novalidate>
+
+            @Html.AntiForgeryToken()
+
+            <input type="hidden" name="id" id="outcomeId" value="0" />
+
+            <div class="crm-modal-body">
+
+                <p class="crm-outcome-lead" id="outcomeLead"></p>
+
+                <div class="crm-form-section">
+
+                    <div class="crm-section-title">Outcome</div>
+
+                    <div class="crm-field-grid">
+
+                        <div class="crm-field full">
+                            <label for="outcomeRemarks">What happened?</label>
+                            <textarea id="outcomeRemarks"
+                                      name="remarks"
+                                      rows="3"
+                                      placeholder="Call result, objections, notes..."></textarea>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="crm-form-section">
+
+                    <div class="crm-section-title">Next Follow-up</div>
+
+                    <div class="crm-field-grid">
+
+                        <div class="crm-field">
+                            <label for="outcomeNextDate">
+                                Next date <span class="req">*</span>
+                            </label>
+                            <input type="date"
+                                   id="outcomeNextDate"
+                                   name="nextDate" />
+                        </div>
+
+                        <div class="crm-field">
+                            <label for="outcomeNextTime">Time</label>
+                            <input type="time"
+                                   id="outcomeNextTime"
+                                   name="nextTime" />
+                        </div>
+
+                        <div class="crm-field">
+                            <label for="outcomeContactMode">Mode</label>
+                            <select id="outcomeContactMode" name="contactMode">
+                                <option value="">-- Select --</option>
+                                @foreach (var mode in contactModes)
+                                {
+                                    <option value="@mode">@mode</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="crm-field">
+                            <label for="outcomeNextAction">Next action</label>
+                            <input type="text"
+                                   id="outcomeNextAction"
+                                   name="nextAction"
+                                   placeholder="e.g. Share quotation" />
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <label class="crm-outcome-close">
+
+                    <input type="checkbox"
+                           id="outcomeCloseLead"
+                           name="closeLead"
+                           value="true"
+                           onchange="crmToggleCloseReason()" />
+
+                    <span>
+                        Close this lead as <strong>Lost</strong> instead
+                        of scheduling a next follow-up
+                    </span>
+
+                </label>
+
+                <div class="crm-field full"
+                     id="outcomeReasonWrap"
+                     style="display:none;">
+
+                    <label for="outcomeCloseReason">Lost reason</label>
+                    <input type="text"
+                           id="outcomeCloseReason"
+                           name="closeReason"
+                           placeholder="Why was it lost?" />
+
+                </div>
+
+            </div>
+
+            <div class="crm-modal-foot">
+                <button type="button"
+                        class="crm-btn crm-btn-ghost"
+                        onclick="crmCloseOutcome()">
+                    Cancel
+                </button>
+                <button type="submit"
+                        id="crmOutcomeSubmit"
+                        class="crm-btn crm-btn-primary">
+                    Save outcome
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<div class="crm-config" hidden>@Html.Raw(JsonSerializer.Serialize(config))</div>
+
+
+@section Scripts {
+    <script src="~/js/crm.js" asp-append-version="true"></script>
+}

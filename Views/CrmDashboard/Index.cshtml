@@ -1,0 +1,376 @@
+@model Master.Models.CrmDashboardViewModel
+
+@{
+    ViewData["Title"] = "CRM Dashboard";
+
+    string Chip(string status) =>
+        "crm-chip crm-c-" + (string.IsNullOrWhiteSpace(status)
+            ? "default"
+            : status.ToLower().Replace(" ", ""));
+
+    int statusMax = Model.StatusBreakdown.Count > 0
+        ? Model.StatusBreakdown.Max(x => x.Count)
+        : 1;
+
+    int sourceMax = Model.SourceBreakdown.Count > 0
+        ? Model.SourceBreakdown.Max(x => x.Count)
+        : 1;
+
+    if (statusMax < 1) { statusMax = 1; }
+    if (sourceMax < 1) { sourceMax = 1; }
+}
+
+<div class="crm-page-head">
+
+    <div>
+        <h1>CRM Dashboard</h1>
+        <p>Leads and follow-up overview</p>
+    </div>
+
+    <div class="crm-head-actions">
+
+        <a class="crm-btn crm-btn-ghost"
+           href="@Url.Action("Index", "CrmFollowUp")">
+            Follow-ups
+        </a>
+
+        <a class="crm-btn crm-btn-primary"
+           href="@Url.Action("Index", "CrmLead")">
+            + Add Lead
+        </a>
+
+    </div>
+
+</div>
+
+
+<div class="crm-kpi-grid">
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Total Leads", Value = Model.TotalLeads.ToString(),
+        Icon = "users", Accent = "#2563eb", Soft = "#eff6ff",
+        Href = Url.Action("Index", "CrmLead")
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Converted", Value = Model.ConvertedLeads.ToString(),
+        Icon = "trophy", Accent = "#10b981", Soft = "#d1fae5"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "New This Month", Value = Model.NewThisMonth.ToString(),
+        Icon = "spark", Accent = "#0ea5e9", Soft = "#e0f2fe"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Today Follow-ups", Value = Model.TodayFollowUps.ToString(),
+        Icon = "calendar", Accent = "#6366f1", Soft = "#e0e7ff",
+        Href = Url.Action("Index", "CrmFollowUp", new { range = "today" })
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Pending", Value = Model.PendingFollowUps.ToString(),
+        Icon = "clock", Accent = "#f59e0b", Soft = "#fef3c7",
+        Href = Url.Action("Index", "CrmFollowUp", new { range = "pending" })
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Due Now", Value = Model.DueFollowUps.ToString(),
+        Icon = "alert", Accent = "#dc2626", Soft = "#fee2e2",
+        Href = Url.Action("Index", "CrmFollowUp", new { range = "due", scope = "team" })
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Overdue", Value = Model.OverdueFollowUps.ToString(),
+        Icon = "alert", Accent = "#ef4444", Soft = "#fee2e2",
+        Href = Url.Action("Index", "CrmFollowUp", new { range = "overdue" })
+    })
+
+</div>
+
+
+<div class="crm-grid-2">
+
+    <div class="crm-card is-attention">
+
+        <div class="crm-card-head">
+            <h2>No Next Follow-up <span class="crm-bar-count">@Model.NoNextFollowUp</span></h2>
+            <a class="link" href="@Url.Action("Index", "CrmLead")">View all</a>
+        </div>
+
+        @if (Model.NoNextFollowUpList.Count == 0)
+        {
+            <p class="crm-empty">Every open lead has a next step.</p>
+        }
+        else
+        {
+            @foreach (var row in Model.NoNextFollowUpList)
+            {
+                <div class="crm-list-link">
+
+                    <a class="link"
+                       href="@Url.Action("Detail", "CrmLead", new { id = row.Get("Id") })">
+                        <strong>@row.Get("LeadName")</strong>
+                    </a>
+
+                    <span class="crm-list-sub">
+                        <span class="@Chip(row.Get("Status"))">@row.Get("Status")</span>
+                        @row.Get("AssignedTo")
+                    </span>
+
+                </div>
+            }
+        }
+
+    </div>
+
+
+    <div class="crm-card is-attention">
+
+        <div class="crm-card-head">
+            <h2>Going Cold <span class="crm-bar-count">@Model.StaleLeads</span></h2>
+            <a class="link" href="@Url.Action("Index", "CrmLead")">View all</a>
+        </div>
+
+        @if (Model.StaleLeadsList.Count == 0)
+        {
+            <p class="crm-empty">No lead has gone quiet this week.</p>
+        }
+        else
+        {
+            @foreach (var row in Model.StaleLeadsList)
+            {
+                <div class="crm-list-link">
+
+                    <a class="link"
+                       href="@Url.Action("Detail", "CrmLead", new { id = row.Get("Id") })">
+                        <strong>@row.Get("LeadName")</strong>
+                    </a>
+
+                    <span class="crm-list-sub">
+                        <span class="@Chip(row.Get("Status"))">@row.Get("Status")</span>
+                        @row.Get("AssignedTo")
+                    </span>
+
+                </div>
+            }
+        }
+
+    </div>
+
+</div>
+
+
+<div class="crm-grid-2">
+
+    <div class="crm-card">
+
+        <div class="crm-card-head">
+            <h2>Leads by Status</h2>
+        </div>
+
+        @if (Model.StatusBreakdown.Count == 0)
+        {
+            <p class="crm-empty">No data yet.</p>
+        }
+        else
+        {
+            <div class="crm-bar-list">
+
+                @foreach (var item in Model.StatusBreakdown)
+                {
+                    <div class="crm-bar-row">
+
+                        <div class="crm-bar-top">
+                            <span class="@Chip(item.Status)">
+                                @(string.IsNullOrWhiteSpace(item.Status) ? "Unknown" : item.Status)
+                            </span>
+                            <span class="crm-bar-count">@item.Count</span>
+                        </div>
+
+                        <div class="crm-bar-track">
+                            <div class="crm-bar-fill"
+                                 style="width:@(item.Count * 100 / statusMax)%"></div>
+                        </div>
+
+                    </div>
+                }
+
+            </div>
+        }
+
+    </div>
+
+
+    <div class="crm-card">
+
+        <div class="crm-card-head">
+            <h2>Leads by Source</h2>
+        </div>
+
+        @if (Model.SourceBreakdown.Count == 0)
+        {
+            <p class="crm-empty">No data yet.</p>
+        }
+        else
+        {
+            <div class="crm-bar-list">
+
+                @foreach (var item in Model.SourceBreakdown)
+                {
+                    <div class="crm-bar-row">
+
+                        <div class="crm-bar-top">
+                            <span>@(string.IsNullOrWhiteSpace(item.Status) ? "Unknown" : item.Status)</span>
+                            <span class="crm-bar-count">@item.Count</span>
+                        </div>
+
+                        <div class="crm-bar-track">
+                            <div class="crm-bar-fill alt"
+                                 style="width:@(item.Count * 100 / sourceMax)%"></div>
+                        </div>
+
+                    </div>
+                }
+
+            </div>
+        }
+
+    </div>
+
+</div>
+
+
+<div class="crm-card">
+
+    <div class="crm-card-head">
+        <h2>Recent Leads</h2>
+        <a class="link" href="@Url.Action("Index", "CrmLead")">View all</a>
+    </div>
+
+    <div class="crm-table-wrap">
+
+        <table class="crm-table">
+
+            <thead>
+                <tr>
+                    <th>Lead No</th>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Source</th>
+                    <th>Assigned To</th>
+                    <th>Lead Date</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                @if (Model.RecentLeads.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="crm-empty">No leads yet.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var row in Model.RecentLeads)
+                    {
+                        <tr>
+
+                            <td>@row.Get("LeadNo")</td>
+
+                            <td>
+                                <a class="link"
+                                   href="@Url.Action("Detail", "CrmLead", new { id = row.Get("Id") })">
+                                    @row.Get("LeadName")
+                                </a>
+                            </td>
+
+                            <td>
+                                <span class="@Chip(row.Get("Status"))">
+                                    @row.Get("Status")
+                                </span>
+                            </td>
+
+                            <td>@row.Get("Source")</td>
+                            <td>@row.Get("AssignedTo")</td>
+                            <td>@row.Get("LeadDate")</td>
+
+                        </tr>
+                    }
+                }
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+<div class="crm-card">
+
+    <div class="crm-card-head">
+        <h2>Today's Follow-ups</h2>
+        <a class="link" href="@Url.Action("Index", "CrmFollowUp", new { range = "today" })">View all</a>
+    </div>
+
+    <div class="crm-table-wrap">
+
+        <table class="crm-table">
+
+            <thead>
+                <tr>
+                    <th>Lead</th>
+                    <th>Follow-up Date</th>
+                    <th>Mode</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                @if (Model.TodayFollowUpsList.Count == 0)
+                {
+                    <tr>
+                        <td colspan="5" class="crm-empty">No follow-ups scheduled today.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var row in Model.TodayFollowUpsList)
+                    {
+                        <tr>
+
+                            <td>@row.Get("LeadId")</td>
+                            <td>@row.Get("FollowUpDate")</td>
+                            <td>@row.Get("ContactMode")</td>
+
+                            <td>
+                                <span class="@Chip(row.Get("Status"))">
+                                    @row.Get("Status")
+                                </span>
+                            </td>
+
+                            <td>@row.Get("Remarks")</td>
+
+                        </tr>
+                    }
+                }
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>

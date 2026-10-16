@@ -76,7 +76,30 @@ public sealed class DynamicTableService
             ["Password"] = "Password",
             ["SupportType"] = "Support Type",
             ["VisitType"] = "Visit Type",
-            ["PersonMet"] = "Person Met"
+            ["PersonMet"] = "Person Met",
+
+            // ---- CRM module ----
+            ["LeadNo"] = "Lead No",
+            ["LeadId"] = "Lead",
+            ["LeadName"] = "Lead Name",
+            ["LeadDate"] = "Lead Date",
+            ["CompanyName"] = "Company Name",
+            ["AssignedTo"] = "Assigned To",
+            ["CreatedByUserId"] = "Created By",
+            ["Source"] = "Source",
+            ["Requirement"] = "Requirement",
+            ["EstimatedValue"] = "Estimated Value",
+            ["NextFollowUpDate"] = "Next Follow-Up Date",
+            ["LostReason"] = "Lost Reason",
+            ["FollowUpDate"] = "Follow-Up Date",
+            ["FollowUpTime"] = "Follow-Up Time",
+            ["ContactMode"] = "Contact Mode",
+            ["NextAction"] = "Next Action",
+            ["DoneOn"] = "Done On",
+            ["EventDate"] = "Event Date",
+            ["EventType"] = "Event Type",
+            ["OldValue"] = "Old Value",
+            ["NewValue"] = "New Value"
         };
 
     // Which column of a referenced table is shown when a
@@ -87,7 +110,8 @@ public sealed class DynamicTableService
             {
                 ["States"] = "StateName",
                 ["LoginUsers"] = "UserName",
-                ["ClientMaster"] = "ClientName"
+                ["ClientMaster"] = "ClientName",
+                ["CrmLead"] = "LeadName"
             };
 
     public bool TryGetLookupDisplayColumn(
@@ -160,6 +184,69 @@ public sealed class DynamicTableService
                         "Service Visit",
                         "Collection Visit",
                         "Other"
+                    },
+
+                // ---- CRM module ----
+                ["CrmLead|Status"] =
+                    new[]
+                    {
+                        "New",
+                        "Contacted",
+                        "Qualified",
+                        "Negotiation",
+                        "Converted",
+                        "Lost"
+                    },
+                ["CrmLead|Priority"] =
+                    new[]
+                    {
+                        "Low",
+                        "Medium",
+                        "High",
+                        "Urgent"
+                    },
+                ["CrmLead|Source"] =
+                    new[]
+                    {
+                        "Website",
+                        "Referral",
+                        "Cold Call",
+                        "Walk-in",
+                        "Field Visit",
+                        "Meeting",
+                        "Social Media",
+                        "Exhibition",
+                        "Existing Client",
+                        "Other"
+                    },
+                ["CrmFollowUp|ContactMode"] =
+                    new[]
+                    {
+                        "Call",
+                        "WhatsApp",
+                        "Email",
+                        "Meeting",
+                        "Visit",
+                        "SMS"
+                    },
+                ["CrmFollowUp|Status"] =
+                    new[]
+                    {
+                        "Pending",
+                        "Done",
+                        "Cancelled"
+                    },
+                ["CrmLeadHistory|EventType"] =
+                    new[]
+                    {
+                        "Created",
+                        "Assigned",
+                        "Status Changed",
+                        "Follow-Up",
+                        "Call",
+                        "Note",
+                        "Converted",
+                        "Lost"
                     }
             };
 
@@ -1109,12 +1196,15 @@ ORDER BY c.ORDINAL_POSITION";
                 break;
 
             case "time":
+                // SqlDbType.Time needs a TimeSpan; giving it a
+                // DateTime throws (Failed to convert parameter
+                // value from a DateTime to a TimeSpan).
                 command.Parameters.Add(
                     new SqlParameter(
                         $"@{field.Name}",
                         SqlDbType.Time)
                     {
-                        Value = ToDateTimeOrNull(
+                        Value = ToTimeSpanOrNull(
                             rawValue,
                             field.Required)
                     });
@@ -1161,6 +1251,24 @@ ORDER BY c.ORDINAL_POSITION";
             : (object)(required
                 ? DateTime.MinValue
                 : DBNull.Value);
+
+
+    private static object ToTimeSpanOrNull(
+        string rawValue,
+        bool required)
+    {
+        if (TimeSpan.TryParse(rawValue, out TimeSpan span))
+        {
+            return span;
+        }
+
+        if (DateTime.TryParse(rawValue, out DateTime date))
+        {
+            return date.TimeOfDay;
+        }
+
+        return required ? TimeSpan.Zero : (object)DBNull.Value;
+    }
 
 
     private sealed record CacheEntry(

@@ -538,6 +538,70 @@ function masterShowToast(message, type) {
 }
 
 
+// ==========================================
+// CRM - SIDEBAR DUE FOLLOW-UP BADGE
+// Pulls the live count from the server so the
+// number survives the sidebar being re-rendered
+// on every soft navigation.
+// ==========================================
+
+function refreshFollowUpBadge() {
+
+    var badge =
+        document.getElementById("navFollowUpBadge");
+
+    if (!badge) {
+        return;
+    }
+
+    fetch("/CrmFollowUp/DueCount", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+            "X-Requested-With": "XMLHttpRequest"
+        }
+    })
+        .then(function (response) {
+            return response.ok ? response.json() : null;
+        })
+        .then(function (data) {
+
+            if (!data || !data.mine) {
+                return;
+            }
+
+            var due = data.mine.due || 0;
+
+            if (due > 0) {
+
+                badge.textContent = due > 99 ? "99+" : String(due);
+                badge.hidden = false;
+
+                // Anything overdue reads hotter than a normal due count.
+                badge.classList.toggle(
+                    "is-overdue",
+                    (data.mine.overdue || 0) > 0
+                );
+
+            }
+            else {
+
+                badge.textContent = "";
+                badge.hidden = true;
+                badge.classList.remove("is-overdue");
+
+            }
+
+        })
+        .catch(function () {
+            // A missing badge is cosmetic - never break the page.
+        });
+
+}
+
+window.refreshFollowUpBadge = refreshFollowUpBadge;
+
+
 // Re-fetch the current page HTML and swap the
 // table body + KPI values so no reload happens.
 function masterRefreshTable(url, doneCallback) {
@@ -2122,3 +2186,8 @@ function masterTimeToMinutes(value) {
         masterInitCascadingFilters;
 
 })();
+
+
+// Runs on first load and again on every soft navigation,
+// because injectScripts re-creates site.js from the new page.
+refreshFollowUpBadge();

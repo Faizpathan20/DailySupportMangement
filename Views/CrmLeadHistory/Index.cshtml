@@ -1,0 +1,256 @@
+@model Master.Models.CrmLeadHistoryViewModel
+@using System.Text.Json
+
+@{
+    ViewData["Title"] = "Lead History";
+
+    var byName = Model.Fields.ToDictionary(
+        f => f.Name,
+        StringComparer.OrdinalIgnoreCase);
+
+    var wanted = new[]
+    {
+        "EventDate", "LeadId", "EventType",
+        "OldValue", "NewValue", "Remarks"
+    };
+
+    var gridColumns = wanted
+        .Where(byName.ContainsKey)
+        .Select(n => byName[n])
+        .ToArray();
+
+    string EventChip(string eventType) => eventType switch
+    {
+        "Created" => "crm-chip crm-c-new",
+        "Converted" => "crm-chip crm-c-converted",
+        "Lost" => "crm-chip crm-c-lost",
+        "Status Changed" => "crm-chip crm-c-qualified",
+        "Assigned" => "crm-chip crm-c-negotiation",
+        "Follow-Up" => "crm-chip crm-c-contacted",
+        "Call" => "crm-chip crm-c-contacted",
+        _ => "crm-chip crm-c-default"
+    };
+
+    var config = new Dictionary<string, object?>
+    {
+        ["tableId"] = "dataTable",
+        ["searchId"] = "crmSearch",
+        ["recordsId"] = "crmRecords",
+        ["infoId"] = "crmInfo",
+        ["paginationId"] = "crmPagination",
+        ["noRecordsId"] = "crmNoRecords",
+        ["totalRecords"] = Model.Events.Count,
+        ["recordsPerPage"] = 10,
+        ["entityLabel"] = "Lead History",
+        ["exportName"] = "CRM_LeadHistory"
+    };
+}
+
+<div class="crm-page-head">
+
+    <div>
+        <h1>Lead History</h1>
+        <p>
+            @if (!string.IsNullOrWhiteSpace(Model.LeadName))
+            {
+                <span>Audit trail for @Model.LeadName</span>
+            }
+            else
+            {
+                <span>Full audit trail of every lead event</span>
+            }
+        </p>
+    </div>
+
+    <div class="crm-head-actions">
+
+        @if (Model.LeadId.HasValue && Model.LeadId.Value > 0)
+        {
+            <a class="crm-btn crm-btn-ghost"
+               href="@Url.Action("Detail", "CrmLead", new { id = Model.LeadId.Value })">
+                &larr; Back to Lead
+            </a>
+        }
+        else
+        {
+            <a class="crm-btn crm-btn-ghost"
+               href="@Url.Action("Index", "CrmLead")">
+                Lead Master
+            </a>
+        }
+
+    </div>
+
+</div>
+
+
+<div class="crm-kpi-grid">
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Total Events", Value = Model.TotalRecords.ToString(),
+        Icon = "history", Accent = "#2563eb", Soft = "#eff6ff",
+        Kpi = "histTotal"
+    })
+
+</div>
+
+
+@if (TempData["Success"] != null)
+{
+    <div class="success-message">@TempData["Success"]</div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="error-message">@Html.Raw(TempData["Error"])</div>
+}
+
+
+<div class="crm-card">
+
+    <div class="crm-toolbar">
+
+        <div class="crm-toolbar-group">
+
+            <input type="text"
+                   id="crmSearch"
+                   class="crm-input crm-search"
+                   placeholder="Search history..."
+                   oninput="crmFilter()" />
+
+        </div>
+
+        <div class="crm-toolbar-group">
+
+            <select id="crmRecords"
+                    class="crm-select"
+                    onchange="crmChangeRecordsPerPage()">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+
+            <button type="button"
+                    class="crm-btn crm-btn-ghost"
+                    onclick="crmExportExcel()">
+                Excel
+            </button>
+
+            <button type="button"
+                    class="crm-btn crm-btn-ghost"
+                    onclick="crmExportCSV()">
+                CSV
+            </button>
+
+            <button type="button"
+                    class="crm-btn crm-btn-ghost"
+                    onclick="crmPrint()">
+                Print
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <div class="crm-table-wrap">
+
+        <table id="dataTable" class="crm-table">
+
+            <thead>
+                <tr>
+
+                    @foreach (var col in gridColumns)
+                    {
+                        <th class="crm-sortable"
+                            data-sort="@(col.SortType)"
+                            onclick="crmSort(this)">
+                            @col.Display
+                        </th>
+                    }
+
+                </tr>
+            </thead>
+
+            <tbody>
+
+                @foreach (var row in Model.Events)
+                {
+                    var searchText = string.Join(
+                        " ",
+                        gridColumns.Select(c => row.Get(c.Name)));
+
+                    <tr data-search="@searchText">
+
+                        @foreach (var col in gridColumns)
+                        {
+                            <td>
+                                @if (col.Name == "EventType")
+                                {
+                                    <span class="@EventChip(row.Get("EventType"))">
+                                        @row.Get("EventType")
+                                    </span>
+                                }
+                                else if (col.Name == "OldValue"
+                                         || col.Name == "NewValue")
+                                {
+                                    var val = row.Get(col.Name);
+                                    <span class="@(col.Name == "OldValue" ? "crm-tl-change" : "")">
+                                        @if (col.Name == "OldValue"
+                                             && !string.IsNullOrWhiteSpace(val))
+                                        {
+                                            <span class="old">@val</span>
+                                            <span class="arrow">&rarr;</span>
+                                        }
+                                        else if (!string.IsNullOrWhiteSpace(val))
+                                        {
+                                            <span class="new">@val</span>
+                                        }
+                                        else
+                                        {
+                                            <span>-</span>
+                                        }
+                                    </span>
+                                }
+                                else
+                                {
+                                    @row.Get(col.Name)
+                                }
+                            </td>
+                        }
+
+                    </tr>
+                }
+
+                <tr id="crmNoRecords" class="no-data-row" data-search="" style="@(Model.Events.Count == 0 ? "" : "display:none;")">
+                    <td colspan="@(gridColumns.Length)" class="crm-empty">
+                        No history records found.
+                    </td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <div class="crm-table-foot">
+
+        <div id="crmInfo">Showing 0 to 0 of 0 entries</div>
+
+        <div class="crm-pagination" id="crmPagination"></div>
+
+    </div>
+
+</div>
+
+
+<div class="crm-config" hidden>@Html.Raw(JsonSerializer.Serialize(config))</div>
+
+
+@section Scripts {
+    <script src="~/js/crm.js" asp-append-version="true"></script>
+}

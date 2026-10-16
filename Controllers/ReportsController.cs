@@ -17,6 +17,7 @@ namespace Master.Controllers;
 // Reports has its OWN independent filter system and does NOT reuse the
 // Dashboard global filters. It only reads the existing tables and
 // relationships via runtime schema metadata — no schema changes.
+[Authorize]
 public partial class ReportsController : Controller
 {
     private readonly IConfiguration _configuration;

@@ -123,7 +123,21 @@ if (!string.IsNullOrWhiteSpace(warmConnection))
                 "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ClientMaster_StateId') CREATE INDEX IX_ClientMaster_StateId ON ClientMaster(StateId)",
                 "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ClientMaster_UserId') CREATE INDEX IX_ClientMaster_UserId ON ClientMaster(UserId)",
                 "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ClientMaster_IsActive') CREATE INDEX IX_ClientMaster_IsActive ON ClientMaster(IsActive)",
-                "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ClientMaster_EntryOn') CREATE INDEX IX_ClientMaster_EntryOn ON ClientMaster(EntryOn)"
+                "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ClientMaster_EntryOn') CREATE INDEX IX_ClientMaster_EntryOn ON ClientMaster(EntryOn)",
+
+                "IF OBJECT_ID('CrmLead','U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_CrmLead_Status') CREATE INDEX IX_CrmLead_Status ON CrmLead(Status)",
+                "IF OBJECT_ID('CrmLead','U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_CrmLead_Source') CREATE INDEX IX_CrmLead_Source ON CrmLead(Source)",
+                "IF OBJECT_ID('CrmLead','U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_CrmLead_AssignedTo') CREATE INDEX IX_CrmLead_AssignedTo ON CrmLead(AssignedTo)",
+                "IF OBJECT_ID('CrmLead','U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_CrmLead_LeadDate') CREATE INDEX IX_CrmLead_LeadDate ON CrmLead(LeadDate)",
+                "IF OBJECT_ID('CrmLead','U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_CrmLead_NextFollowUpDate') CREATE INDEX IX_CrmLead_NextFollowUpDate ON CrmLead(NextFollowUpDate)",
+                "IF OBJECT_ID('CrmLead','U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_CrmLead_ClientId') CREATE INDEX IX_CrmLead_ClientId ON CrmLead(ClientId)",
+
+                "IF OBJECT_ID('CrmFollowUp','U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_CrmFollowUp_LeadId') CREATE INDEX IX_CrmFollowUp_LeadId ON CrmFollowUp(LeadId)",
+                "IF OBJECT_ID('CrmFollowUp','U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_CrmFollowUp_FollowUpDate') CREATE INDEX IX_CrmFollowUp_FollowUpDate ON CrmFollowUp(FollowUpDate)",
+                "IF OBJECT_ID('CrmFollowUp','U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_CrmFollowUp_Status') CREATE INDEX IX_CrmFollowUp_Status ON CrmFollowUp(Status)",
+
+                "IF OBJECT_ID('CrmLeadHistory','U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_CrmLeadHistory_LeadId') CREATE INDEX IX_CrmLeadHistory_LeadId ON CrmLeadHistory(LeadId)",
+                "IF OBJECT_ID('CrmLeadHistory','U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_CrmLeadHistory_EventDate') CREATE INDEX IX_CrmLeadHistory_EventDate ON CrmLeadHistory(EventDate)"
             };
 
             foreach (var indexSql in indexes)

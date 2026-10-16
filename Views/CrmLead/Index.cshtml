@@ -1,0 +1,373 @@
+@model Master.Models.CrmLeadViewModel
+@using System.Text.Json
+
+@{
+    ViewData["Title"] = "Lead Master";
+
+    var statuses = ViewBag.Statuses as List<string> ?? new List<string>();
+    var sources = ViewBag.Sources as List<string> ?? new List<string>();
+
+    var byName = Model.Fields.ToDictionary(
+        f => f.Name,
+        StringComparer.OrdinalIgnoreCase);
+
+    var wanted = new[]
+    {
+        "LeadNo", "LeadName", "CompanyName", "MobileNo",
+        "Source", "AssignedTo", "Status", "LeadDate"
+    };
+
+    var gridColumns = wanted
+        .Where(byName.ContainsKey)
+        .Select(n => byName[n])
+        .ToArray();
+
+    string Chip(string status) =>
+        "crm-chip crm-c-" + (string.IsNullOrWhiteSpace(status)
+            ? "default"
+            : status.ToLower().Replace(" ", ""));
+
+    var config = new Dictionary<string, object?>
+    {
+        ["tableId"] = "dataTable",
+        ["searchId"] = "crmSearch",
+        ["recordsId"] = "crmRecords",
+        ["infoId"] = "crmInfo",
+        ["paginationId"] = "crmPagination",
+        ["noRecordsId"] = "crmNoRecords",
+        ["totalRecords"] = Model.TotalRecords,
+        ["recordsPerPage"] = 10,
+        ["entityLabel"] = "Lead",
+        ["exportName"] = "CRM_Leads",
+        ["formId"] = "crmForm",
+        ["modalId"] = "crmModal",
+        ["modalTitleId"] = "crmModalTitle",
+        ["submitId"] = "crmSubmit",
+        ["idFieldId"] = "editId",
+        ["saveUrl"] = Url.Action("Save", "CrmLead")
+    };
+}
+
+<div class="crm-page-head">
+
+    <div>
+        <h1>Lead Master</h1>
+        <p>Manage leads, source, assigned user and status</p>
+    </div>
+
+    <div class="crm-head-actions">
+
+        <a class="crm-btn crm-btn-ghost"
+           href="@Url.Action("Index", "CrmDashboard")">
+            Dashboard
+        </a>
+
+        <button type="button"
+                class="crm-btn crm-btn-primary"
+                onclick="crmOpenAdd()">
+            + Add Lead
+        </button>
+
+    </div>
+
+</div>
+
+
+<div class="crm-kpi-grid">
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Total Leads", Value = Model.TotalRecords.ToString(),
+        Icon = "users", Accent = "#2563eb", Soft = "#eff6ff",
+        Kpi = "TotalRecords"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "New", Value = Model.NewCount.ToString(),
+        Icon = "spark", Accent = "#0ea5e9", Soft = "#e0f2fe"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Contacted", Value = Model.ContactedCount.ToString(),
+        Icon = "phone", Accent = "#6366f1", Soft = "#e0e7ff"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Qualified", Value = Model.QualifiedCount.ToString(),
+        Icon = "check", Accent = "#f59e0b", Soft = "#fef3c7"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Converted", Value = Model.ConvertedCount.ToString(),
+        Icon = "trophy", Accent = "#10b981", Soft = "#d1fae5"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Lost", Value = Model.LostCount.ToString(),
+        Icon = "x", Accent = "#ef4444", Soft = "#fee2e2"
+    })
+
+</div>
+
+
+@if (TempData["Success"] != null)
+{
+    <div class="success-message">@TempData["Success"]</div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="error-message">@Html.Raw(TempData["Error"])</div>
+}
+
+
+<div class="crm-card">
+
+    <div class="crm-toolbar">
+
+        <div class="crm-toolbar-group">
+
+            <select id="statusFilter"
+                    class="crm-select"
+                    onchange="applyLeadFilters()">
+                <option value="">All Status</option>
+                @foreach (var s in statuses)
+                {
+                    <option value="@s" selected="@(Model.StatusFilter == s)">@s</option>
+                }
+            </select>
+
+            <select id="sourceFilter"
+                    class="crm-select"
+                    onchange="applyLeadFilters()">
+                <option value="">All Sources</option>
+                @foreach (var s in sources)
+                {
+                    <option value="@s" selected="@(Model.SourceFilter == s)">@s</option>
+                }
+            </select>
+
+            <input type="text"
+                   id="crmSearch"
+                   class="crm-input crm-search"
+                   placeholder="Search leads..."
+                   oninput="crmFilter()" />
+
+        </div>
+
+        <div class="crm-toolbar-group">
+
+            <select id="crmRecords"
+                    class="crm-select"
+                    onchange="crmChangeRecordsPerPage()">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+
+            <button type="button"
+                    class="crm-btn crm-btn-ghost"
+                    onclick="crmExportExcel()">
+                Excel
+            </button>
+
+            <button type="button"
+                    class="crm-btn crm-btn-ghost"
+                    onclick="crmExportCSV()">
+                CSV
+            </button>
+
+            <button type="button"
+                    class="crm-btn crm-btn-ghost"
+                    onclick="crmPrint()">
+                Print
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <div class="crm-table-wrap">
+
+        <table id="dataTable" class="crm-table">
+
+            <thead>
+                <tr>
+
+                    @foreach (var col in gridColumns)
+                    {
+                        <th class="crm-sortable"
+                            data-sort="@(col.InputType == "time" ? "time" : col.SortType)"
+                            onclick="crmSort(this)">
+                            @col.Display
+                        </th>
+                    }
+
+                    <th class="crm-actions-col">Actions</th>
+
+                </tr>
+            </thead>
+
+            <tbody>
+
+                @foreach (var lead in Model.Leads)
+                {
+                    var searchText = string.Join(
+                        " ",
+                        gridColumns.Select(c => lead.Get(c.Name)));
+
+                    var rowJson = JsonSerializer.Serialize(lead.Values);
+
+                    <tr data-search="@searchText">
+
+                        @foreach (var col in gridColumns)
+                        {
+                            <td>
+                                @if (col.Name == "Status")
+                                {
+                                    <span class="@Chip(lead.Get("Status"))">
+                                        @lead.Get("Status")
+                                    </span>
+                                }
+                                else if (col.Name == "LeadName")
+                                {
+                                    <a class="link"
+                                       href="@Url.Action("Detail", "CrmLead", new { id = lead.Get("Id") })">
+                                        @lead.Get(col.Name)
+                                    </a>
+                                }
+                                else
+                                {
+                                    @lead.Get(col.Name)
+                                }
+                            </td>
+                        }
+
+                        <td class="crm-actions-col">
+                            <div class="crm-actions">
+
+                                <a class="crm-icon-btn"
+                                   href="@Url.Action("Detail", "CrmLead", new { id = lead.Get("Id") })"
+                                   title="View timeline">&#128065;</a>
+
+                                <button type="button"
+                                        class="crm-icon-btn"
+                                        title="Edit"
+                                        data-json="@rowJson"
+                                        onclick="crmOpenEdit(this)">&#9998;</button>
+
+                                <form asp-controller="CrmLead"
+                                      asp-action="Delete"
+                                      method="post"
+                                      onsubmit="return crmConfirmAndSubmit(this, 'Delete this lead?');">
+
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@lead.Get("Id")" />
+
+                                    <button type="submit"
+                                            class="crm-icon-btn danger"
+                                            title="Delete">&#10005;</button>
+
+                                </form>
+
+                            </div>
+                        </td>
+
+                    </tr>
+                }
+
+                <tr id="crmNoRecords" class="no-data-row" data-search="" style="@(Model.Leads.Count == 0 ? "" : "display:none;")">
+                    <td colspan="@(gridColumns.Length + 1)" class="crm-empty">
+                        No leads found.
+                    </td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <div class="crm-table-foot">
+
+        <div id="crmInfo">Showing 0 to 0 of 0 entries</div>
+
+        <div class="crm-pagination" id="crmPagination"></div>
+
+    </div>
+
+</div>
+
+
+<div id="crmModal" class="crm-modal">
+
+    <div class="crm-modal-box">
+
+        <div class="crm-modal-head">
+            <h2 id="crmModalTitle">Add Lead</h2>
+            <button type="button"
+                    class="crm-modal-x"
+                    onclick="crmCloseModal()">&times;</button>
+        </div>
+
+        <form id="crmForm"
+              method="post"
+              action="@Url.Action("Save", "CrmLead")"
+              onsubmit="return crmSubmitForm(event);"
+              novalidate>
+
+            @Html.AntiForgeryToken()
+
+            <input type="hidden" id="editId" name="id" value="0" />
+
+            <div class="crm-modal-body">
+                <partial name="_CrmFormFields" model="Model" />
+            </div>
+
+            <div class="crm-modal-foot">
+                <button type="button"
+                        class="crm-btn crm-btn-ghost"
+                        onclick="crmCloseModal()">
+                    Cancel
+                </button>
+                <button type="submit"
+                        id="crmSubmit"
+                        class="crm-btn crm-btn-primary">
+                    Save
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<div class="crm-config" hidden>@Html.Raw(JsonSerializer.Serialize(config))</div>
+
+
+@section Scripts {
+
+    <script src="~/js/crm.js" asp-append-version="true"></script>
+
+    <script>
+        function applyLeadFilters() {
+            var status = document.getElementById('statusFilter').value;
+            var source = document.getElementById('sourceFilter').value;
+            var url = '@Url.Action("Index", "CrmLead")';
+            var params = [];
+            if (status) { params.push('status=' + encodeURIComponent(status)); }
+            if (source) { params.push('source=' + encodeURIComponent(source)); }
+            window.location = params.length ? url + '?' + params.join('&') : url;
+        }
+    </script>
+}
