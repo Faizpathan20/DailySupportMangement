@@ -31,14 +31,14 @@
         <div class="support-analytics-segment support-status-inprogress"
              style="width: @Model.Percent(Model.InProgressCount)%;"></div>
 
+        <div class="support-analytics-segment support-status-onhold"
+             style="width: @Model.Percent(Model.OnHoldCount)%;"></div>
+
         <div class="support-analytics-segment support-status-pending"
              style="width: @Model.Percent(Model.PendingCount)%;"></div>
 
-        <div class="support-analytics-segment support-status-completed"
-             style="width: @Model.Percent(Model.CompletedCount)%;"></div>
-
-        <div class="support-analytics-segment support-status-cancelled"
-             style="width: @Model.Percent(Model.CancelledCount)%;"></div>
+        <div class="support-analytics-segment support-status-closed"
+             style="width: @Model.Percent(Model.ClosedCount)%;"></div>
 
     </div>
 
@@ -68,6 +68,16 @@
         </div>
 
         <div class="support-analytics-item">
+            <span class="support-analytics-dot support-status-onhold"></span>
+            <span class="support-analytics-name">
+                On Hold
+            </span>
+            <span class="support-analytics-count">
+                @Model.OnHoldCount
+            </span>
+        </div>
+
+        <div class="support-analytics-item">
             <span class="support-analytics-dot support-status-pending"></span>
             <span class="support-analytics-name">
                 Pending
@@ -78,22 +88,12 @@
         </div>
 
         <div class="support-analytics-item">
-            <span class="support-analytics-dot support-status-completed"></span>
+            <span class="support-analytics-dot support-status-closed"></span>
             <span class="support-analytics-name">
-                Completed
+                Closed
             </span>
             <span class="support-analytics-count">
-                @Model.CompletedCount
-            </span>
-        </div>
-
-        <div class="support-analytics-item">
-            <span class="support-analytics-dot support-status-cancelled"></span>
-            <span class="support-analytics-name">
-                Cancelled
-            </span>
-            <span class="support-analytics-count">
-                @Model.CancelledCount
+                @Model.ClosedCount
             </span>
         </div>
 

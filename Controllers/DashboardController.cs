@@ -721,7 +721,8 @@ public class DashboardController : Controller
                     $"ds.{dsFollowUpDate}"
                         + " >= @Today",
                     $"ds.{dsStatus}"
-                        + " <> 'Cancelled'"
+                        + " IN ('Open', 'In Progress',"
+                        + " 'On Hold', 'Pending')"
                 };
 
             using (var command = new SqlCommand())
@@ -828,11 +829,11 @@ public class DashboardController : Controller
                     SUM(CASE WHEN ds.{dsStatus}
                         = 'In Progress' THEN 1 ELSE 0 END) AS InProgressCount,
                     SUM(CASE WHEN ds.{dsStatus}
+                        = 'On Hold' THEN 1 ELSE 0 END) AS OnHoldCount,
+                    SUM(CASE WHEN ds.{dsStatus}
                         = 'Pending' THEN 1 ELSE 0 END) AS PendingCount,
                     SUM(CASE WHEN ds.{dsStatus}
-                        = 'Completed' THEN 1 ELSE 0 END) AS CompletedCount,
-                    SUM(CASE WHEN ds.{dsStatus}
-                        = 'Cancelled' THEN 1 ELSE 0 END) AS CancelledCount
+                        = 'Closed' THEN 1 ELSE 0 END) AS ClosedCount
 
                 FROM
                     [DailySupport] ds
@@ -860,23 +861,23 @@ public class DashboardController : Controller
                         : Convert.ToInt32(
                             reader["InProgressCount"]);
 
+                status.OnHoldCount =
+                    reader["OnHoldCount"] == DBNull.Value
+                        ? 0
+                        : Convert.ToInt32(
+                            reader["OnHoldCount"]);
+
                 status.PendingCount =
                     reader["PendingCount"] == DBNull.Value
                         ? 0
                         : Convert.ToInt32(
                             reader["PendingCount"]);
 
-                status.CompletedCount =
-                    reader["CompletedCount"] == DBNull.Value
+                status.ClosedCount =
+                    reader["ClosedCount"] == DBNull.Value
                         ? 0
                         : Convert.ToInt32(
-                            reader["CompletedCount"]);
-
-                status.CancelledCount =
-                    reader["CancelledCount"] == DBNull.Value
-                        ? 0
-                        : Convert.ToInt32(
-                            reader["CancelledCount"]);
+                            reader["ClosedCount"]);
             }
         }
 
@@ -1582,7 +1583,8 @@ public class DashboardController : Controller
                     $"ds.{dsFollowUpDate}"
                         + " >= @Today",
                     $"ds.{dsStatus}"
-                        + " <> 'Cancelled'"
+                        + " IN ('Open', 'In Progress',"
+                        + " 'On Hold', 'Pending')"
                 };
 
             using (var command = new SqlCommand())
@@ -1636,7 +1638,8 @@ public class DashboardController : Controller
                     $"ds.{dsFollowUpDate}"
                         + " >= @Today",
                     $"ds.{dsStatus}"
-                        + " <> 'Cancelled'"
+                        + " IN ('Open', 'In Progress',"
+                        + " 'On Hold', 'Pending')"
                 };
 
             using (var command = new SqlCommand())
@@ -2678,14 +2681,14 @@ public class DashboardController : Controller
             case "In Progress":
                 return "badge-inprogress";
 
+            case "On Hold":
+                return "badge-onhold";
+
             case "Pending":
                 return "badge-pending";
 
-            case "Completed":
+            case "Closed":
                 return "badge-completed";
-
-            case "Cancelled":
-                return "badge-cancelled";
 
             default:
                 return "badge-default";

@@ -9,19 +9,19 @@ public class DashboardSupportStatusViewModel
 
     public int InProgressCount { get; set; }
 
+    public int OnHoldCount { get; set; }
+
     public int PendingCount { get; set; }
 
-    public int CompletedCount { get; set; }
-
-    public int CancelledCount { get; set; }
+    public int ClosedCount { get; set; }
 
 
     public int Total =>
         OpenCount
         + InProgressCount
+        + OnHoldCount
         + PendingCount
-        + CompletedCount
-        + CancelledCount;
+        + ClosedCount;
 
 
     // Share (0-100) of one status inside the stacked bar.

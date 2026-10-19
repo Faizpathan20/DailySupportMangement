@@ -29,15 +29,68 @@ public class DailySupportController : Controller
     private static readonly string[] AllowedTransitions =
     {
         "Open|In Progress",
-        "Open|Cancelled",
+        "Open|On Hold",
+        "Open|Closed",
+        "In Progress|On Hold",
         "In Progress|Pending",
-        "In Progress|Completed",
-        "In Progress|Cancelled",
+        "In Progress|Closed",
+        "On Hold|In Progress",
+        "On Hold|Pending",
+        "On Hold|Closed",
         "Pending|In Progress",
-        "Pending|Completed",
-        "Pending|Cancelled",
-        "Completed|Cancelled"
+        "Pending|On Hold",
+        "Pending|Closed",
+        "Closed|In Progress"
     };
+
+    // Grid columns in exactly the same order/labels as the
+    // reference Daily Support table (the Actions column is
+    // always appended by the view).
+    private static readonly string[] TableLayout =
+    {
+        "TicketNo",
+        "SupportDate",
+        "ClientId",
+        "Mobile",
+        "Channel",
+        "Category",
+        "Priority",
+        "UserId",
+        "Status",
+        "Subject",
+        "Description",
+        "CallerName"
+    };
+
+    // Human labels for the table headers (grid shows these).
+    private static readonly Dictionary<string, string>
+        TableLabels =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["TicketNo"] = "Ticket No",
+                ["SupportDate"] = "Date & Time",
+                ["ClientId"] = "Client [Id]",
+                ["Channel"] = "Channel / Type",
+                ["UserId"] = "Assigned",
+                ["Subject"] = "Issue",
+                ["CallerName"] = "Caller Name"
+            };
+
+    // Columns that must NOT appear in the create/edit forms
+    // (the reference form does not collect them).
+    private static readonly string[] HiddenFormFields =
+    {
+        "StartTime",
+        "EndTime",
+        "Remarks"
+    };
+
+    private static int ReadKpiCount(
+        SqlDataReader reader,
+        string column) =>
+        reader[column] == DBNull.Value
+            ? 0
+            : Convert.ToInt32(reader[column]);
 
     // ============================================
     // SUPPORT LIST
@@ -85,23 +138,35 @@ public class DailySupportController : Controller
 
         // ========================================
         // LOAD KPI COUNTS
+        // Same four cards as the reference page:
+        // Today Calls / Open Calls / Closed Today / Pending
         // ========================================
+
+        bool hasSupportDate =
+            FindField(fields, "SupportDate") != null;
 
         var kpiSelect = new List<string>();
 
-        if (model.HasStatusKpi)
+        if (model.HasStatusKpi && hasSupportDate)
         {
             kpiSelect.Add(
-                "SUM(CASE WHEN [Status] = 'Open' " +
-                "THEN 1 ELSE 0 END) AS OpenCount");
+                "SUM(CASE WHEN [SupportDate] " +
+                "= CAST(GETDATE() AS DATE) " +
+                "THEN 1 ELSE 0 END) AS TodayCalls");
+
+            kpiSelect.Add(
+                "SUM(CASE WHEN [Status] IN " +
+                "('Open', 'In Progress', 'On Hold', 'Pending') " +
+                "THEN 1 ELSE 0 END) AS OpenCalls");
+
+            kpiSelect.Add(
+                "SUM(CASE WHEN [Status] = 'Closed' " +
+                "AND [SupportDate] = CAST(GETDATE() AS DATE) " +
+                "THEN 1 ELSE 0 END) AS ClosedToday");
 
             kpiSelect.Add(
                 "SUM(CASE WHEN [Status] = 'In Progress' " +
-                "THEN 1 ELSE 0 END) AS InProgressCount");
-
-            kpiSelect.Add(
-                "SUM(CASE WHEN [Status] = 'Completed' " +
-                "THEN 1 ELSE 0 END) AS CompletedCount");
+                "THEN 1 ELSE 0 END) AS PendingCount");
         }
 
         string kpiQuery =
@@ -127,20 +192,20 @@ public class DailySupportController : Controller
                 model.TotalRecords =
                     Convert.ToInt32(kpiReader["TotalRecords"]);
 
-                model.OpenCount =
-                    kpiReader["OpenCount"] == DBNull.Value
-                        ? 0
-                        : Convert.ToInt32(kpiReader["OpenCount"]);
+                if (kpiSelect.Count > 0)
+                {
+                    model.TodayCalls =
+                        ReadKpiCount(kpiReader, "TodayCalls");
 
-                model.InProgressCount =
-                    kpiReader["InProgressCount"] == DBNull.Value
-                        ? 0
-                        : Convert.ToInt32(kpiReader["InProgressCount"]);
+                    model.OpenCalls =
+                        ReadKpiCount(kpiReader, "OpenCalls");
 
-                model.CompletedCount =
-                    kpiReader["CompletedCount"] == DBNull.Value
-                        ? 0
-                        : Convert.ToInt32(kpiReader["CompletedCount"]);
+                    model.ClosedToday =
+                        ReadKpiCount(kpiReader, "ClosedToday");
+
+                    model.PendingCount =
+                        ReadKpiCount(kpiReader, "PendingCount");
+                }
             }
         }
 
@@ -230,13 +295,40 @@ public class DailySupportController : Controller
             }
             else
             {
-                selectParts.Add($"s.[{field.Name}]");
-
-                if (DynamicTableService.IsText(field.SqlType))
+                if (field.Name.Equals(
+                        "Channel",
+                        StringComparison.OrdinalIgnoreCase)
+                    && FindField(fields, "CallType") != null)
                 {
+                    // Reference table shows a single
+                    // "Channel / Type" column.
+                    selectParts.Add(
+                        "CASE " +
+                        "WHEN ISNULL(s.[Channel], '') = '' " +
+                        "THEN ISNULL(s.[CallType], '') " +
+                        "WHEN ISNULL(s.[CallType], '') = '' " +
+                        "THEN s.[Channel] " +
+                        "ELSE s.[Channel] + ' / ' + s.[CallType] " +
+                        "END AS [Channel]");
+
                     searchParts.Add(
-                        $"s.[{field.Name}] " +
-                        $"LIKE '%' + @Search + '%'");
+                        "s.[Channel] " +
+                        "LIKE '%' + @Search + '%'");
+
+                    searchParts.Add(
+                        "s.[CallType] " +
+                        "LIKE '%' + @Search + '%'");
+                }
+                else
+                {
+                    selectParts.Add($"s.[{field.Name}]");
+
+                    if (DynamicTableService.IsText(field.SqlType))
+                    {
+                        searchParts.Add(
+                            $"s.[{field.Name}] " +
+                            $"LIKE '%' + @Search + '%'");
+                    }
                 }
             }
         }
@@ -281,7 +373,7 @@ public class DailySupportController : Controller
                 idColumn,
                 StringComparison.OrdinalIgnoreCase)))
         {
-            sql.Append($" ORDER BY s.[{idColumn}] ASC");
+            sql.Append($" ORDER BY s.[{idColumn}] DESC");
         }
         else
         {
@@ -400,6 +492,28 @@ public class DailySupportController : Controller
 
         ViewBag.Dropdowns = dropdowns;
         ViewBag.StaticOptions = staticOptions;
+        ViewBag.TicketNo = await GenerateTicketNoAsync(connection);
+        ViewBag.CurrentUserId = DynamicTableService.GetLoggedInUserId(User);
+        var clientsWithMobile = new List<LookupOptionViewModel>();
+        try
+        {
+            string clientsQuery = @"SELECT Id, ClientName, ISNULL(MobileNo,'') AS MobileNo FROM ClientMaster WHERE (IsActive=1 OR IsActive IS NULL) ORDER BY ClientName";
+            using (SqlCommand cmd = new SqlCommand(clientsQuery, connection))
+            {
+                using SqlDataReader r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync())
+                {
+                    clientsWithMobile.Add(new LookupOptionViewModel
+                    {
+                        Id = Convert.ToInt32(r["Id"]),
+                        Name = r["ClientName"].ToString() ?? "",
+                        Mobile = r["MobileNo"].ToString() ?? ""
+                    });
+                }
+            }
+        }
+        catch { }
+        ViewBag.ClientsWithMobile = clientsWithMobile;
 
         return View(model);
     }
@@ -452,7 +566,35 @@ public class DailySupportController : Controller
                 form,
                 null,
                 null,
-                out Dictionary<string, string> overrides);
+                out Dictionary<string, string> overrides,
+                true);
+
+        try
+        {
+            string existingTicket = form["TicketNo"].ToString().Trim();
+            using (SqlCommand check = new SqlCommand("SELECT COUNT(*) FROM [DailySupport] WHERE [TicketNo] = @t", connection))
+            {
+                check.Parameters.AddWithValue("@t", existingTicket);
+                int c = (int)await check.ExecuteScalarAsync();
+                if (c == 0 && !string.IsNullOrWhiteSpace(existingTicket))
+                {
+                    overrides["TicketNo"] = existingTicket;
+                }
+                else
+                {
+                    overrides["TicketNo"] = await GenerateTicketNoAsync(connection);
+                }
+            }
+        }
+        catch
+        {
+            overrides["TicketNo"] = await GenerateTicketNoAsync(connection);
+        }
+        if (!overrides.ContainsKey("SupportType") || string.IsNullOrWhiteSpace(overrides["SupportType"]))
+        {
+            string st = form["SupportType"].ToString().Trim();
+            overrides["SupportType"] = string.IsNullOrWhiteSpace(st) ? "Client Query" : st;
+        }
 
         if (!string.IsNullOrWhiteSpace(validationError))
         {
@@ -667,7 +809,8 @@ public class DailySupportController : Controller
                 form,
                 existingStart,
                 existingEnd,
-                out Dictionary<string, string> overrides);
+                out Dictionary<string, string> overrides,
+                false);
 
         if (fields.Any(f => f.Name.Equals(
                 "Status",
@@ -855,10 +998,10 @@ public class DailySupportController : Controller
                 allowError:
                     "Cannot complete support. "
                     + "Allowed only from In Progress.",
-                statusValue: "Completed",
+                statusValue: "Closed",
                 startFresh: false,
                 startMessage:
-                    "Support completed. Status updated to Completed.",
+                    "Support closed. Status updated to Closed.",
                 resumeMessage: "");
 
         return Done(result);
@@ -872,12 +1015,12 @@ public class DailySupportController : Controller
             await RunQuickActionAsync(id,
                 allowedFrom: new[] { "Open", "In Progress" },
                 allowError:
-                    "Cannot cancel support. "
+                    "Cannot hold support. "
                     + "Allowed only from Open or In Progress.",
-                statusValue: "Cancelled",
+                statusValue: "On Hold",
                 startFresh: false,
                 startMessage:
-                    "Support cancelled. Status updated to Cancelled.",
+                    "Support put on hold. Status updated to On Hold.",
                 resumeMessage: "");
 
         return Done(result);
@@ -958,7 +1101,7 @@ public class DailySupportController : Controller
             setParts.Add("[StartTime] = GETDATE()");
         }
 
-        if (statusValue == "Completed"
+        if (statusValue == "Closed"
             && columns.Contains("EndTime"))
         {
             setParts.Add("[EndTime] = GETDATE()");
@@ -1109,7 +1252,100 @@ public class DailySupportController : Controller
                 field.Control = "input";
                 field.InputType = "text";
             }
+
+            // Assign To (Users) dropdown for DailySupport
+            if (field.Name.Equals(
+                    "UserId",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                field.Editable = true;
+                field.AutoWrite = null;
+                field.Required = true;
+                field.Type = "dropdown";
+                field.SortType = "text";
+                field.Control = "select";
+                field.InputType = "text";
+                field.Display = "Assign To";
+                field.LookupKey = "LoginUsers";
+                field.LookupRefColumn = "Id";
+            }
         }
+
+        // ============================================
+        // TABLE LAYOUT (same columns, order and labels
+        // as the reference Daily Support table)
+        // ============================================
+
+        foreach (var field in fields)
+        {
+            int index = LayoutIndex(field.Name);
+
+            field.ShowInTable = index >= 0;
+
+            if (index >= 0
+                && TableLabels.TryGetValue(
+                    field.Name,
+                    out string? label))
+            {
+                field.Display = label;
+            }
+        }
+
+        // ============================================
+        // FORM FIELDS (reference form does not collect
+        // start/end time or remarks)
+        // ============================================
+
+        foreach (string name in HiddenFormFields)
+        {
+            MasterColumnViewModel? field =
+                FindField(fields, name);
+
+            if (field != null)
+            {
+                field.Editable = false;
+                field.ShowInTable = false;
+            }
+        }
+
+        // SupportType is posted as the hidden "Client Query"
+        // value on Create; it must never be edited later.
+        MasterColumnViewModel? supportType =
+            FindField(fields, "SupportType");
+
+        if (supportType != null)
+        {
+            supportType.CreateOnly = true;
+        }
+
+        // Reorder: grid columns first (reference order),
+        // everything else keeps its original relative order.
+        var reordered =
+            fields
+                .Where(f => LayoutIndex(f.Name) >= 0)
+                .OrderBy(f => LayoutIndex(f.Name))
+                .Concat(
+                    fields.Where(
+                        f => LayoutIndex(f.Name) < 0))
+                .ToList();
+
+        fields.Clear();
+        fields.AddRange(reordered);
+    }
+
+    private static int LayoutIndex(string name)
+    {
+        for (int i = 0; i < TableLayout.Length; i++)
+        {
+            if (TableLayout[i].Equals(
+                    name,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     private static bool IsAllowedTransition(
@@ -1168,7 +1404,8 @@ public class DailySupportController : Controller
         IFormCollection form,
         DateTime? existingStart,
         DateTime? existingEnd,
-        out Dictionary<string, string> overrides)
+        out Dictionary<string, string> overrides,
+        bool createMode = false)
     {
         var errors =
             new Dictionary<string, string>(
@@ -1225,9 +1462,6 @@ public class DailySupportController : Controller
 
         // ---- Status based rules ----
 
-        string status =
-            form["Status"].ToString().Trim();
-
         DateTime supportDate = default;
 
         var supportDateField = FindField(fields, "SupportDate");
@@ -1240,101 +1474,35 @@ public class DailySupportController : Controller
             supportDate = DateTime.Today;
         }
 
-        // ---- Start Time ----
+        // ---- Start / End Time ----
 
-        DateTime? startTime = null;
+        // The reference form does not collect start/end/remarks
+        // anymore (those columns are hidden), so there is no
+        // requirement to enforce here - values already stored on
+        // the row are simply never touched by the UPDATE.
 
-        var startTimeField = FindField(fields, "StartTime");
+        DateTime? startTime = existingStart;
 
-        if (startTimeField != null)
+        DateTime? endTime = existingEnd;
+
+        string startRaw =
+            form["StartTime"].ToString().Trim();
+
+        if (DateTime.TryParse(
+                startRaw,
+                out DateTime parsedStart))
         {
-            string startRaw =
-                form["StartTime"].ToString().Trim();
-
-            if (string.IsNullOrWhiteSpace(startRaw))
-            {
-                if (IsStatus(status, "In Progress")
-                    || IsStatus(status, "Pending")
-                    || IsStatus(status, "Completed"))
-                {
-                    if (existingStart.HasValue)
-                    {
-                        overrides["StartTime"] =
-                            existingStart.Value.ToString("HH:mm");
-
-                        startTime = existingStart;
-                    }
-                    else
-                    {
-                        AddError(
-                            "StartTime",
-                            "Start Time is required for this status.");
-                    }
-                }
-            }
-            else if (DateTime.TryParse(startRaw, out DateTime parsed))
-            {
-                startTime = parsed;
-            }
+            startTime = parsedStart;
         }
 
-        // ---- End Time ----
+        string endRaw =
+            form["EndTime"].ToString().Trim();
 
-        DateTime? endTime = null;
-
-        var endTimeField = FindField(fields, "EndTime");
-
-        if (endTimeField != null)
+        if (DateTime.TryParse(
+                endRaw,
+                out DateTime parsedEnd))
         {
-            string endRaw =
-                form["EndTime"].ToString().Trim();
-
-            if (IsStatus(status, "Pending")
-                && !string.IsNullOrWhiteSpace(endRaw))
-            {
-                AddError(
-                    "EndTime",
-                    "End Time must be blank for Pending status.");
-            }
-            else if (string.IsNullOrWhiteSpace(endRaw))
-            {
-                if (IsStatus(status, "Completed"))
-                {
-                    if (existingEnd.HasValue)
-                    {
-                        overrides["EndTime"] =
-                            existingEnd.Value.ToString("HH:mm");
-
-                        endTime = existingEnd;
-                    }
-                    else
-                    {
-                        AddError(
-                            "EndTime",
-                            "End Time is required for Completed status.");
-                    }
-                }
-            }
-            else if (DateTime.TryParse(endRaw, out DateTime parsed))
-            {
-                endTime = parsed;
-            }
-        }
-
-        // ---- Remarks ----
-
-        var remarksField = FindField(fields, "Remarks");
-
-        if (remarksField != null
-            && (IsStatus(status, "Pending")
-                || IsStatus(status, "Completed")
-                || IsStatus(status, "Cancelled"))
-            && string.IsNullOrWhiteSpace(
-                form["Remarks"].ToString()))
-        {
-            AddError(
-                "Remarks",
-                "Remarks is required for this status.");
+            endTime = parsedEnd;
         }
 
         // ---- End >= Start ----
@@ -1474,5 +1642,44 @@ public class DailySupportController : Controller
         }
 
         return Convert.ToDateTime(value);
+    }
+
+    private static async Task<string> GenerateTicketNoAsync(SqlConnection connection)
+    {
+        string prefix = "TKT-" + DateTime.Today.ToString("ddMMyy");
+        string query = @"SELECT COUNT(*) FROM [DailySupport] WHERE [TicketNo] LIKE @Prefix + '-%'";
+        using var cmd = new SqlCommand(query, connection) { CommandTimeout = 0 };
+        cmd.Parameters.AddWithValue("@Prefix", prefix);
+        int count = 0;
+        try
+        {
+            object? res = await cmd.ExecuteScalarAsync();
+            count = res == DBNull.Value ? 0 : Convert.ToInt32(res);
+        }
+        catch { count = 0; }
+        return $"{prefix}-{(count + 1):D2}";
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> SearchClientByMobile(string q)
+    {
+        string? connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString)) return Json(Array.Empty<object>());
+        using SqlConnection connection = new SqlConnection(connectionString);
+        await connection.OpenAsync();
+        var list = new List<object>();
+        try
+        {
+            string query = @"SELECT TOP 5 Id, ClientName, ISNULL(MobileNo,'') AS MobileNo FROM ClientMaster WHERE (MobileNo LIKE '%' + @m + '%' OR ClientName LIKE '%' + @m + '%') AND (IsActive=1 OR IsActive IS NULL) ORDER BY ClientName";
+            using SqlCommand cmd = new SqlCommand(query, connection) { CommandTimeout = 0 };
+            cmd.Parameters.AddWithValue("@m", q?.Trim() ?? "");
+            using SqlDataReader r = await cmd.ExecuteReaderAsync();
+            while (await r.ReadAsync())
+            {
+                list.Add(new { ClientId = Convert.ToInt32(r["Id"]), ClientName = r["ClientName"].ToString(), MobileNo = r["MobileNo"].ToString() });
+            }
+        }
+        catch { }
+        return Json(new { clients = list });
     }
 }

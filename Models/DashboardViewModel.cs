@@ -88,9 +88,9 @@ public class DashboardViewModel
     {
         "Open",
         "In Progress",
+        "On Hold",
         "Pending",
-        "Completed",
-        "Cancelled"
+        "Closed"
     };
 
     public static readonly string[] DailySupportPriorities =

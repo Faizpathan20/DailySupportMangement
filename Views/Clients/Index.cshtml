@@ -846,24 +846,72 @@
 
 
             // PAGE NUMBERS
+            // Windowed: sirf current page ke aas-paas ke
+            // numbers + first/last. 52 pages pe bhi ~7
+            // buttons bante hain, isliye row card ke bahar
+            // nahi nikalti.
 
-            for (
-                var i = 1;
-                i <= totalPages;
-                i++
-            ) {
+            var pageList = [];
 
-                if (i === currentPage) {
+            var addPage = function (pageNumber) {
+                if (pageList.indexOf(pageNumber) < 0) {
+                    pageList.push(pageNumber);
+                }
+            };
+
+            if (totalPages > 0) {
+
+                if (totalPages <= 9) {
+
+                    for (var p = 1; p <= totalPages; p++) {
+                        addPage(p);
+                    }
+
+                } else {
+
+                    var low = Math.max(1, currentPage - 2);
+                    var high = Math.min(
+                        totalPages,
+                        currentPage + 2
+                    );
+
+                    for (var q = low; q <= high; q++) {
+                        addPage(q);
+                    }
+
+                    addPage(1);
+                    addPage(totalPages);
+
+                    pageList.sort(function (a, b) {
+                        return a - b;
+                    });
+                }
+            }
+
+            var shownSoFar = 0;
+
+            for (var r = 0; r < pageList.length; r++) {
+
+                var pageNumber = pageList[r];
+
+                if (pageNumber - shownSoFar > 1) {
+                    html +=
+                        '<button class="page-btn page-dots" disabled>…</button>';
+                }
+
+                shownSoFar = pageNumber;
+
+                if (pageNumber === currentPage) {
                     html +=
                         '<button class="page-btn active">'
-                        + i
+                        + pageNumber
                         + '</button>';
                 } else {
                     html +=
                         '<button class="page-btn" onclick="goToPage('
-                        + i
+                        + pageNumber
                         + ')">'
-                        + i
+                        + pageNumber
                         + '</button>';
                 }
 

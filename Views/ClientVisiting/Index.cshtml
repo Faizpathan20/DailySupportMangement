@@ -814,14 +814,14 @@
                                 </span>
                             }
 
-                            @if (field.Name == "Remarks")
+                            @if (field.Name == "Discussion" || field.Name == "Remarks")
                             {
                                 <div class="voice-controls">
 
                                     <button type="button"
                                             class="voice-btn mic-btn"
-                                            id="voiceMicBtn"
-                                            onclick="startVoice()">
+                                            id="voiceMicBtn_@field.Name"
+                                            onclick="startVoice('@field.Name')">
 
                                         Mic
 
@@ -837,7 +837,7 @@
 
                                     <button type="button"
                                             class="voice-btn voice-reset"
-                                            onclick="resetRemarks()">
+                                            onclick="resetVoice('@field.Name')">
 
                                         Reset
 
@@ -846,10 +846,10 @@
                                 </div>
 
                                 <span class="voice-status"
-                                      id="voiceStatus"></span>
+                                      id="voiceStatus_@field.Name"></span>
 
                                 <span class="voice-hint">
-                                    Voice to Text: speak into the mic; the text is appended to the end of Remarks. The mic stays open until you click Stop.
+                                    Voice to Text: speak into the mic; the text is appended to the end of @field.Display. The mic stays open until you click Stop.
                                 </span>
                             }
 
@@ -1653,13 +1653,14 @@
 
 
         // ==========================================
-        // VOICE TO TEXT - REMARKS
+        // VOICE TO TEXT - DISCUSSION / REMARKS
         // ==========================================
 
         var recognition = null;
         var isRecording = false;
         var speechBaseText = "";
         var speechFinal = "";
+        var voiceField = "Remarks";
 
 
         function speechSupported() {
@@ -1676,12 +1677,12 @@
 
             var micBtn =
                 document.getElementById(
-                    "voiceMicBtn"
+                    "voiceMicBtn_" + voiceField
                 );
 
             var status =
                 document.getElementById(
-                    "voiceStatus"
+                    "voiceStatus_" + voiceField
                 );
 
 
@@ -1962,11 +1963,15 @@
         }
 
 
-        function startVoice() {
+        function startVoice(fieldName) {
+
+            if (fieldName) {
+                voiceField = fieldName;
+            }
 
             var textarea =
                 document.getElementById(
-                    "edit_Remarks"
+                    "edit_" + voiceField
                 );
 
 
@@ -2124,11 +2129,15 @@
         }
 
 
-        function resetRemarks() {
+        function resetVoice(fieldName) {
+
+            if (fieldName) {
+                voiceField = fieldName;
+            }
 
             if (
                 !confirm(
-                    "Are you sure you want to clear remarks?"
+                    "Are you sure you want to clear " + voiceField + "?"
                 )
             ) {
                 return;
@@ -2149,7 +2158,7 @@
             speechFinal = "";
 
             document.getElementById(
-                "edit_Remarks"
+                "edit_" + voiceField
             ).value = "";
 
         }

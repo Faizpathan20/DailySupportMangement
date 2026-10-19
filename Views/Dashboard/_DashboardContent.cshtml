@@ -561,6 +561,20 @@
 
         <div class="support-kpi">
 
+            <span class="support-kpi-dot support-status-onhold"></span>
+
+            <span class="support-kpi-number">
+                @Model.SupportTab.Status.OnHoldCount
+            </span>
+
+            <span class="support-kpi-label">
+                On Hold
+            </span>
+
+        </div>
+
+        <div class="support-kpi">
+
             <span class="support-kpi-dot support-status-pending"></span>
 
             <span class="support-kpi-number">
@@ -575,28 +589,14 @@
 
         <div class="support-kpi">
 
-            <span class="support-kpi-dot support-status-completed"></span>
+            <span class="support-kpi-dot support-status-closed"></span>
 
             <span class="support-kpi-number">
-                @Model.SupportTab.Status.CompletedCount
+                @Model.SupportTab.Status.ClosedCount
             </span>
 
             <span class="support-kpi-label">
-                Completed
-            </span>
-
-        </div>
-
-        <div class="support-kpi">
-
-            <span class="support-kpi-dot support-status-cancelled"></span>
-
-            <span class="support-kpi-number">
-                @Model.SupportTab.Status.CancelledCount
-            </span>
-
-            <span class="support-kpi-label">
-                Cancelled
+                Closed
             </span>
 
         </div>

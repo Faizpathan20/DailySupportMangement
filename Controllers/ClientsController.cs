@@ -452,6 +452,143 @@ public class ClientsController : Controller
 
 
     // ============================================
+    // CREATE (page)
+    // Separate "Create New Client" page opened from the
+    // Daily Support toolbar (+ New Customer) and from the
+    // Client Master toolbar. returnUrl keeps the user on
+    // the page he came from after saving.
+    // ============================================
+
+    [HttpGet]
+    public async Task<IActionResult> Create()
+    {
+        // Kept parameter-less so it does not clash with the
+        // [HttpPost] Create(string? returnUrl) overload; the
+        // return target comes from the query string.
+        string? returnUrl =
+            Request.Query["returnUrl"].ToString();
+
+        string? connectionString =
+            _configuration.GetConnectionString(
+                "DefaultConnection");
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return StatusCode(
+                500,
+                "Database connection string is missing.");
+        }
+
+        using SqlConnection connection =
+            new SqlConnection(connectionString);
+
+        await connection.OpenAsync();
+
+
+        List<MasterColumnViewModel> fields =
+            await _tableService.GetTableFieldsAsync(
+                connection,
+                TableName);
+
+
+        var model = new ClientMasterViewModel
+        {
+            Fields = fields,
+            FormFields = fields
+                .Where(f => f.Editable)
+                .ToList()
+        };
+
+
+        ViewBag.Dropdowns =
+            await LoadDropdownsAsync(
+                connection,
+                model.FormFields);
+
+        ViewBag.ReturnUrl = SafeReturnUrl(returnUrl);
+
+        return View(model);
+    }
+
+
+    // Shared lookup loader for the Clients pages.
+    private async Task<
+        Dictionary<string, List<LookupOptionViewModel>>>
+        LoadDropdownsAsync(
+            SqlConnection connection,
+            List<MasterColumnViewModel> formFields)
+    {
+        var dropdowns =
+            new Dictionary<string, List<LookupOptionViewModel>>(
+                StringComparer.OrdinalIgnoreCase);
+
+        foreach (var field in formFields.Where(
+                     f => f.Control == "select"
+                          && f.LookupKey != null))
+        {
+            string displayColumn =
+                _tableService.GetLookupDisplayColumn(
+                    field.LookupKey!);
+
+            string refColumn =
+                field.LookupRefColumn ?? "Id";
+
+            string lookupQuery = $@"
+                SELECT
+                    [{refColumn}],
+                    [{displayColumn}]
+
+                FROM
+                    [{field.LookupKey}]
+
+                ORDER BY
+                    [{displayColumn}] ASC";
+
+
+            using SqlCommand lookupCommand =
+                new SqlCommand(lookupQuery, connection);
+            lookupCommand.CommandTimeout = 0;
+
+
+            var options =
+                new List<LookupOptionViewModel>();
+
+
+            using SqlDataReader lookupReader =
+                await lookupCommand.ExecuteReaderAsync();
+
+
+            while (await lookupReader.ReadAsync())
+            {
+                options.Add(
+                    new LookupOptionViewModel
+                    {
+                        Id =
+                            Convert.ToInt32(
+                                lookupReader[refColumn]),
+
+                        Name =
+                            lookupReader[displayColumn]
+                                .ToString() ?? ""
+                    });
+            }
+
+            dropdowns[field.LookupKey!] = options;
+        }
+
+        return dropdowns;
+    }
+
+
+    // Only local URLs are accepted (open redirect guard).
+    private string SafeReturnUrl(string? returnUrl) =>
+        !string.IsNullOrWhiteSpace(returnUrl)
+        && Url.IsLocalUrl(returnUrl)
+            ? returnUrl
+            : Url.Action("Index", "Clients")!;
+
+
+    // ============================================
     // CREATE (metadata driven)
     // Server-generated and auto columns (UserId,
     // IsActive, defaults, identity) need no form
@@ -461,9 +598,12 @@ public class ClientsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create()
+    public async Task<IActionResult> Create(
+        string? returnUrl)
     {
         var form = Request.Form;
+
+        string targetUrl = SafeReturnUrl(returnUrl);
 
         string? connectionString =
             _configuration.GetConnectionString(
@@ -512,9 +652,7 @@ public class ClientsController : Controller
 
             TempData["Error"] = validationError;
 
-            return RedirectToAction(
-                "Index",
-                "Clients");
+            return Redirect(targetUrl);
         }
 
 
@@ -625,9 +763,7 @@ public class ClientsController : Controller
             TempData["Error"] =
                 "This Client is already added. Please add a new one.";
 
-            return RedirectToAction(
-                "Index",
-                "Clients");
+            return Redirect(targetUrl);
         }
 
 
@@ -643,9 +779,7 @@ public class ClientsController : Controller
         TempData["Success"] =
             "Client added successfully.";
 
-        return RedirectToAction(
-            "Index",
-            "Clients");
+        return Redirect(targetUrl);
     }
 
 

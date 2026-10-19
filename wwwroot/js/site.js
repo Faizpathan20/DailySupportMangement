@@ -869,10 +869,12 @@ function masterSortTable(th) {
                 "In Progress": 1,
                 "Pending": 2,
                 "Planned": 2,
-                "Completed": 3,
-                "Cancelled": 4,
-                "Active": 5,
-                "Inactive": 6
+                "On Hold": 3,
+                "Closed": 4,
+                "Completed": 4,
+                "Cancelled": 5,
+                "Active": 6,
+                "Inactive": 7
             };
 
             aRank = statusRank[aVal] !== undefined

@@ -31,19 +31,43 @@
     string GetErr(string name)
         => Model.FieldError(name);
 
+    // Time part of EntryOn (used by the "Date & Time" column,
+    // because SupportDate itself is a plain date).
+    string TimePart(string value)
+    {
+        return DateTime.TryParse(value, out DateTime parsed)
+            ? parsed.ToString("hh:mm tt")
+            : "";
+    }
+
+    string PriorityPillClass(string priority)
+    {
+        return priority == "Urgent"
+            ? "prio-urgent"
+            : priority == "High"
+                ? "prio-high"
+                : priority == "Medium"
+                    ? "prio-medium"
+                    : priority == "Low"
+                        ? "prio-low"
+                        : "prio-default";
+    }
+
     string StatusPillClass(string status)
     {
-        return status == "Completed"
+        return status == "Closed"
             ? "badge-completed"
             : status == "Open"
                 ? "badge-open"
                 : status == "In Progress"
                     ? "badge-inprogress"
-                    : status == "Pending"
-                        ? "badge-pending"
-                        : status == "Cancelled"
-                            ? "badge-cancelled"
-                            : "badge-default";
+                    : status == "On Hold"
+                        ? "badge-onhold"
+                        : status == "Pending"
+                            ? "badge-pending"
+                            : status == "Cancelled"
+                                ? "badge-cancelled"
+                                : "badge-default";
     }
 
     var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -82,17 +106,21 @@
         <div class="card-content">
 
             <p>
-                Total Records
+                Today Calls
             </p>
 
-            <h2 data-kpi="total">
-                @Model.TotalRecords
+            <h2 data-kpi="today">
+                @Model.TodayCalls
             </h2>
+
+            <span class="kpi-sub">
+                Total @Model.TotalRecords calls
+            </span>
 
         </div>
 
         <div class="card-icon">
-            📊
+            📞
         </div>
 
     </div>
@@ -103,17 +131,21 @@
         <div class="card-content">
 
             <p>
-                Open
+                Open Calls
             </p>
 
             <h2 data-kpi="open">
-                @Model.OpenCount
+                @Model.OpenCalls
             </h2>
+
+            <span class="kpi-sub">
+                Need action
+            </span>
 
         </div>
 
         <div class="card-icon">
-            🔄
+            ⚠️
         </div>
 
     </div>
@@ -124,38 +156,46 @@
         <div class="card-content">
 
             <p>
-                In Progress
+                Closed Today
             </p>
 
-            <h2 data-kpi="in-progress">
-                @Model.InProgressCount
+            <h2 data-kpi="closed-today">
+                @Model.ClosedToday
             </h2>
 
-        </div>
-
-        <div class="card-icon">
-            ⏳
-        </div>
-
-    </div>
-
-
-    <div class="dashboard-card">
-
-        <div class="card-content">
-
-            <p>
-                Completed
-            </p>
-
-            <h2 data-kpi="completed">
-                @Model.CompletedCount
-            </h2>
+            <span class="kpi-sub">
+                Done today
+            </span>
 
         </div>
 
         <div class="card-icon">
             ✅
+        </div>
+
+    </div>
+
+
+    <div class="dashboard-card">
+
+        <div class="card-content">
+
+            <p>
+                Pending
+            </p>
+
+            <h2 data-kpi="pending">
+                @Model.PendingCount
+            </h2>
+
+            <span class="kpi-sub">
+                In Progress
+            </span>
+
+        </div>
+
+        <div class="card-icon">
+            ⏳
         </div>
 
     </div>
@@ -256,12 +296,8 @@
                    placeholder="Search..."
                    oninput="filterTable()" />
 
-            <a href="@Url.Action("Create", "DailySupport")"
-               class="primary-btn">
-
-                + Add Support
-
-            </a>
+            <a href="@Url.Action("Create", "Clients", new { returnUrl = Url.Action("Index", "DailySupport") })" class="primary-btn" style="margin-right:8px;">+ New Customer</a>
+            <a href="@Url.Action("Create", "DailySupport")" class="primary-btn">+ New Call Entry</a>
 
         </div>
 
@@ -357,6 +393,36 @@
                                     @if (col.Name == "Status")
                                     {
                                         <span class="status-pill @statusClass">
+                                            @support.Get(col.Name)
+                                        </span>
+                                    }
+                                    else if (col.Name == "ClientId")
+                                    {
+                                        @support.Get(col.Name)
+
+                                        @if (!string.IsNullOrWhiteSpace(
+                                                support.Get("ClientId_key")))
+                                        {
+                                            <small class="cell-sub">
+                                                [ID: @support.Get("ClientId_key")]
+                                            </small>
+                                        }
+                                    }
+                                    else if (col.Name == "SupportDate")
+                                    {
+                                        @support.Get("SupportDate")
+
+                                        @if (!string.IsNullOrWhiteSpace(
+                                                TimePart(support.Get("EntryOn"))))
+                                        {
+                                            <small class="cell-sub">
+                                                @TimePart(support.Get("EntryOn"))
+                                            </small>
+                                        }
+                                    }
+                                    else if (col.Name == "Priority")
+                                    {
+                                        <span class="priority-pill @PriorityPillClass(support.Get("Priority"))">
                                             @support.Get(col.Name)
                                         </span>
                                     }
@@ -715,14 +781,14 @@
                                 </span>
                             }
 
-                            @if (field.Name == "Remarks")
+                            @if (field.Name == "Description" || field.Name == "Remarks")
                             {
                                 <div class="voice-controls">
 
                                     <button type="button"
                                             class="voice-btn mic-btn"
-                                            id="voiceMicBtn"
-                                            onclick="startVoice()">
+                                            id="voiceMicBtn_@field.Name"
+                                            onclick="startVoice('@field.Name')">
 
                                         Mic
 
@@ -738,7 +804,7 @@
 
                                     <button type="button"
                                             class="voice-btn voice-reset"
-                                            onclick="resetRemarks()">
+                                            onclick="resetVoice('@field.Name')">
 
                                         Reset
 
@@ -747,10 +813,10 @@
                                 </div>
 
                                 <span class="voice-status"
-                                      id="voiceStatus"></span>
+                                      id="voiceStatus_@field.Name"></span>
 
                                 <span class="voice-hint">
-                                    Voice to Text: speak into the mic; the text is appended to the end of Remarks. The mic stays open until you click Stop.
+                                    Voice to Text: speak into the mic; the text is appended to the end of @field.Display. The mic stays open until you click Stop.
                                 </span>
                             }
 
@@ -769,7 +835,15 @@
                                    name="@field.Name"
                                    value="@GetVal(field.Name)"
                                    placeholder="@placeholder"
-                                   @(field.Required ? "required" : null) />
+                                   @(field.Required ? "required" : null)
+                                   @(field.CreateOnly ? "readonly" : null) />
+
+                            @if (field.CreateOnly)
+                            {
+                                <span class="field-note">
+                                    Locked after creation
+                                </span>
+                            }
 
                             @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
                             {
@@ -786,7 +860,7 @@
 
 
             <span class="voice-hint auto-time-hint">
-                Status rules: Open = optional fields. In Progress = Start Time required. Pending = Start + Remarks required, End Time blank. Completed = Start + End + Remarks required. Cancelled = Remarks required.
+                Status flow: Open → In Progress → On Hold / Pending → Closed. Re-opening a Closed ticket returns it to In Progress.
             </span>
 
 
@@ -1559,13 +1633,14 @@
 
 
         // ==========================================
-        // VOICE TO TEXT - REMARKS
+        // VOICE TO TEXT - DESCRIPTION / REMARKS
         // ==========================================
 
         var recognition = null;
         var isRecording = false;
         var speechBaseText = "";
         var speechFinal = "";
+        var voiceField = "Description";
 
 
         function speechSupported() {
@@ -1582,12 +1657,12 @@
 
             var micBtn =
                 document.getElementById(
-                    "voiceMicBtn"
+                    "voiceMicBtn_" + voiceField
                 );
 
             var status =
                 document.getElementById(
-                    "voiceStatus"
+                    "voiceStatus_" + voiceField
                 );
 
 
@@ -1625,7 +1700,7 @@
 
             switch (status) {
 
-                case "Completed":
+                case "Closed":
                     return "badge-completed";
 
                 case "Open":
@@ -1633,6 +1708,9 @@
 
                 case "In Progress":
                     return "badge-inprogress";
+
+                case "On Hold":
+                    return "badge-onhold";
 
                 case "Pending":
                     return "badge-pending";
@@ -1835,11 +1913,15 @@
         }
 
 
-        function startVoice() {
+        function startVoice(fieldName) {
+
+            if (fieldName) {
+                voiceField = fieldName;
+            }
 
             var textarea =
                 document.getElementById(
-                    "edit_Remarks"
+                    "edit_" + voiceField
                 );
 
 
@@ -1997,11 +2079,15 @@
         }
 
 
-        function resetRemarks() {
+        function resetVoice(fieldName) {
+
+            if (fieldName) {
+                voiceField = fieldName;
+            }
 
             if (
                 !confirm(
-                    "Are you sure you want to clear remarks?"
+                    "Are you sure you want to clear " + voiceField + "?"
                 )
             ) {
                 return;
@@ -2022,7 +2108,7 @@
             speechFinal = "";
 
             document.getElementById(
-                "edit_Remarks"
+                "edit_" + voiceField
             ).value = "";
 
         }

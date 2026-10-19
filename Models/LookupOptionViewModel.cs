@@ -22,4 +22,6 @@ public class LookupOptionViewModel
     public int? ParentId { get; set; }
 
     public int? GroupId { get; set; }
+
+    public string Mobile { get; set; } = string.Empty;
 }

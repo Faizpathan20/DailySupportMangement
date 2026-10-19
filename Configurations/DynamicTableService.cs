@@ -78,6 +78,14 @@ public sealed class DynamicTableService
             ["VisitType"] = "Visit Type",
             ["PersonMet"] = "Person Met",
 
+            // ---- Daily Support "Add Call" form ----
+            ["TicketNo"] = "Ticket No",
+            ["Mobile"] = "Mobile",
+            ["CallerName"] = "Caller Name",
+            ["Channel"] = "Channel",
+            ["CallType"] = "Call Type",
+            ["Category"] = "Category",
+
             // ---- CRM module ----
             ["LeadNo"] = "Lead No",
             ["LeadId"] = "Lead",
@@ -143,9 +151,9 @@ public sealed class DynamicTableService
                     {
                         "Open",
                         "In Progress",
+                        "On Hold",
                         "Pending",
-                        "Completed",
-                        "Cancelled"
+                        "Closed"
                     },
                 ["DailySupport|Priority"] =
                     new[]
@@ -166,6 +174,31 @@ public sealed class DynamicTableService
                         "Data/Report",
                         "Technical Issue",
                         "Other"
+                    },
+                ["DailySupport|Channel"] =
+                    new[]
+                    {
+                        "Phone",
+                        "WhatsApp",
+                        "Email",
+                        "Walk-in / Service"
+                    },
+                ["DailySupport|CallType"] =
+                    new[]
+                    {
+                        "Inquiry",
+                        "Complaint",
+                        "Service",
+                        "New Requirement"
+                    },
+                ["DailySupport|Category"] =
+                    new[]
+                    {
+                        "Hardware",
+                        "Software",
+                        "Networking",
+                        "Billing",
+                        "Printer"
                     },
                 ["ClientVisiting|Status"] =
                     new[]
@@ -671,6 +704,24 @@ ORDER BY c.ORDINAL_POSITION";
             field.Control = "input";
             field.InputType = "password";
             field.Width = 25;
+            return field;
+        }
+
+        // Ticket numbers are produced by the server on
+        // Create only; the edit form must not touch them.
+        if (name.Equals(
+                "TicketNo",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            field.Editable = true;
+            field.Required = false;
+            field.CreateOnly = true;
+            field.ShowInTable = true;
+            field.Type = "text";
+            field.SortType = "text";
+            field.Control = "input";
+            field.InputType = "text";
+            field.Width = 14;
             return field;
         }
 

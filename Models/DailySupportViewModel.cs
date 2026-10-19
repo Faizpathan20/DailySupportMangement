@@ -7,11 +7,14 @@ public class DailySupportViewModel
 
     public int TotalRecords { get; set; }
 
-    public int OpenCount { get; set; }
+    // KPI cards (same labels as the reference Daily Support page)
+    public int TodayCalls { get; set; }
 
-    public int InProgressCount { get; set; }
+    public int OpenCalls { get; set; }
 
-    public int CompletedCount { get; set; }
+    public int ClosedToday { get; set; }
+
+    public int PendingCount { get; set; }
 
     public bool HasStatusKpi { get; set; }
 

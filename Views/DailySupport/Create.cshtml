@@ -1,4 +1,6 @@
 @model Master.Models.DailySupportViewModel
+@using System.Text.Json
+@using System.Text.Encodings.Web
 
 @{
     ViewData["Title"] = "Add Support";
@@ -9,6 +11,9 @@
     var dropdowns = ViewBag.Dropdowns as Dictionary<string, List<LookupOptionViewModel>>
         ?? new Dictionary<string, List<LookupOptionViewModel>>();
 
+    var clientsWithMobile = ViewBag.ClientsWithMobile as List<LookupOptionViewModel>
+        ?? new List<LookupOptionViewModel>();
+
     string GetVal(string name)
         => Model.GetFormValue(name);
 
@@ -17,702 +22,497 @@
 
     var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
-        ["Subject"] = "Short subject",
-        ["Description"] = "Client problem / request",
-        ["Remarks"] = "Voice to text - click Mic and speak..."
+        ["Subject"] = "Short subject (Issue)",
+        ["Description"] = "Client problem / request details"
     };
+
+    string ticketNo = ViewBag.TicketNo as string ?? string.Empty;
+    string currentUserId = ViewBag.CurrentUserId as string ?? string.Empty;
+    string todayDate = DateTime.Today.ToString("yyyy-MM-dd");
+    string todayDisplay = DateTime.Today.ToString("dd/MM/yyyy");
+
+    string[] statusOptions = staticOptions.TryGetValue("Status", out var sOpts) ? sOpts : new[] { "Open", "In Progress", "On Hold", "Pending", "Closed" };
+    string[] priorityOptions = staticOptions.TryGetValue("Priority", out var pOpts) ? pOpts : new[] { "Low", "Medium", "High", "Urgent" };
+    string[] channelOptions = staticOptions.TryGetValue("Channel", out var chOpts) ? chOpts : new[] { "Phone", "WhatsApp", "Email", "Walk-in / Service" };
+    string[] callTypeOptions = staticOptions.TryGetValue("CallType", out var ctOpts) ? ctOpts : new[] { "Inquiry", "Complaint", "Service", "New Requirement" };
+    string[] categoryOptions = staticOptions.TryGetValue("Category", out var catOpts) ? catOpts : new[] { "Hardware", "Software", "Networking", "Billing", "Printer" };
+    var usersList = dropdowns.TryGetValue("LoginUsers", out var uList) ? uList : new List<LookupOptionViewModel>();
 }
 
-
 <div class="page-header">
-
-    <a href="@Url.Action("Index", "DailySupport")"
-       class="back-link">
-
-        &larr; Back to Daily Support
-
-    </a>
-
+    <a href="@Url.Action("Index", "DailySupport")" class="back-link">&larr; Back to Daily Support</a>
     <div>
-
-        <h1>
-            Add Support
-        </h1>
-
-        <p>
-            New daily support record
-        </p>
-
+        <h1>Add Support</h1>
+        <p>New daily support record</p>
     </div>
-
 </div>
-
-
-<!-- ================= MESSAGES ================= -->
 
 @if (TempData["Success"] != null)
 {
-    <div class="success-message">
-
-        @TempData["Success"]
-
-    </div>
+    <div class="success-message">@TempData["Success"]</div>
 }
-
-
 @if (TempData["Error"] != null)
 {
-    <div class="error-message">
-
-        @Html.Raw(TempData["Error"])
-
-    </div>
+    <div class="error-message">@Html.Raw(TempData["Error"])</div>
 }
 
-
-<!-- ================= ADD SUPPORT FORM ================= -->
-
 <div class="state-section">
-
-    <form method="post"
-          id="supportCreateForm"
-          action="@Url.Action("Create", "DailySupport")"
-          novalidate>
-
+    <form method="post" id="supportCreateForm" action="@Url.Action("Create", "DailySupport")" novalidate>
         @Html.AntiForgeryToken()
+        <input type="hidden" name="SupportType" value="Client Query" />
+        <input type="hidden" name="SupportDate" id="hiddenSupportDate" value="@todayDate" />
+        <input type="hidden" name="TicketNo" id="hiddenTicketNo" value="@ticketNo" />
 
-        <div class="form-grid">
-
-            @foreach (var field in Model.FormFields)
-            {
-                var options = field.Type == "options"
-                    && staticOptions.TryGetValue(
-                        field.Name,
-                        out var opts)
-                    ? opts
-                    : Array.Empty<string>();
-
-                var hasOther = options.Contains(
-                    "Other",
-                    StringComparer.OrdinalIgnoreCase);
-
-                string fullClass =
-                    field.Control == "textarea"
-                        ? "form-group form-group-full"
-                        : "form-group";
-
-                var placeholder =
-                    placeholders.TryGetValue(
-                        field.Name,
-                        out var ph)
-                    ? ph
-                    : "";
-
-                if (field.Type == "options")
-                {
-                    string onChangeAttr =
-                        hasOther
-                            ? "toggleOtherField(this)"
-                            : "";
-
-                    <div class="@fullClass">
-
-                        <label>
-                            @field.Display
-                        </label>
-
-                        <select name="@field.Name"
-                                id="edit_@field.Name"
-                                onchange="@onChangeAttr"
-                                @(field.Required ? "required" : null)>
-
-                            <option value=""
-                                    disabled
-                                    selected="@(string.IsNullOrWhiteSpace(GetVal(field.Name)))">
-                                -- Select @field.Display --
-                            </option>
-
-                            @foreach (var option in options)
-                            {
-                                <option value="@option"
-                                        selected="@(GetVal(field.Name) == option)">
-                                    @option
-                                </option>
-                            }
-
-                        </select>
-
-                        @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
+        <div class="call-form-section">
+            <div class="form-section-title">TICKET DETAILS</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Ticket No</label>
+                    <input type="text" class="ticket-input" value="@ticketNo" readonly />
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="Status" id="edit_Status" required>
+                        @foreach (var opt in statusOptions)
                         {
-                            <span class="field-error">
-                                @GetErr(field.Name)
-                            </span>
+                            <option value="@opt" selected="@(string.IsNullOrWhiteSpace(GetVal("Status")) ? opt=="Open" : GetVal("Status")==opt)">@opt</option>
                         }
-
-                        @if (hasOther)
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Priority</label>
+                    <select name="Priority" id="edit_Priority" required>
+                        @foreach (var opt in priorityOptions)
                         {
-                            <div id="other@(field.Name)Group"
-                                 style="@(GetVal(field.Name) == "Other" ? "" : "display:none")">
-
-                                <label class="sub-label">
-                                    Other @field.Display
-                                </label>
-
-                                <input type="text"
-                                       name="Other@(field.Name)"
-                                       id="edit_Other@(field.Name)"
-                                       maxlength="92"
-                                       placeholder="Specify other @field.Display.ToLower()"
-                                       value="@GetVal("Other" + field.Name)"
-                                       @(GetVal(field.Name) == "Other" ? "required" : null) />
-
-                                @if (!string.IsNullOrWhiteSpace(GetErr("Other" + field.Name)))
-                                {
-                                    <span class="field-error">
-                                        @GetErr("Other" + field.Name)
-                                    </span>
-                                }
-
-                            </div>
+                            <option value="@opt" selected="@(string.IsNullOrWhiteSpace(GetVal("Priority")) ? opt=="Medium" : GetVal("Priority")==opt)">@opt</option>
                         }
-
-                    </div>
-                }
-                else if (field.Control == "select")
-                {
-                    var lookupOptions =
-                        field.LookupKey != null
-                        && dropdowns.TryGetValue(
-                            field.LookupKey,
-                            out var lopts)
-                        ? lopts
-                        : new List<LookupOptionViewModel>();
-
-                    <div class="@fullClass">
-
-                        <label>
-                            @field.Display
-                        </label>
-
-                        <select name="@field.Name"
-                                id="edit_@field.Name"
-                                data-searchable
-                                @(field.Required ? "required" : null)>
-
-                            <option value=""
-                                    disabled
-                                    selected="@(string.IsNullOrWhiteSpace(GetVal(field.Name)))">
-                                -- Select @field.Display --
-                            </option>
-
-                            @foreach (var option in lookupOptions)
-                            {
-                                <option value="@option.Id"
-                                        selected="@(GetVal(field.Name) == option.Id.ToString())">
-                                    @option.Name
-                                </option>
-                            }
-
-                        </select>
-
-                        @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
-                        {
-                            <span class="field-error">
-                                @GetErr(field.Name)
-                            </span>
-                        }
-
-                    </div>
-                }
-                else if (field.Control == "textarea")
-                {
-                    <div class="@fullClass">
-
-                        <label>
-                            @field.Display
-                        </label>
-
-                        <textarea id="edit_@field.Name"
-                                  name="@field.Name"
-                                  rows="2"
-                                  placeholder="@placeholder"
-                                  @(field.Required ? "required" : null)>@GetVal(field.Name)</textarea>
-
-                        @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
-                        {
-                            <span class="field-error">
-                                @GetErr(field.Name)
-                            </span>
-                        }
-
-                        @if (field.Name == "Remarks")
-                        {
-                            <div class="voice-controls">
-
-                                <button type="button"
-                                        class="voice-btn mic-btn"
-                                        id="voiceMicBtn"
-                                        onclick="startVoice()">
-
-                                    Mic
-
-                                </button>
-
-                                <button type="button"
-                                        class="voice-btn voice-stop"
-                                        onclick="stopVoice()">
-
-                                    Stop
-
-                                </button>
-
-                                <button type="button"
-                                        class="voice-btn voice-reset"
-                                        onclick="resetRemarks()">
-
-                                    Reset
-
-                                </button>
-
-                            </div>
-
-                            <span class="voice-status"
-                                  id="voiceStatus"></span>
-
-                            <span class="voice-hint">
-                                Voice to Text: speak into the mic; the text is appended to the end of Remarks. The mic stays open until you click Stop.
-                            </span>
-                        }
-
-                    </div>
-                }
-                else
-                {
-                    var inputValue =
-                        field.InputType == "date"
-                        && field.Required
-                        && string.IsNullOrWhiteSpace(
-                            GetVal(field.Name))
-                        ? DateTime.Today.ToString(
-                            "yyyy-MM-dd")
-                        : GetVal(field.Name);
-
-                    <div class="@fullClass">
-
-                        <label>
-                            @field.Display
-                        </label>
-
-                        <input type="@field.InputType"
-                               id="edit_@field.Name"
-                               name="@field.Name"
-                               value="@inputValue"
-                               placeholder="@placeholder"
-                               @(field.Required ? "required" : null) />
-
-                        @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
-                        {
-                            <span class="field-error">
-                                @GetErr(field.Name)
-                            </span>
-                        }
-
-                    </div>
-                }
-            }
-
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Call Date</label>
+                    <input type="text" class="call-date-input" value="@todayDisplay" readonly />
+                </div>
+            </div>
         </div>
 
+        <div class="call-form-section">
+            <div class="form-section-title">CUSTOMER DETAILS</div>
+            <div class="form-grid">
+                <div class="form-group mobile-search-wrap">
+                    <label>Search Mobile No</label>
+                    <div class="mobile-search-row">
+                        <input type="text" id="searchMobile" placeholder="Enter mobile number or name" />
+                        <button type="button" class="mobile-search-btn" id="searchMobileBtn">Search</button>
+                    </div>
+                    <div class="suggestion-box" id="mobileSuggestions"></div>
+                </div>
+                <div class="form-group client-select-wrapper">
+                    <label>Select Client</label>
+                    <input type="hidden" name="ClientId" id="clientIdField" />
+                    <input type="text" id="clientSearchInput" placeholder="Type to search client (Name - Mobile)" autocomplete="off" />
+                    <div class="select-dropdown" id="clientDropdown"></div>
+                    <select id="customerSelect" style="display:none">
+                        <option value="">-- Select Client --</option>
+                        @foreach (var c in clientsWithMobile)
+                        {
+                            string mobileText = string.IsNullOrWhiteSpace(c.Mobile) ? "" : c.Mobile;
+                            string displayText = string.IsNullOrWhiteSpace(mobileText) ? c.Name : $"{c.Name} - {mobileText}";
+                            <option value="@c.Id" data-name="@c.Name" data-mobile="@mobileText">@displayText</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Mobile</label>
+                    <input type="text" name="Mobile" id="mobileField" maxlength="20" placeholder="Mobile No." />
+                </div>
+                <div class="form-group">
+                    <label>Caller Name</label>
+                    <input type="text" name="CallerName" id="callerNameField" maxlength="150" placeholder="Caller Name" />
+                </div>
+                <div class="form-group">
+                    <label>Channel</label>
+                    <select name="Channel" id="edit_Channel">
+                        <option value="">-- Select Channel --</option>
+                        @foreach (var opt in channelOptions)
+                        {
+                            <option value="@opt" selected="@(GetVal("Channel")==opt)">@opt</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Call Type</label>
+                    <select name="CallType" id="edit_CallType">
+                        <option value="">-- Select Call Type --</option>
+                        @foreach (var opt in callTypeOptions)
+                        {
+                            <option value="@opt" selected="@(GetVal("CallType")==opt)">@opt</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select name="Category" id="edit_Category">
+                        <option value="">-- Select Category --</option>
+                        @foreach (var opt in categoryOptions)
+                        {
+                            <option value="@opt" selected="@(GetVal("Category")==opt)">@opt</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Assign To</label>
+                    <select name="UserId" id="edit_UserId" required>
+                        <option value="">-- Select Assign To --</option>
+                        @foreach (var u in usersList)
+                        {
+                            string sel = (!string.IsNullOrWhiteSpace(GetVal("UserId")) && GetVal("UserId")==u.Id.ToString()) ? "selected" : "";
+                            if (string.IsNullOrWhiteSpace(sel) && !string.IsNullOrWhiteSpace(currentUserId) && currentUserId==u.Id.ToString()) sel = "selected";
+                            <option value="@u.Id" selected="@sel">@u.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group form-group-full">
+                    <label>Issue</label>
+                    <input type="text" name="Subject" id="edit_Subject" maxlength="200" placeholder="@placeholders["Subject"]" value="@GetVal("Subject")" required />
+                </div>
+                <div class="form-group form-group-full">
+                    <label>Description</label>
+                    <textarea name="Description" id="edit_Description" rows="3" placeholder="@placeholders["Description"]" required>@GetVal("Description")</textarea>
 
-        <span class="voice-hint auto-time-hint">
-            Status rules: Open = optional fields. In Progress = Start Time required. Pending = Start + Remarks required, End Time blank. Completed = Start + End + Remarks required. Cancelled = Remarks required.
-        </span>
+                    <div class="voice-controls">
 
+                        <button type="button"
+                                class="voice-btn mic-btn"
+                                id="voiceMicBtn_Description"
+                                onclick="startVoice('Description')">
+
+                            Mic
+
+                        </button>
+
+                        <button type="button"
+                                class="voice-btn voice-stop"
+                                onclick="stopVoice()">
+
+                            Stop
+
+                        </button>
+
+                        <button type="button"
+                                class="voice-btn voice-reset"
+                                onclick="resetVoice('Description')">
+
+                            Reset
+
+                        </button>
+
+                    </div>
+
+                    <span class="voice-status"
+                          id="voiceStatus_Description"></span>
+
+                    <span class="voice-hint">
+                        Voice to Text: speak into the mic; the text is appended to the end of Description. The mic stays open until you click Stop.
+                    </span>
+                </div>
+            </div>
+        </div>
 
         <div class="modal-actions">
-
-            <button type="submit"
-                    class="save-btn">
-
-                Save
-
-            </button>
-
-            <a href="@Url.Action("Index", "DailySupport")"
-               class="cancel-btn">
-
-                Cancel
-
-            </a>
-
+            <button type="button" class="cancel-btn" id="clearFormBtn">Clear</button>
+            <button type="submit" class="save-btn">Save Call</button>
         </div>
-
     </form>
-
 </div>
-
 
 @section Scripts
 {
     <script>
+        var clients = [];
+        var mobileTimer = null;
+
+        function initClients() {
+            var sel = document.getElementById('customerSelect');
+            if (!sel) return;
+            for (var i = 1; i < sel.options.length; i++) {
+                var o = sel.options[i];
+                clients.push({ id: parseInt(o.value), name: o.getAttribute('data-name') || '', mobile: o.getAttribute('data-mobile') || '' });
+            }
+        }
+
+        function setClient(id, name, mobile) {
+            var clientIdField = document.getElementById('clientIdField');
+            var clientSearchInput = document.getElementById('clientSearchInput');
+            var mobileField = document.getElementById('mobileField');
+            var callerNameField = document.getElementById('callerNameField');
+            if (clientIdField) clientIdField.value = id || '';
+            if (clientSearchInput) clientSearchInput.value = name ? (mobile ? name + ' - ' + mobile : name) : '';
+            if (mobileField && mobile) mobileField.value = mobile;
+            if (callerNameField && name) {
+                if (!callerNameField.value) callerNameField.value = name;
+            }
+            hideClientDropdown();
+            hideSuggestions();
+        }
+
+        function renderClientDropdown(matches) {
+            var dd = document.getElementById('clientDropdown');
+            if (!dd) return;
+            if (!matches || matches.length === 0) { dd.style.display = 'none'; dd.innerHTML = ''; return; }
+            var html = '';
+            for (var i = 0; i < matches.length; i++) {
+                var m = matches[i];
+                var txt = m.mobile ? m.name + ' - ' + m.mobile : m.name;
+                html += '<div class="select-option" data-id="' + m.id + '" data-name="' + m.name + '" data-mobile="' + m.mobile + '">' + txt + '</div>';
+            }
+            dd.innerHTML = html;
+            dd.style.display = 'block';
+            var opts = dd.querySelectorAll('.select-option');
+            for (var j = 0; j < opts.length; j++) {
+                opts[j].addEventListener('click', function () {
+                    setClient(this.getAttribute('data-id'), this.getAttribute('data-name'), this.getAttribute('data-mobile'));
+                });
+            }
+        }
+
+        function hideClientDropdown() {
+            var dd = document.getElementById('clientDropdown');
+            if (dd) { dd.style.display = 'none'; dd.innerHTML = ''; }
+        }
+
+        function filterClients(term) {
+            if (!term) return clients.slice(0, 20);
+            var t = term.toLowerCase();
+            var res = [];
+            for (var i = 0; i < clients.length; i++) {
+                var c = clients[i];
+                if ((c.name && c.name.toLowerCase().indexOf(t) >= 0) || (c.mobile && c.mobile.toLowerCase().indexOf(t) >= 0)) res.push(c);
+                if (res.length > 50) break;
+            }
+            return res;
+        }
+
+        function renderSuggestions(list) {
+            var box = document.getElementById('mobileSuggestions');
+            if (!box) return;
+            if (!list || list.length === 0) { box.style.display = 'none'; box.innerHTML = ''; return; }
+            var html = '';
+            for (var i = 0; i < list.length; i++) {
+                var s = list[i];
+                var txt = (s.ClientName || s.name || '') + ' - ' + (s.MobileNo || s.mobile || '');
+                html += '<div class="suggestion-item" data-id="' + (s.ClientId || s.id || '') + '" data-name="' + (s.ClientName || s.name || '') + '" data-mobile="' + (s.MobileNo || s.mobile || '') + '">' + txt + '</div>';
+            }
+            box.innerHTML = html;
+            box.style.display = 'block';
+            var items = box.querySelectorAll('.suggestion-item');
+            for (var j = 0; j < items.length; j++) {
+                items[j].addEventListener('click', function () {
+                    setClient(this.getAttribute('data-id'), this.getAttribute('data-name'), this.getAttribute('data-mobile'));
+                });
+            }
+        }
+
+        function hideSuggestions() {
+            var box = document.getElementById('mobileSuggestions');
+            if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+        }
+
+        function searchMobileServer(q) {
+            if (!q || q.length < 3) return;
+            fetch('@Url.Action("SearchClientByMobile","DailySupport")?q=' + encodeURIComponent(q), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(r => r.json())
+                .then(data => {
+                    var list = (data && data.clients) ? data.clients : [];
+                    renderSuggestions(list);
+                });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            initClients();
+            var clientSearchInput = document.getElementById('clientSearchInput');
+            if (clientSearchInput) {
+                clientSearchInput.addEventListener('input', function () {
+                    var t = this.value;
+                    renderClientDropdown(filterClients(t));
+                });
+                clientSearchInput.addEventListener('focus', function () {
+                    renderClientDropdown(filterClients(this.value));
+                });
+            }
+            document.addEventListener('click', function (e) {
+                var dd = document.getElementById('clientDropdown');
+                var box = document.getElementById('mobileSuggestions');
+                var sm = document.getElementById('searchMobile');
+                if (clientSearchInput && !clientSearchInput.contains(e.target) && dd && !dd.contains(e.target)) hideClientDropdown();
+                if (sm && box && !sm.contains(e.target) && !box.contains(e.target)) hideSuggestions();
+            });
+            var searchMobile = document.getElementById('searchMobile');
+            if (searchMobile) {
+                searchMobile.addEventListener('input', function () {
+                    var q = this.value.trim();
+                    clearTimeout(mobileTimer);
+                    mobileTimer = setTimeout(function () {
+                        var matches = clients.filter(function (c) {
+                            var m = (c.mobile || '');
+                            var n = (c.name || '');
+                            return m.indexOf(q) >= 0 || n.toLowerCase().indexOf(q.toLowerCase()) >= 0;
+                        }).slice(0, 5);
+                        renderSuggestions(matches.map(function (x) { return { ClientId: x.id, ClientName: x.name, MobileNo: x.mobile }; }));
+                        searchMobileServer(q);
+                    }, 250);
+                });
+            }
+            var searchMobileBtn = document.getElementById('searchMobileBtn');
+            if (searchMobileBtn) {
+                searchMobileBtn.addEventListener('click', function () {
+                    var q = searchMobile ? searchMobile.value.trim() : '';
+                    if (q) searchMobileServer(q);
+                });
+            }
+            var clearBtn = document.getElementById('clearFormBtn');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function () {
+                    var form = document.getElementById('supportCreateForm');
+                    if (form) form.reset();
+                    document.getElementById('clientIdField').value = '';
+                    document.getElementById('clientSearchInput').value = '';
+                    document.getElementById('mobileField').value = '';
+                    document.getElementById('callerNameField').value = '';
+                    hideClientDropdown();
+                    hideSuggestions();
+                });
+            }
+            var form = document.getElementById('supportCreateForm');
+            if (form) {
+                form.addEventListener('submit', function (event) {
+                    event.preventDefault();
+                    var clientId = document.getElementById('clientIdField').value;
+                    var subject = document.getElementById('edit_Subject').value.trim();
+                    var desc = document.getElementById('edit_Description').value.trim();
+                    var userId = document.getElementById('edit_UserId').value;
+                    if (!clientId) { masterShowToast('Please select a valid Client.', 'error'); return; }
+                    if (!userId) { masterShowToast('Please select Assign To.', 'error'); return; }
+                    if (!subject) { masterShowToast('Issue (Subject) is required.', 'error'); return; }
+                    if (!desc) { masterShowToast('Description is required.', 'error'); return; }
+                    masterAjaxPost(this, function (result) {
+                        masterShowToast(result.message, result.success ? 'success' : 'error');
+                        if (result.success) {
+                            setTimeout(function () { window.location.href = '@Url.Action("Index","DailySupport")'; }, 700);
+                        }
+                    });
+                });
+            }
+        });
 
         // ==========================================
-        // VOICE TO TEXT - REMARKS
+        // VOICE TO TEXT - DESCRIPTION
         // ==========================================
-
         var recognition = null;
         var isRecording = false;
         var speechBaseText = "";
         var speechFinal = "";
-
+        var voiceField = "Description";
 
         function speechSupported() {
-
-            return (
-                "webkitSpeechRecognition" in window
-                || "SpeechRecognition" in window
-            );
-
+            return ("webkitSpeechRecognition" in window || "SpeechRecognition" in window);
         }
 
-
         function setListening(on) {
-
-            var micBtn =
-                document.getElementById(
-                    "voiceMicBtn"
-                );
-
-            var status =
-                document.getElementById(
-                    "voiceStatus"
-                );
-
-
+            var micBtn = document.getElementById("voiceMicBtn_" + voiceField);
+            var status = document.getElementById("voiceStatus_" + voiceField);
             if (micBtn) {
-
-                if (on) {
-                    micBtn.classList.add(
-                        "is-recording"
-                    );
-                } else {
-                    micBtn.classList.remove(
-                        "is-recording"
-                    );
-                }
-
+                if (on) micBtn.classList.add("is-recording");
+                else micBtn.classList.remove("is-recording");
             }
-
-
             if (status) {
-
                 if (on) {
-                    status.innerText =
-                        "● Listening... the mic stays open until you click Stop";
+                    status.innerText = "● Listening... the mic stays open until you click Stop";
                     status.classList.add("visible");
                 } else {
                     status.classList.remove("visible");
                 }
-
             }
-
         }
-
 
         function applySpeechText(textarea, interim) {
-
             var parts = [];
-
-            if (speechBaseText.length > 0) {
-                parts.push(speechBaseText);
-            }
-
-            if (speechFinal.trim().length > 0) {
-                parts.push(speechFinal.trim());
-            }
-
-            if (interim.trim().length > 0) {
-                parts.push(interim.trim());
-            }
-
+            if (speechBaseText.length > 0) parts.push(speechBaseText);
+            if (speechFinal.trim().length > 0) parts.push(speechFinal.trim());
+            if (interim.trim().length > 0) parts.push(interim.trim());
             textarea.value = parts.join(" ");
-
         }
 
-
-        function toggleOtherField(select) {
-
-            var name = select.id.replace(
-                /^edit_/,
-                ""
-            );
-
-            var group =
-                document.getElementById(
-                    "other" + name + "Group"
-                );
-
-            var input =
-                document.getElementById(
-                    "edit_Other" + name
-                );
-
-            var isOther =
-                select !== null
-                && select.value === "Other";
-
-            if (group) {
-
-                group.style.display =
-                    isOther ? "" : "none";
-
-            }
-
-            if (input) {
-
-                input.required = isOther ? true : false;
-
-            }
-
-        }
-
-
-        function startVoice() {
-
-            var textarea =
-                document.getElementById(
-                    "edit_Remarks"
-                );
-
-
+        function startVoice(fieldName) {
+            if (fieldName) voiceField = fieldName;
+            var textarea = document.getElementById("edit_" + voiceField);
             if (!speechSupported()) {
-
-                alert(
-                    "Speech Recognition is not supported in this browser. " +
-                    "Please use Google Chrome."
-                );
-
+                alert("Speech Recognition is not supported in this browser. Please use Google Chrome.");
                 return;
-
             }
-
-
-            var SpeechRecognition =
-                window.SpeechRecognition
-                || window.webkitSpeechRecognition;
-
-            recognition =
-                new SpeechRecognition();
-
+            var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
             recognition.lang = "en-IN";
-
             recognition.interimResults = true;
-
             recognition.continuous = true;
-
             recognition.maxAlternatives = 1;
 
-
             recognition.onstart = function () {
-
                 isRecording = true;
-
-                speechBaseText =
-                    textarea.value.trim();
-
+                speechBaseText = textarea.value.trim();
                 speechFinal = "";
-
                 setListening(true);
-
                 textarea.focus();
-
             };
-
 
             recognition.onresult = function (event) {
-
                 var interimText = "";
-
-
-                for (
-                    var i = event.resultIndex;
-                    i < event.results.length;
-                    i++
-                ) {
-
+                for (var i = event.resultIndex; i < event.results.length; i++) {
                     var result = event.results[i];
-
-                    if (result.isFinal) {
-                        speechFinal +=
-                            " " + result[0].transcript;
-                    } else {
-                        interimText +=
-                            result[0].transcript;
-                    }
-
+                    if (result.isFinal) speechFinal += " " + result[0].transcript;
+                    else interimText += result[0].transcript;
                 }
-
-
-                applySpeechText(
-                    textarea,
-                    interimText
-                );
-
+                applySpeechText(textarea, interimText);
             };
-
 
             recognition.onerror = function (event) {
-
-                if (
-                    event.error === "not-allowed"
-                    || event.error ===
-                        "service-not-allowed"
-                ) {
-
-                    alert(
-                        "Microphone permission denied. " +
-                        "Please allow microphone access."
-                    );
-
-                } else if (
-                    event.error === "no-speech"
-                ) {
-
-                    alert(
-                        "No speech detected. " +
-                        "Please try again."
-                    );
-
+                if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+                    alert("Microphone permission denied. Please allow microphone access.");
+                } else if (event.error === "no-speech") {
+                    alert("No speech detected. Please try again.");
                 } else {
-
-                    alert(
-                        "Speech recognition error: "
-                        + event.error
-                    );
-
+                    alert("Speech recognition error: " + event.error);
                 }
-
                 isRecording = false;
-
                 setListening(false);
-
             };
-
 
             recognition.onend = function () {
-
                 isRecording = false;
-
                 setListening(false);
-
             };
 
-
             try {
-
                 recognition.start();
-
             } catch (error) {
-
-                alert(
-                    "Could not start speech recognition: "
-                    + error.message
-                );
-
+                alert("Could not start speech recognition: " + error.message);
             }
-
         }
-
 
         function stopVoice() {
-
-            if (recognition) {
-
-                recognition.stop();
-
-            }
-
+            if (recognition) recognition.stop();
             isRecording = false;
-
             setListening(false);
-
         }
 
-
-        function resetRemarks() {
-
-            if (
-                !confirm(
-                    "Are you sure you want to clear remarks?"
-                )
-            ) {
-                return;
-            }
-
-            // Speech bhi stop ho jaye
-            if (recognition) {
-
-                recognition.stop();
-
-            }
-
+        function resetVoice(fieldName) {
+            if (fieldName) voiceField = fieldName;
+            if (!confirm("Are you sure you want to clear " + voiceField + "?")) return;
+            if (recognition) recognition.stop();
             isRecording = false;
-
             setListening(false);
-
             speechBaseText = "";
             speechFinal = "";
-
-            document.getElementById(
-                "edit_Remarks"
-            ).value = "";
-
+            document.getElementById("edit_" + voiceField).value = "";
         }
-
-
-        document.addEventListener(
-            "DOMContentLoaded",
-            function () {
-
-                var form =
-                    document.getElementById(
-                        "supportCreateForm"
-                    );
-
-                if (!form) {
-                    return;
-                }
-
-                form.addEventListener(
-                    "submit",
-                    function (event) {
-
-                        event.preventDefault();
-
-                        masterAjaxPost(
-                            this,
-                            function (result) {
-
-                                masterShowToast(
-                                    result.message,
-                                    "success"
-                                );
-
-                                setTimeout(function () {
-
-                                    window.location.href =
-                                        "@Url.Action("Index", "DailySupport")";
-
-                                }, 700);
-
-                            }
-                        );
-
-                    }
-                );
-
-            }
-        );
-
     </script>
 }

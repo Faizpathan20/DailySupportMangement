@@ -1,0 +1,141 @@
+@model Master.Models.ClientMasterViewModel
+
+@{
+    ViewData["Title"] = "Create New Client";
+
+    var dropdowns = ViewBag.Dropdowns as Dictionary<string, List<LookupOptionViewModel>>
+        ?? new Dictionary<string, List<LookupOptionViewModel>>();
+
+    var staticOptions = ViewBag.StaticOptions as Dictionary<string, string[]>
+        ?? new Dictionary<string, string[]>();
+
+    string returnUrl = ViewBag.ReturnUrl as string
+        ?? Url.Action("Index", "Clients")!;
+
+    // Reference page groups: company block first,
+    // contact block for everything else.
+    string[] companyFields = { "ClientName", "StateId", "UserId" };
+
+    var orderedFields = Model.FormFields
+        .Where(f => companyFields.Contains(f.Name))
+        .Concat(Model.FormFields.Where(f => !companyFields.Contains(f.Name)))
+        .ToList();
+
+    bool firstSection = true;
+    bool inCompanySection = orderedFields.Count > 0
+        && companyFields.Contains(orderedFields[0].Name);
+}
+
+<div class="page-header">
+
+    <a href="@returnUrl" class="back-link">&larr; Back</a>
+
+    <div>
+
+        <h1>
+            Create New Client
+        </h1>
+
+        <p>
+            Add a new client to Client Master
+        </p>
+
+    </div>
+
+</div>
+
+
+@if (TempData["Success"] != null)
+{
+    <div class="success-message">@TempData["Success"]</div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="error-message">@Html.Raw(TempData["Error"])</div>
+}
+
+
+<div class="state-section">
+
+    <form method="post"
+          action="@Url.Action("Create", "Clients")">
+
+        @Html.AntiForgeryToken()
+
+        <input type="hidden" name="returnUrl" value="@returnUrl" />
+
+
+        @foreach (var field in orderedFields)
+        {
+            bool isCompany = companyFields.Contains(field.Name);
+
+            if (firstSection || isCompany != inCompanySection)
+            {
+                firstSection = false;
+                inCompanySection = isCompany;
+
+                <div class="form-section-title">
+                    @(isCompany ? "COMPANY INFORMATION" : "CONTACT INFORMATION")
+                </div>
+            }
+
+            <div class="form-group">
+
+                <label>
+                    @field.Display@(field.Required ? " *" : "")
+                </label>
+
+                @if (field.Control == "select")
+                {
+                    var options =
+                        field.LookupKey != null
+                        && dropdowns.TryGetValue(field.LookupKey, out var lookup)
+                            ? lookup
+                            : new List<LookupOptionViewModel>();
+
+                    <select name="@field.Name"
+                            @(field.Required ? "required" : null)>
+
+                        <option value="">-- Select @field.Display --</option>
+
+                        @foreach (var opt in options)
+                        {
+                            <option value="@opt.Id">@opt.Name</option>
+                        }
+
+                    </select>
+                }
+                else if (field.Control == "textarea")
+                {
+                    <textarea name="@field.Name"
+                              rows="3"
+                              placeholder="@field.Display"
+                              @(field.Required ? "required" : null)></textarea>
+                }
+                else
+                {
+                    <input type="@(string.IsNullOrWhiteSpace(field.InputType) ? "text" : field.InputType)"
+                           name="@field.Name"
+                           placeholder="@field.Display"
+                           @(field.Required ? "required" : null) />
+                }
+
+            </div>
+        }
+
+        <div class="modal-actions">
+
+            <button type="submit" class="save-btn">
+                Save &amp; Continue
+            </button>
+
+            <a href="@returnUrl" class="cancel-btn">
+                Back
+            </a>
+
+        </div>
+
+    </form>
+
+</div>
