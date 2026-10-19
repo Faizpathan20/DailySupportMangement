@@ -251,7 +251,7 @@ body {
 
 
 /* =========================================
-   MASTERS SUBMENU (collapsible accordion)
+   SIDEBAR SUBMENUS (collapsible accordion)
 ========================================= */
 
 .menu-group-toggle {
@@ -315,7 +315,7 @@ body {
 
 
 .menu-group-parent.open .menu-submenu {
-    max-height: 300px;
+    max-height: 400px;
 }
 
 

@@ -2187,75 +2187,83 @@ refreshFollowUpBadge();
 
 
 // ==========================================
-// MASTERS SUBMENU (collapsible accordion)
-// State localStorage me save hota hai; active
-// page par submenu automatically open rehta hai.
+// SIDEBAR SUBMENUS (collapsible accordion)
+// Har menu-group-parent group collapsible
+// hai. State localStorage me save hota hai;
+// active page par submenu automatically open
+// rehta hai.
 // ==========================================
 
 (function () {
 
-    var STORAGE_KEY = "mastersSubmenuOpen";
-
-    var group =
-        document.getElementById("mastersGroup");
-
-    var toggle =
-        document.getElementById("mastersToggle");
-
-    if (!group || !toggle) {
-        return;
-    }
-
-    // Active submenu link? (page match)
     var currentPath =
         window.location.pathname;
 
-    var hasActiveChild = false;
+    var parentGroups =
+        document.querySelectorAll(
+            ".menu-group-parent");
 
-    var links =
-        group.querySelectorAll(".menu-item-sub[href]");
+    parentGroups.forEach(function (group) {
 
-    for (var i = 0; i < links.length; i++) {
+        var toggle =
+            group.querySelector(
+                ".menu-group-toggle");
 
-        var linkPath =
-            new URL(links[i].href).pathname;
+        if (!toggle) {
+            return;
+        }
 
-        if (linkPath === currentPath) {
+        var STORAGE_KEY =
+            "submenuOpen:" + group.id;
 
-            hasActiveChild = true;
+        // Active submenu link? (page match)
+        var hasActiveChild = false;
 
-            links[i].classList.add("active");
+        var links =
+            group.querySelectorAll(
+                ".menu-item-sub[href]");
+
+        for (var i = 0; i < links.length; i++) {
+
+            var linkPath =
+                new URL(links[i].href).pathname;
+
+            if (linkPath === currentPath) {
+
+                hasActiveChild = true;
+
+            }
 
         }
 
-    }
+        // Open state: active child hamesha open,
+        // warna localStorage ki saved state.
+        var open = hasActiveChild
+            || localStorage.getItem(STORAGE_KEY) === "1";
 
-    // Open state: active child hamesha open,
-    // warna localStorage ki saved state.
-    var open = hasActiveChild
-        || localStorage.getItem(STORAGE_KEY) === "1";
+        function applyOpen() {
 
-    function applyOpen() {
+            group.classList.toggle("open", open);
 
-        group.classList.toggle("open", open);
+            toggle.setAttribute(
+                "aria-expanded",
+                open ? "true" : "false");
 
-        toggle.setAttribute(
-            "aria-expanded",
-            open ? "true" : "false");
-
-    }
-
-    applyOpen();
-
-    toggle.addEventListener("click", function () {
-
-        open = !open;
-
-        localStorage.setItem(
-            STORAGE_KEY,
-            open ? "1" : "0");
+        }
 
         applyOpen();
+
+        toggle.addEventListener("click", function () {
+
+            open = !open;
+
+            localStorage.setItem(
+                STORAGE_KEY,
+                open ? "1" : "0");
+
+            applyOpen();
+
+        });
 
     });
 

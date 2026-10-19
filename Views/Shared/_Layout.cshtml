@@ -17,7 +17,7 @@
     </title>
 
     <link rel="stylesheet"
-          href="~/css/site.css?v=30" />
+          href="~/css/site.css?v=31" />
 
     <link rel="stylesheet"
           href="~/css/dashboard.css?v=4" />
@@ -82,56 +82,92 @@
             <nav class="sidebar-menu">
 
 
-                <div class="menu-group">
+                <!-- ============ DASHBOARD (collapsible) ============ -->
 
-                    <span class="menu-group-label">
-                        Dashboard
-                    </span>
+                <div class="menu-group menu-group-parent"
+                     id="dashboardGroup">
 
-                    <a asp-controller="Dashboard"
-                       asp-action="Index"
-                       class="menu-item">
+                    <button type="button"
+                            class="menu-group-toggle"
+                            id="dashboardToggle"
+                            aria-expanded="false"
+                            aria-controls="dashboardSubmenu">
 
-                        <span class="menu-icon">🏠</span>
-
-                        <span class="menu-text">
-                            Home
+                        <span class="menu-group-label">
+                            Dashboard
                         </span>
 
-                    </a>
+                        <span class="menu-arrow">&#9656;</span>
+
+                    </button>
+
+                    <div class="menu-submenu"
+                         id="dashboardSubmenu">
+
+                        <a asp-controller="Dashboard"
+                           asp-action="Index"
+                           class="menu-item menu-item-sub">
+
+                            <span class="menu-icon">🏠</span>
+
+                            <span class="menu-text">
+                                Home
+                            </span>
+
+                        </a>
+
+                    </div>
 
                 </div>
 
 
-                <div class="menu-group">
+                <!-- ============ OPERATIONS (collapsible) ============ -->
 
-                    <span class="menu-group-label">
-                        Operations
-                    </span>
+                <div class="menu-group menu-group-parent"
+                     id="operationsGroup">
 
-                    <a asp-controller="DailySupport"
-                       asp-action="Index"
-                       class="menu-item">
+                    <button type="button"
+                            class="menu-group-toggle"
+                            id="operationsToggle"
+                            aria-expanded="false"
+                            aria-controls="operationsSubmenu">
 
-                        <span class="menu-icon">🛠️</span>
-
-                        <span class="menu-text">
-                            Daily Support
+                        <span class="menu-group-label">
+                            Operations
                         </span>
 
-                    </a>
+                        <span class="menu-arrow">&#9656;</span>
 
-                    <a asp-controller="ClientVisiting"
-                       asp-action="Index"
-                       class="menu-item">
+                    </button>
 
-                        <span class="menu-icon">📍</span>
+                    <div class="menu-submenu"
+                         id="operationsSubmenu">
 
-                        <span class="menu-text">
-                            Client Visiting
-                        </span>
+                        <a asp-controller="DailySupport"
+                           asp-action="Index"
+                           class="menu-item menu-item-sub">
 
-                    </a>
+                            <span class="menu-icon">🛠️</span>
+
+                            <span class="menu-text">
+                                Daily Support
+                            </span>
+
+                        </a>
+
+                        <a asp-controller="ClientVisiting"
+                           asp-action="Index"
+                           class="menu-item menu-item-sub">
+
+                            <span class="menu-icon">📍</span>
+
+                            <span class="menu-text">
+                                Client Visiting
+                            </span>
+
+                        </a>
+
+                    </div>
 
                 </div>
 
@@ -200,83 +236,101 @@
                 =====*@
 
 
-                <div class="menu-group">
+                <!-- ============ CRM (collapsible) ============ -->
 
-                    <span class="menu-group-label">
-                        CRM
-                    </span>
+                <div class="menu-group menu-group-parent"
+                     id="crmGroup">
 
-                    <a asp-controller="NewCrmDashboard"
-                       asp-action="Index"
-                       class="menu-item">
+                    <button type="button"
+                            class="menu-group-toggle"
+                            id="crmToggle"
+                            aria-expanded="false"
+                            aria-controls="crmSubmenu">
 
-                        <span class="menu-icon">🚀</span>
-
-                        <span class="menu-text">
-                            Dashboard
+                        <span class="menu-group-label">
+                            CRM
                         </span>
 
-                    </a>
+                        <span class="menu-arrow">&#9656;</span>
 
-                    <a asp-controller="NewCrmLead"
-                       asp-action="Index"
-                       class="menu-item">
+                    </button>
 
-                        <span class="menu-icon">💼</span>
+                    <div class="menu-submenu"
+                         id="crmSubmenu">
 
-                        <span class="menu-text">
-                            Leads
-                        </span>
+                        <a asp-controller="NewCrmDashboard"
+                           asp-action="Index"
+                           class="menu-item menu-item-sub">
 
-                    </a>
+                            <span class="menu-icon">🚀</span>
 
-                    <a asp-controller="NewCrmFollowUp"
-                       asp-action="Index"
-                       class="menu-item"
-                       id="navFollowUps">
+                            <span class="menu-text">
+                                Dashboard
+                            </span>
 
-                        <span class="menu-icon">📞</span>
+                        </a>
 
-                        <span class="menu-text">
-                            Follow-ups
-                        </span>
+                        <a asp-controller="NewCrmLead"
+                           asp-action="Index"
+                           class="menu-item menu-item-sub">
 
-                        <span class="menu-badge"
-                              id="navFollowUpsBadge"
-                              title="Due today or overdue"
-                              hidden></span>
+                            <span class="menu-icon">💼</span>
 
-                    </a>
+                            <span class="menu-text">
+                                Leads
+                            </span>
 
-                    <a asp-controller="NewCrmReport"
-                       asp-action="Index"
-                       class="menu-item">
+                        </a>
 
-                        <span class="menu-icon">📊</span>
+                        <a asp-controller="NewCrmFollowUp"
+                           asp-action="Index"
+                           class="menu-item menu-item-sub"
+                           id="navFollowUps">
 
-                        <span class="menu-text">
-                            Reports
-                        </span>
+                            <span class="menu-icon">📞</span>
 
-                    </a>
+                            <span class="menu-text">
+                                Follow-ups
+                            </span>
 
-                    <a asp-controller="NewCrmTimeLog"
-                       asp-action="Index"
-                       class="menu-item"
-                       id="navTimeLog">
+                            <span class="menu-badge"
+                                  id="navFollowUpsBadge"
+                                  title="Due today or overdue"
+                                  hidden></span>
 
-                        <span class="menu-icon">⏱</span>
+                        </a>
 
-                        <span class="menu-text">
-                            Time Log
-                        </span>
+                        <a asp-controller="NewCrmReport"
+                           asp-action="Index"
+                           class="menu-item menu-item-sub">
 
-                        <span class="menu-badge"
-                              id="navTimeLogBadge"
-                              title="Live meeting running"
-                              hidden></span>
+                            <span class="menu-icon">📊</span>
 
-                    </a>
+                            <span class="menu-text">
+                                Reports
+                            </span>
+
+                        </a>
+
+                        <a asp-controller="NewCrmTimeLog"
+                           asp-action="Index"
+                           class="menu-item menu-item-sub"
+                           id="navTimeLog">
+
+                            <span class="menu-icon">⏱</span>
+
+                            <span class="menu-text">
+                                Time Log
+                            </span>
+
+                            <span class="menu-badge"
+                                  id="navTimeLogBadge"
+                                  title="Live meeting running"
+                                  hidden></span>
+
+                        </a>
+
+                    </div>
 
                 </div>
 
@@ -356,44 +410,80 @@
                 </div>
 
 
-                <div class="menu-group">
+                <!-- ============ TOOLS (collapsible) ============ -->
 
-                    <span class="menu-group-label">
-                        Tools
-                    </span>
+                <div class="menu-group menu-group-parent"
+                     id="toolsGroup">
 
-                    <a asp-controller="Import"
-                       asp-action="Index"
-                       class="menu-item">
+                    <button type="button"
+                            class="menu-group-toggle"
+                            id="toolsToggle"
+                            aria-expanded="false"
+                            aria-controls="toolsSubmenu">
 
-                        <span class="menu-icon">📥</span>
-
-                        <span class="menu-text">
-                            Import Excel / CSV
+                        <span class="menu-group-label">
+                            Tools
                         </span>
 
-                    </a>
+                        <span class="menu-arrow">&#9656;</span>
+
+                    </button>
+
+                    <div class="menu-submenu"
+                         id="toolsSubmenu">
+
+                        <a asp-controller="Import"
+                           asp-action="Index"
+                           class="menu-item menu-item-sub">
+
+                            <span class="menu-icon">📥</span>
+
+                            <span class="menu-text">
+                                Import Excel / CSV
+                            </span>
+
+                        </a>
+
+                    </div>
 
                 </div>
 
 
-                <div class="menu-group">
+                <!-- ============ REPORTS (collapsible) ============ -->
 
-                    <span class="menu-group-label">
-                        Reports
-                    </span>
+                <div class="menu-group menu-group-parent"
+                     id="reportsGroup">
 
-                    <a asp-controller="Reports"
-                       asp-action="Index"
-                       class="menu-item">
+                    <button type="button"
+                            class="menu-group-toggle"
+                            id="reportsToggle"
+                            aria-expanded="false"
+                            aria-controls="reportsSubmenu">
 
-                        <span class="menu-icon">📊</span>
-
-                        <span class="menu-text">
+                        <span class="menu-group-label">
                             Reports
                         </span>
 
-                    </a>
+                        <span class="menu-arrow">&#9656;</span>
+
+                    </button>
+
+                    <div class="menu-submenu"
+                         id="reportsSubmenu">
+
+                        <a asp-controller="Reports"
+                           asp-action="Index"
+                           class="menu-item menu-item-sub">
+
+                            <span class="menu-icon">📊</span>
+
+                            <span class="menu-text">
+                                Reports
+                            </span>
+
+                        </a>
+
+                    </div>
 
                 </div>
 
@@ -465,7 +555,7 @@
     </div>
 
 
-    <script src="~/js/site.js?v=13">
+    <script src="~/js/site.js?v=14">
     </script>
 
 </body>

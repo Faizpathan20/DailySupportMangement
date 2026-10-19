@@ -1,6 +1,6 @@
 -- =============================================
 -- NEW CRM  -  PHASE 1 UPGRADE
--- SQL Server / SSMS
+-- SQL Server / S
 --
 -- 1) lead_notes   (nayi table - quick team notes)
 -- 2) lead_followup mein naye columns:
