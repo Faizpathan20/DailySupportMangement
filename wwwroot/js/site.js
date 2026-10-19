@@ -548,13 +548,13 @@ function masterShowToast(message, type) {
 function refreshFollowUpBadge() {
 
     var badge =
-        document.getElementById("navFollowUpBadge");
+        document.getElementById("navFollowUpsBadge");
 
     if (!badge) {
         return;
     }
 
-    fetch("/CrmFollowUp/DueCount", {
+    fetch("/NewCrmFollowUp/DueCount", {
         method: "GET",
         credentials: "same-origin",
         headers: {
@@ -566,29 +566,22 @@ function refreshFollowUpBadge() {
         })
         .then(function (data) {
 
-            if (!data || !data.mine) {
+            if (!data) {
                 return;
             }
 
-            var due = data.mine.due || 0;
+            var due = data.due || 0;
 
             if (due > 0) {
 
                 badge.textContent = due > 99 ? "99+" : String(due);
                 badge.hidden = false;
 
-                // Anything overdue reads hotter than a normal due count.
-                badge.classList.toggle(
-                    "is-overdue",
-                    (data.mine.overdue || 0) > 0
-                );
-
             }
             else {
 
                 badge.textContent = "";
                 badge.hidden = true;
-                badge.classList.remove("is-overdue");
 
             }
 
@@ -2191,3 +2184,124 @@ function masterTimeToMinutes(value) {
 // Runs on first load and again on every soft navigation,
 // because injectScripts re-creates site.js from the new page.
 refreshFollowUpBadge();
+
+
+// ==========================================
+// MASTERS SUBMENU (collapsible accordion)
+// State localStorage me save hota hai; active
+// page par submenu automatically open rehta hai.
+// ==========================================
+
+(function () {
+
+    var STORAGE_KEY = "mastersSubmenuOpen";
+
+    var group =
+        document.getElementById("mastersGroup");
+
+    var toggle =
+        document.getElementById("mastersToggle");
+
+    if (!group || !toggle) {
+        return;
+    }
+
+    // Active submenu link? (page match)
+    var currentPath =
+        window.location.pathname;
+
+    var hasActiveChild = false;
+
+    var links =
+        group.querySelectorAll(".menu-item-sub[href]");
+
+    for (var i = 0; i < links.length; i++) {
+
+        var linkPath =
+            new URL(links[i].href).pathname;
+
+        if (linkPath === currentPath) {
+
+            hasActiveChild = true;
+
+            links[i].classList.add("active");
+
+        }
+
+    }
+
+    // Open state: active child hamesha open,
+    // warna localStorage ki saved state.
+    var open = hasActiveChild
+        || localStorage.getItem(STORAGE_KEY) === "1";
+
+    function applyOpen() {
+
+        group.classList.toggle("open", open);
+
+        toggle.setAttribute(
+            "aria-expanded",
+            open ? "true" : "false");
+
+    }
+
+    applyOpen();
+
+    toggle.addEventListener("click", function () {
+
+        open = !open;
+
+        localStorage.setItem(
+            STORAGE_KEY,
+            open ? "1" : "0");
+
+        applyOpen();
+
+    });
+
+})();
+
+
+// ==========================================
+// SIDEBAR LIVE MEETING BADGE (Time Log)
+// Agar current user ke paas LIVE timer hai toh
+// Time Log menu par red dot dikhata hai.
+// ==========================================
+
+function refreshTimeLogBadge() {
+
+    var badge =
+        document.getElementById("navTimeLogBadge");
+
+    if (!badge) {
+        return;
+    }
+
+    fetch("/NewCrmTimeLog/LiveStatus", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+            "X-Requested-With": "XMLHttpRequest"
+        }
+    })
+        .then(function (response) {
+            return response.ok ? response.json() : null;
+        })
+        .then(function (data) {
+
+            if (!data) {
+                return;
+            }
+
+            badge.hidden = !data.live;
+
+        })
+        .catch(function () {
+            // Cosmetic only - never break the page.
+        });
+
+}
+
+window.refreshTimeLogBadge = refreshTimeLogBadge;
+
+refreshTimeLogBadge();

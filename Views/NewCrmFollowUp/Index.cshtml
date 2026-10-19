@@ -1,0 +1,702 @@
+@model Master.Models.NewCrmFollowUpIndexModel
+
+@{
+    ViewData["Title"] = "Follow-ups";
+
+    var tab = Model.Tab;
+    var users = Model.Users;
+
+    string ActiveTab(string name) =>
+        tab == name ? "active" : "";
+}
+
+<div class="crm-page-head">
+
+    <div>
+        <h1>📞 FOLLOW-UPS</h1>
+        <p>Daily follow-ups — overdue, today and upcoming</p>
+    </div>
+
+    <div class="crm-head-actions">
+
+        <a class="crm-btn crm-btn-ghost"
+           href="@Url.Action("Index", "NewCrmLead")">
+            Leads
+        </a>
+
+        <a class="crm-btn crm-btn-primary"
+           href="@Url.Action("Index", "NewCrmDashboard")">
+            Dashboard
+        </a>
+
+    </div>
+
+</div>
+
+
+<div class="crm-kpi-grid">
+
+    <div class="crm-kpi-card" style="border-left:4px solid #dc2626;">
+        <div class="crm-kpi-label">Overdue</div>
+        <div class="crm-kpi-value">@Model.OverdueCount</div>
+    </div>
+
+    <div class="crm-kpi-card" style="border-left:4px solid #d97706;">
+        <div class="crm-kpi-label">Due Today</div>
+        <div class="crm-kpi-value">@Model.DueTodayCount</div>
+    </div>
+
+    <div class="crm-kpi-card" style="border-left:4px solid #2563eb;">
+        <div class="crm-kpi-label">Upcoming</div>
+        <div class="crm-kpi-value">@Model.UpcomingCount</div>
+    </div>
+
+    <div class="crm-kpi-card" style="border-left:4px solid #059669;">
+        <div class="crm-kpi-label">Done Today</div>
+        <div class="crm-kpi-value">@Model.DoneTodayCount</div>
+    </div>
+
+</div>
+
+
+@if (TempData["Success"] != null)
+{
+    <div class="success-message">@TempData["Success"]</div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="error-message">@TempData["Error"]</div>
+}
+
+
+<div class="crm-card">
+
+    @* ===== TABS ===== *@
+
+    <div class="fu-tabs">
+
+        <a class="fu-tab @ActiveTab("overdue")"
+           href="@Url.Action("Index", "NewCrmFollowUp", new { tab = "overdue", user = Model.UserFilter })">
+            🔴 Overdue
+        </a>
+
+        <a class="fu-tab @ActiveTab("due")"
+           href="@Url.Action("Index", "NewCrmFollowUp", new { tab = "due", user = Model.UserFilter })">
+            🟡 Due Today
+        </a>
+
+        <a class="fu-tab @ActiveTab("upcoming")"
+           href="@Url.Action("Index", "NewCrmFollowUp", new { tab = "upcoming", user = Model.UserFilter })">
+            🔵 Upcoming
+        </a>
+
+        <a class="fu-tab @ActiveTab("done")"
+           href="@Url.Action("Index", "NewCrmFollowUp", new { tab = "done", user = Model.UserFilter })">
+            ✅ Done
+        </a>
+
+    </div>
+
+
+    @* ===== TOOLBAR (user filter + search) ===== *@
+
+    <div class="crm-toolbar">
+
+        <div class="crm-toolbar-group">
+
+            <select class="crm-select"
+                    onchange="fuFilterUser(this.value)">
+                <option value="">All Users</option>
+                @foreach (var (uid, uname) in users)
+                {
+                    <option value="@uid"
+                            selected="@(Model.UserFilter == uid.ToString())">
+                        @uname
+                    </option>
+                }
+            </select>
+
+            <input type="text"
+                   class="crm-input crm-search"
+                   placeholder="Search lead no, client, mobile..."
+                   oninput="fuFilterRows(this.value)" />
+
+        </div>
+
+    </div>
+
+
+    @* ===== PENDING TABS TABLE ===== *@
+
+    @if (tab != "done")
+    {
+        <div class="crm-table-wrap">
+
+            <table class="crm-table">
+
+                <thead>
+                    <tr>
+                        <th>Due Date</th>
+                        <th>Lead</th>
+                        <th>Client</th>
+                        <th>Contact</th>
+                        <th>Step</th>
+                        <th>Assigned</th>
+                        <th>Remarks</th>
+                        <th class="crm-actions-col">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody id="fuBody">
+
+                    @if (Model.Leads.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="8" class="crm-empty">
+                                🎉 No follow-ups in this list.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var lead in Model.Leads)
+                        {
+                            var contact =
+                                !string.IsNullOrWhiteSpace(lead.ContactNo)
+                                    ? lead.ContactNo
+                                    : lead.ClientMobile;
+
+                            var searchText =
+                                $"{lead.LeadNo} {lead.ClientName} {contact} {lead.AssignedTo}";
+
+                            var waLink = string.IsNullOrWhiteSpace(contact)
+                                ? ""
+                                : "https://wa.me/91" +
+                                  new string(contact.Where(char.IsDigit).ToArray());
+
+                            var callLink = string.IsNullOrWhiteSpace(contact)
+                                ? ""
+                                : "tel:+91" +
+                                  new string(contact.Where(char.IsDigit).ToArray());
+
+                            var isOverdue = lead.NextFollowupDate.HasValue
+                                && lead.NextFollowupDate.Value.Date
+                                   < DateTime.Today;
+
+                            <tr data-search="@searchText">
+
+                                <td>
+
+                                    <strong style="color:@(isOverdue ? "#dc2626" : "#0f172a");">
+                                        @lead.NextFollowupDate?.ToString("dd-MM-yyyy")
+                                    </strong>
+
+                                    @if (isOverdue)
+                                    {
+                                        <br /><small style="color:#dc2626;">overdue</small>
+                                    }
+
+                                </td>
+
+                                <td>
+
+                                    <a class="link"
+                                       href="@Url.Action("Detail", "NewCrmLead", new { id = lead.Id })">
+                                        @lead.LeadNo
+                                    </a>
+
+                                    <br />
+                                    <small>@lead.Priority · &#8377;@lead.ExpectedValue.ToString("N0")</small>
+
+                                </td>
+
+                                <td>@lead.ClientName</td>
+
+                                <td>@contact</td>
+
+                                <td>@lead.StepName</td>
+
+                                <td>@lead.AssignedTo</td>
+
+                                <td>
+
+                                    @if (lead.NextRemarks.Length > 30)
+                                    {
+                                        @lead.NextRemarks.Substring(0, 30)<text>...</text>
+                                    }
+                                    else
+                                    {
+                                        @lead.NextRemarks
+                                    }
+
+                                </td>
+
+                                <td class="crm-actions-col">
+
+                                    <div class="crm-actions">
+
+                                        @if (!string.IsNullOrEmpty(callLink))
+                                        {
+                                            <a class="crm-icon-btn"
+                                               href="@callLink"
+                                               title="Call"
+                                               style="color:#2563eb;">📞</a>
+                                        }
+
+                                        @if (!string.IsNullOrEmpty(waLink))
+                                        {
+                                            <a class="crm-icon-btn"
+                                               href="@waLink"
+                                               target="_blank"
+                                               title="WhatsApp"
+                                               style="color:#059669;">💬</a>
+                                        }
+
+                                        <a class="crm-icon-btn"
+                                           href="@Url.Action("Detail", "NewCrmLead", new { id = lead.Id })"
+                                           title="Open lead">&#128065;</a>
+
+                                        <button type="button"
+                                                class="crm-icon-btn"
+                                                title="Mark Done"
+                                                style="color:#059669;"
+                                                onclick='openDoneModal(@lead.Id, @Html.Raw(
+                                                    System.Text.Json.JsonSerializer.Serialize(lead.LeadNo)))'>
+                                            ✅
+                                        </button>
+
+                                        <button type="button"
+                                                class="crm-icon-btn"
+                                                title="Reschedule"
+                                                style="color:#d97706;"
+                                                onclick='openRescheduleModal(@lead.Id, @Html.Raw(
+                                                    System.Text.Json.JsonSerializer.Serialize(lead.LeadNo)))'>
+                                            📅
+                                        </button>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+                        }
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+    }
+    else
+    {
+        @* ===== DONE TAB ===== *@
+
+        <div class="crm-table-wrap">
+
+            <table class="crm-table">
+
+                <thead>
+                    <tr>
+                        <th>Done On</th>
+                        <th>Lead</th>
+                        <th>Client</th>
+                        <th>Contact</th>
+                        <th>Remarks</th>
+                        <th>Done By</th>
+                    </tr>
+                </thead>
+
+                <tbody id="fuBody">
+
+                    @if (Model.DoneRows.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="6" class="crm-empty">
+                                No follow-ups done yet.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var row in Model.DoneRows)
+                        {
+                            var searchText =
+                                $"{row.LeadNo} {row.ClientName} {row.ContactNo} {row.DoneByName}";
+
+                            <tr data-search="@searchText">
+
+                                <td>
+                                    @row.DoneOn?.ToString("dd-MM-yyyy")
+                                    <br />
+                                    <small>@row.DoneOn?.ToString("hh:mm tt")</small>
+                                </td>
+
+                                <td>
+
+                                    <a class="link"
+                                       href="@Url.Action("Detail", "NewCrmLead", new { id = row.LeadId })">
+                                        @row.LeadNo
+                                    </a>
+
+                                </td>
+
+                                <td>@row.ClientName</td>
+                                <td>@row.ContactNo</td>
+                                <td>@row.Remarks</td>
+                                <td>@row.DoneByName</td>
+
+                            </tr>
+                        }
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+    }
+
+</div>
+
+
+@* ===== MODAL: MARK DONE ===== *@
+
+<div id="fuDoneModal" class="crm-modal">
+
+    <div class="crm-modal-box" style="max-width:460px;">
+
+        <div class="crm-modal-head">
+
+            <div>
+                <h2>✅ Mark Follow-up Done</h2>
+                <p class="crm-modal-sub" id="fuDoneLead"></p>
+            </div>
+
+            <button type="button"
+                    class="crm-modal-x"
+                    onclick="closeFuModal('fuDoneModal')">&times;</button>
+
+        </div>
+
+        <div class="crm-modal-body">
+
+            @Html.AntiForgeryToken()
+
+            <div id="fuDoneError" class="crm-form-error"></div>
+
+            <input type="hidden" id="fuDoneLeadId" />
+
+            <div class="crm-field full">
+                <label>Remarks <span class="req">*</span></label>
+                <textarea id="fuDoneRemarks" rows="3"
+                          placeholder="What was discussed? What did the client say?"></textarea>
+            </div>
+
+            <div class="crm-field full">
+                <label>⏱ Time spent (min)</label>
+                <input type="number" id="fuDoneMinutes"
+                       min="1" value="15" />
+                <small style="color:#64748b; font-size:12px;">
+                    A Time Log entry will be created automatically
+                </small>
+            </div>
+
+            <button type="button"
+                    class="crm-btn crm-btn-primary"
+                    style="width:100%; margin-top:12px; background:#059669; border-color:#059669;"
+                    onclick="submitFuDone()">
+                Mark Done + Log Time
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+@* ===== MODAL: RESCHEDULE ===== *@
+
+<div id="fuReschedModal" class="crm-modal">
+
+    <div class="crm-modal-box" style="max-width:460px;">
+
+        <div class="crm-modal-head">
+
+            <div>
+                <h2>📅 Reschedule Follow-up</h2>
+                <p class="crm-modal-sub" id="fuReschedLead"></p>
+            </div>
+
+            <button type="button"
+                    class="crm-modal-x"
+                    onclick="closeFuModal('fuReschedModal')">&times;</button>
+
+        </div>
+
+        <div class="crm-modal-body">
+
+            @Html.AntiForgeryToken()
+
+            <div id="fuReschedError" class="crm-form-error"></div>
+
+            <input type="hidden" id="fuReschedLeadId" />
+
+            <div class="crm-field full">
+                <label>
+                    Next Date <span class="req">*</span>
+                </label>
+                <input type="date" id="fuReschedDate"
+                       value="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")" />
+            </div>
+
+            <div class="crm-field full">
+                <label>Remarks <span class="req">*</span></label>
+                <textarea id="fuReschedRemarks" rows="3"
+                          placeholder="Agle call ka plan..."></textarea>
+            </div>
+
+            <div class="crm-field full">
+                <label>⏱ Time spent (min)</label>
+                <input type="number" id="fuReschedMinutes"
+                       min="1" value="15" />
+                <small style="color:#64748b; font-size:12px;">
+                    A Time Log entry will be created automatically
+                </small>
+            </div>
+
+            <button type="button"
+                    class="crm-btn crm-btn-primary"
+                    style="width:100%; margin-top:12px;"
+                    onclick="submitFuReschedule()">
+                    Save Reschedule
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<style>
+    .fu-tabs {
+        display: flex;
+        gap: 4px;
+        padding: 10px 14px 0;
+        border-bottom: 1px solid #e2e8f0;
+        flex-wrap: wrap;
+    }
+
+    .fu-tab {
+        padding: 10px 16px;
+        text-decoration: none;
+        font-size: 13.5px;
+        font-weight: 600;
+        color: #64748b;
+        border-bottom: 3px solid transparent;
+        border-radius: 8px 8px 0 0;
+        transition: all .15s ease;
+    }
+
+    .fu-tab:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+    }
+
+    .fu-tab.active {
+        color: #2563eb;
+        border-bottom-color: #2563eb;
+        background: #eff6ff;
+    }
+</style>
+
+
+@section Scripts {
+
+    <script>
+
+        // ---- User filter ----
+        function fuFilterUser(val) {
+            var url = "@Url.Action("Index", "NewCrmFollowUp")";
+            var tab = "@tab";
+
+            var parts = ["tab=" + encodeURIComponent(tab)];
+
+            if (val) {
+                parts.push("user=" + encodeURIComponent(val));
+            }
+
+            window.location = url + "?" + parts.join("&");
+        }
+
+        // ---- Client-side row search ----
+        var fuSearchTimer = null;
+
+        function fuFilterRows(value) {
+
+            clearTimeout(fuSearchTimer);
+
+            fuSearchTimer = setTimeout(function () {
+
+                var q = (value || "").toLowerCase();
+                var rows =
+                    document.querySelectorAll("#fuBody tr");
+
+                for (var i = 0; i < rows.length; i++) {
+
+                    var text = (
+                        rows[i].getAttribute("data-search") || ""
+                    ).toLowerCase();
+
+                    rows[i].style.display =
+                        !q || text.indexOf(q) !== -1 ? "" : "none";
+
+                }
+
+            }, 250);
+
+        }
+
+        // ---- Token ----
+        function fuToken() {
+            return document.querySelector(
+                "input[name='__RequestVerificationToken']"
+            )?.value || "";
+        }
+
+        function fuPost(url, body, errorBoxId, btn) {
+
+            var box = document.getElementById(errorBoxId);
+            box.classList.remove("show");
+
+            body.append("__RequestVerificationToken", fuToken());
+
+            if (btn) { btn.disabled = true; }
+
+            fetch(url, {
+                method: "POST",
+                body: body,
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Content-Type":
+                        "application/x-www-form-urlencoded"
+                }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (btn) { btn.disabled = false; }
+                if (res.success) { window.location.reload(); }
+                else {
+                    box.textContent = res.message;
+                    box.classList.add("show");
+                }
+            })
+            .catch(function () {
+                if (btn) { btn.disabled = false; }
+                box.textContent = "Something went wrong.";
+                box.classList.add("show");
+            });
+
+        }
+
+        // ---- Mark Done modal ----
+        function openDoneModal(id, leadNo) {
+
+            document.getElementById("fuDoneLeadId").value = id;
+            document.getElementById("fuDoneLead").textContent =
+                leadNo;
+            document.getElementById("fuDoneRemarks").value = "";
+            document.getElementById("fuDoneMinutes").value = "15";
+
+            document.getElementById("fuDoneModal")
+                .style.display = "flex";
+
+            document.body.classList.add("crm-modal-open");
+        }
+
+        function submitFuDone() {
+
+            var remarks =
+                document.getElementById("fuDoneRemarks").value;
+
+            if (!remarks.trim()) {
+                var box = document.getElementById("fuDoneError");
+                box.textContent = "Remarks are required.";
+                box.classList.add("show");
+                return;
+            }
+
+            var body = new URLSearchParams();
+
+            body.append("id",
+                document.getElementById("fuDoneLeadId").value);
+            body.append("remarks", remarks);
+            body.append("minutes",
+                document.getElementById("fuDoneMinutes").value);
+
+            fuPost("@Url.Action("MarkDone", "NewCrmFollowUp")",
+                body, "fuDoneError");
+        }
+
+        // ---- Reschedule modal ----
+        function openRescheduleModal(id, leadNo) {
+
+            document.getElementById("fuReschedLeadId").value = id;
+            document.getElementById("fuReschedLead").textContent =
+                leadNo;
+            document.getElementById("fuReschedRemarks").value = "";
+            document.getElementById("fuReschedMinutes").value = "15";
+
+            document.getElementById("fuReschedModal")
+                .style.display = "flex";
+
+            document.body.classList.add("crm-modal-open");
+        }
+
+        function submitFuReschedule() {
+
+            var remarks =
+                document.getElementById("fuReschedRemarks").value;
+
+            var date =
+                document.getElementById("fuReschedDate").value;
+
+            if (!date) {
+                var box = document.getElementById("fuReschedError");
+                box.textContent = "Next date is required.";
+                box.classList.add("show");
+                return;
+            }
+
+            if (!remarks.trim()) {
+                var box2 = document.getElementById("fuReschedError");
+                box2.textContent = "Remarks are required.";
+                box2.classList.add("show");
+                return;
+            }
+
+            var body = new URLSearchParams();
+
+            body.append("id",
+                document.getElementById("fuReschedLeadId").value);
+            body.append("nextDate", date);
+            body.append("remarks", remarks);
+            body.append("minutes",
+                document.getElementById("fuReschedMinutes").value);
+
+            fuPost("@Url.Action("Reschedule", "NewCrmFollowUp")",
+                body, "fuReschedError");
+        }
+
+        function closeFuModal(id) {
+
+            document.getElementById(id).style.display = "none";
+            document.body.classList.remove("crm-modal-open");
+
+        }
+
+    </script>
+}

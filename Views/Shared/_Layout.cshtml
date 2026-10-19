@@ -13,11 +13,11 @@
           content="width=device-width, initial-scale=1.0" />
 
     <title>
-        @ViewData["Title"] - MANEGEMENT
+        @ViewData["Title"] - MANAGEMENT
     </title>
 
     <link rel="stylesheet"
-          href="~/css/site.css?v=28" />
+          href="~/css/site.css?v=30" />
 
     <link rel="stylesheet"
           href="~/css/dashboard.css?v=4" />
@@ -48,7 +48,7 @@
                 <div class="sidebar-logo">
 
                     <h2>
-                      MANEGEMENT
+                      MANAGEMENT
                     </h2>
 
                 </div>
@@ -95,7 +95,7 @@
                         <span class="menu-icon">🏠</span>
 
                         <span class="menu-text">
-                            Dashboard
+                            Home
                         </span>
 
                     </a>
@@ -136,6 +136,7 @@
                 </div>
 
 
+@* ===== OLD CRM (hidden - pages URL se accessible) =====
                 <div class="menu-group">
 
                     <span class="menu-group-label">
@@ -196,49 +197,161 @@
                     </a>
 
                 </div>
+                =====*@
 
 
                 <div class="menu-group">
 
                     <span class="menu-group-label">
-                        Masters
+                        CRM
                     </span>
 
-                    <a asp-controller="Users"
+                    <a asp-controller="NewCrmDashboard"
                        asp-action="Index"
                        class="menu-item">
 
-                        <span class="menu-icon">👤</span>
+                        <span class="menu-icon">🚀</span>
 
                         <span class="menu-text">
-                            User Master
+                            Dashboard
                         </span>
 
                     </a>
 
-                    <a asp-controller="States"
+                    <a asp-controller="NewCrmLead"
                        asp-action="Index"
                        class="menu-item">
 
-                        <span class="menu-icon">🗺️</span>
+                        <span class="menu-icon">💼</span>
 
                         <span class="menu-text">
-                            State Master
+                            Leads
                         </span>
 
                     </a>
 
-                    <a asp-controller="Clients"
+                    <a asp-controller="NewCrmFollowUp"
+                       asp-action="Index"
+                       class="menu-item"
+                       id="navFollowUps">
+
+                        <span class="menu-icon">📞</span>
+
+                        <span class="menu-text">
+                            Follow-ups
+                        </span>
+
+                        <span class="menu-badge"
+                              id="navFollowUpsBadge"
+                              title="Due today or overdue"
+                              hidden></span>
+
+                    </a>
+
+                    <a asp-controller="NewCrmReport"
                        asp-action="Index"
                        class="menu-item">
 
-                        <span class="menu-icon">🏢</span>
+                        <span class="menu-icon">📊</span>
 
                         <span class="menu-text">
-                            Client Master
+                            Reports
                         </span>
 
                     </a>
+
+                    <a asp-controller="NewCrmTimeLog"
+                       asp-action="Index"
+                       class="menu-item"
+                       id="navTimeLog">
+
+                        <span class="menu-icon">⏱</span>
+
+                        <span class="menu-text">
+                            Time Log
+                        </span>
+
+                        <span class="menu-badge"
+                              id="navTimeLogBadge"
+                              title="Live meeting running"
+                              hidden></span>
+
+                    </a>
+
+                </div>
+
+
+                <!-- ============ MASTERS (collapsible) ============ -->
+
+                <div class="menu-group menu-group-parent"
+                     id="mastersGroup">
+
+                    <button type="button"
+                            class="menu-group-toggle"
+                            id="mastersToggle"
+                            aria-expanded="false"
+                            aria-controls="mastersSubmenu">
+
+                        <span class="menu-group-label">
+                            Masters
+                        </span>
+
+                        <span class="menu-arrow">&#9656;</span>
+
+                    </button>
+
+                    <div class="menu-submenu"
+                         id="mastersSubmenu">
+
+                        <a asp-controller="Users"
+                           asp-action="Index"
+                           class="menu-item menu-item-sub">
+
+                            <span class="menu-icon">👤</span>
+
+                            <span class="menu-text">
+                                User Master
+                            </span>
+
+                        </a>
+
+                        <a asp-controller="States"
+                           asp-action="Index"
+                           class="menu-item menu-item-sub">
+
+                            <span class="menu-icon">🗺️</span>
+
+                            <span class="menu-text">
+                                State Master
+                            </span>
+
+                        </a>
+
+                        <a asp-controller="Clients"
+                           asp-action="Index"
+                           class="menu-item menu-item-sub">
+
+                            <span class="menu-icon">🏢</span>
+
+                            <span class="menu-text">
+                                Client Master
+                            </span>
+
+                        </a>
+
+                        <a asp-controller="StepMaster"
+                           asp-action="Index"
+                           class="menu-item menu-item-sub">
+
+                            <span class="menu-icon">🪜</span>
+
+                            <span class="menu-text">
+                                Step Master
+                            </span>
+
+                        </a>
+
+                    </div>
 
                 </div>
 
@@ -352,7 +465,7 @@
     </div>
 
 
-    <script src="~/js/site.js?v=11">
+    <script src="~/js/site.js?v=13">
     </script>
 
 </body>

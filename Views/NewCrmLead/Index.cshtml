@@ -1,0 +1,785 @@
+@model Master.Models.NewCrmLeadIndexModel
+
+@{
+    ViewData["Title"] = "Leads";
+
+    var steps = Model.Steps;
+
+    var clients = ViewBag.Clients as List<(int Id, string Name, string Mobile)>
+        ?? new List<(int, string, string)>();
+
+    var states = ViewBag.States as List<(int Id, string Name)>
+        ?? new List<(int, string)>();
+
+    var sources = ViewBag.Sources as string[] ?? Array.Empty<string>();
+    var statuses = ViewBag.Statuses as string[] ?? Array.Empty<string>();
+    var priorities = ViewBag.Priorities as string[] ?? Array.Empty<string>();
+
+    var leadBy = ViewBag.LeadBy as string ?? "";
+
+    string Chip(string value) =>
+        "crm-chip crm-c-" + (string.IsNullOrWhiteSpace(value)
+            ? "default"
+            : value.ToLower().Replace(" ", ""));
+
+    string Value(decimal v) => v.ToString("N2");
+
+    var config = new Dictionary<string, object?>
+    {
+        ["tableId"] = "dataTable",
+        ["searchId"] = "gridSearch",
+        ["recordsId"] = "gridRecords",
+        ["infoId"] = "gridInfo",
+        ["paginationId"] = "gridPagination",
+        ["noRecordsId"] = "gridNoRecords",
+        ["totalRecords"] = Model.Leads.Count,
+        ["recordsPerPage"] = 10,
+        ["entityLabel"] = "Lead",
+        ["exportName"] = "NEW_CRM_Leads"
+    };
+}
+
+<div class="crm-page-head">
+
+    <div>
+        <h1>LEADS</h1>
+        <p>Sales lead management &middot; step-wise pipeline</p>
+    </div>
+
+    <div class="crm-head-actions">
+
+        <a class="crm-btn crm-btn-ghost"
+           href="@Url.Action("Index", "NewCrmDashboard")">
+            Dashboard
+        </a>
+
+        <button type="button"
+                class="crm-btn crm-btn-primary"
+                onclick="openLeadModal(0)">
+            + Add Lead
+        </button>
+
+    </div>
+
+</div>
+
+
+<div class="crm-kpi-grid">
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Total Leads", Value = Model.Total.ToString(),
+        Icon = "users", Accent = "#2563eb", Soft = "#eff6ff"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Open", Value = Model.Open.ToString(),
+        Icon = "spark", Accent = "#0ea5e9", Soft = "#e0f2fe"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Won", Value = Model.Won.ToString(),
+        Icon = "trophy", Accent = "#10b981", Soft = "#d1fae5"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Lost", Value = Model.Lost.ToString(),
+        Icon = "x", Accent = "#ef4444", Soft = "#fee2e2"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Overdue Follow-ups", Value = Model.Overdue.ToString(),
+        Icon = "phone", Accent = "#dc2626", Soft = "#fee2e2"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Won Value", Value = Value(Model.WonValue),
+        Icon = "check", Accent = "#7c3aed", Soft = "#ede9fe"
+    })
+
+</div>
+
+
+@if (TempData["Success"] != null)
+{
+    <div class="success-message">@TempData["Success"]</div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="error-message">@Html.Raw(TempData["Error"])</div>
+}
+
+
+<div class="crm-card">
+
+    <div class="crm-toolbar">
+
+        <div class="crm-toolbar-group">
+
+            <select class="crm-select" onchange="applyFilters()">
+                <option value="">All Status</option>
+                @foreach (var s in statuses)
+                {
+                    <option value="@s"
+                            selected="@(Model.StatusFilter == s)">@s</option>
+                }
+            </select>
+
+            <select class="crm-select" onchange="applyFilters()">
+                <option value="">All Steps</option>
+                @foreach (var st in steps)
+                {
+                    <option value="@st.Id"
+                            selected="@(Model.StepFilter == st.Id.ToString())">
+                        @st.StepName
+                    </option>
+                }
+            </select>
+
+            <select class="crm-select" onchange="applyFilters()">
+                <option value="">All Priority</option>
+                @foreach (var p in priorities)
+                {
+                    <option value="@p"
+                            selected="@(Model.PriorityFilter == p)">@p</option>
+                }
+            </select>
+
+            <input type="text"
+                   id="gridSearch"
+                   class="crm-input crm-search"
+                   placeholder="Search lead no, client, contact, city..."
+                   value="@Model.Search"
+                   oninput="crmFilter()" />
+
+        </div>
+
+        <div class="crm-toolbar-group">
+
+            <select id="gridRecords"
+                    class="crm-select"
+                    onchange="crmChangeRecordsPerPage()">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+
+            <button type="button"
+                    class="crm-btn crm-btn-ghost"
+                    onclick="crmExportExcel()">
+                Excel
+            </button>
+
+            <button type="button"
+                    class="crm-btn crm-btn-ghost"
+                    onclick="crmExportCSV()">
+                CSV
+            </button>
+
+            <button type="button"
+                    class="crm-btn crm-btn-ghost"
+                    onclick="crmPrint()">
+                Print
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <div class="crm-table-wrap">
+
+        <table id="dataTable" class="crm-table">
+
+            <thead>
+                <tr>
+                    <th class="crm-sortable" data-sort="text" onclick="crmSort(this)">Lead No</th>
+                    <th class="crm-sortable" data-sort="text" onclick="crmSort(this)">Client</th>
+                    <th>Contact</th>
+                    <th>Requirement</th>
+                    <th class="crm-sortable" data-sort="text" onclick="crmSort(this)">Source</th>
+                    <th class="crm-sortable" data-sort="num" onclick="crmSort(this)">Value</th>
+                    <th class="crm-sortable" data-sort="text" onclick="crmSort(this)">Priority</th>
+                    <th class="crm-sortable" data-sort="text" onclick="crmSort(this)">Step</th>
+                    <th class="crm-sortable" data-sort="text" onclick="crmSort(this)">Status</th>
+                    <th class="crm-sortable" data-sort="date" onclick="crmSort(this)">Next Follow-up</th>
+                    <th>Lead By</th>
+                    <th class="crm-actions-col">Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                @foreach (var lead in Model.Leads)
+                {
+                    var contact = string.IsNullOrWhiteSpace(lead.ContactNo)
+                        ? lead.ClientMobile
+                        : lead.ContactNo;
+
+                    var searchText = string.Join(" ",
+                        lead.LeadNo, lead.ClientName, contact,
+                        lead.ClientMobile, lead.Email, lead.City,
+                        lead.StateName, lead.Requirement, lead.Source,
+                        lead.Priority, lead.StepName, lead.Status,
+                        lead.LeadBy);
+
+                    <tr data-search="@searchText"
+                        style="@(lead.IsOverdue ? "background:#fef2f2;" : "")">
+
+                        <td>
+                            <a class="link"
+                               href="@Url.Action("Detail", "NewCrmLead", new { id = lead.Id })">
+                                @lead.LeadNo
+                            </a>
+                        </td>
+                        <td>@lead.ClientName</td>
+                        <td>@contact</td>
+                        <td>
+                            @if (lead.Requirement.Length > 40)
+                            {
+                                @lead.Requirement.Substring(0, 40)<text>...</text>
+                            }
+                            else
+                            {
+                                @lead.Requirement
+                            }
+                        </td>
+                        <td>@lead.Source</td>
+                        <td>@Value(lead.ExpectedValue)</td>
+                        <td>
+                            <span class="@Chip(lead.Priority)">
+                                @lead.Priority
+                            </span>
+                        </td>
+                        <td>@lead.StepName</td>
+                        <td>
+                            <span class="@Chip(lead.Status)">
+                                @lead.Status
+                            </span>
+                        </td>
+                        <td>
+                            @if (lead.NextFollowupDate.HasValue)
+                            {
+                                if (lead.IsOverdue)
+                                {
+                                    <strong style="color:#dc2626;">
+                                        @lead.NextFollowupDate.Value.ToString("dd-MM-yyyy")
+                                        &#9888;
+                                    </strong>
+                                }
+                                else
+                                {
+                                    @lead.NextFollowupDate.Value.ToString("dd-MM-yyyy")
+                                }
+                            }
+                            else
+                            {
+                                <text>-</text>
+                            }
+                        </td>
+                        <td>@lead.LeadBy</td>
+
+                        <td class="crm-actions-col">
+                            <div class="crm-actions">
+
+                                <a class="crm-icon-btn"
+                                   href="@Url.Action("Detail", "NewCrmLead", new { id = lead.Id })"
+                                   title="Open lead">&#128065;</a>
+
+                                <a class="crm-icon-btn"
+                                   href="@Url.Action("Index", "NewCrmTimeLog", new { leadId = lead.Id })"
+                                   title="Time log">&#9201;</a>
+
+                                <button type="button"
+                                        class="crm-icon-btn"
+                                        title="Edit"
+                                        onclick="openLeadModal(@lead.Id)">&#9998;</button>
+
+                                <form asp-controller="NewCrmLead"
+                                      asp-action="Deactivate"
+                                      method="post"
+                                      onsubmit="return confirm('Deactivate this lead?');">
+
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@lead.Id" />
+
+                                    <button type="submit"
+                                            class="crm-icon-btn danger"
+                                            title="Deactivate">&#10005;</button>
+
+                                </form>
+
+                            </div>
+                        </td>
+
+                    </tr>
+                }
+
+                <tr id="gridNoRecords" class="no-data-row" data-search=""
+                    style="@(Model.Leads.Count == 0 ? "" : "display:none;")">
+                    <td colspan="12" class="crm-empty">
+                        No leads found.
+                    </td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <div class="crm-table-foot">
+        <div id="gridInfo">Showing 0 to 0 of 0 entries</div>
+        <div class="crm-pagination" id="gridPagination"></div>
+    </div>
+
+</div>
+
+
+@* ===== Add / Edit Lead Modal ===== *@
+
+<div id="leadModal" class="crm-modal">
+
+    <div class="crm-modal-box">
+
+        <div class="crm-modal-head">
+
+            <div>
+                <h2 id="leadModalTitle">Add Lead</h2>
+                <p class="crm-modal-sub">
+                    Lead By: <strong>@leadBy</strong>
+                </p>
+            </div>
+
+            <button type="button"
+                    class="crm-modal-x"
+                    onclick="closeLeadModal()">&times;</button>
+
+        </div>
+
+        <form id="leadForm"
+              method="post"
+              action="@Url.Action("Save", "NewCrmLead")"
+              onsubmit="return submitLeadForm(event);"
+              novalidate>
+
+            @Html.AntiForgeryToken()
+
+            <input type="hidden" name="id" id="leadEditId" value="0" />
+
+            <div class="crm-modal-body">
+
+                <div id="leadFormError" class="crm-form-error"></div>
+
+                @* ---- Section 1: Client Details ---- *@
+
+                <div class="crm-form-section">
+
+                    <div class="crm-section-title">Client Details</div>
+
+                    <div class="crm-field-grid">
+
+                        <div class="crm-field">
+                            <label>
+                                Client <span class="req">*</span>
+                            </label>
+                            <select name="ClientId" id="fClientId" required>
+                                <option value="">-- Select Client --</option>
+                                @foreach (var (cid, cname, cmob) in clients)
+                                {
+                                    <option value="@cid">@cname</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="crm-field">
+                            <label>
+                                Contact <span class="req">*</span>
+                            </label>
+                            <input type="text" name="ContactNo"
+                                   id="fContactNo" maxlength="30"
+                                   placeholder="e.g. 98XXXXXXXX" />
+                        </div>
+
+                        <div class="crm-field full">
+                            <label>Email</label>
+                            <input type="text" name="Email"
+                                   id="fEmail" maxlength="200"
+                                   placeholder="optional" />
+                        </div>
+
+                    </div>
+
+                </div>
+
+                @* ---- Section 2: Location ---- *@
+
+                <div class="crm-form-section">
+
+                    <div class="crm-section-title">Location</div>
+
+                    <div class="crm-field-grid">
+
+                        <div class="crm-field">
+                            <label>City</label>
+                            <input type="text" name="City"
+                                   id="fCity" maxlength="100"
+                                   placeholder="optional" />
+                        </div>
+
+                        <div class="crm-field">
+                            <label>State</label>
+                            <select name="StateId" id="fStateId">
+                                <option value="">-- Select State --</option>
+                                @foreach (var (sid, sname) in states)
+                                {
+                                    <option value="@sid">@sname</option>
+                                }
+                            </select>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                @* ---- Section 3: Lead Details ---- *@
+
+                <div class="crm-form-section">
+
+                    <div class="crm-section-title">Lead Details</div>
+
+                    <div class="crm-field-grid">
+
+                        <div class="crm-field full">
+                            <label>
+                                Requirement <span class="req">*</span>
+                            </label>
+                            <textarea name="Requirement" id="fRequirement"
+                                      rows="2"></textarea>
+                        </div>
+
+                        <div class="crm-field">
+                            <label>
+                                Source <span class="req">*</span>
+                            </label>
+                            <select name="Source" id="fSource" required>
+                                <option value="">-- Select Source --</option>
+                                @foreach (var s in sources)
+                                {
+                                    <option value="@s">@s</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="crm-field">
+                            <label>Priority</label>
+                            <select name="Priority" id="fPriority">
+                                @foreach (var p in priorities)
+                                {
+                                    <option value="@p"
+                                            selected="@(p == "Med")">@p</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="crm-field full">
+                            <label>Expected Value (&#8377;)</label>
+                            <input type="number" name="ExpectedValue"
+                                   id="fExpectedValue"
+                                   min="0" step="0.01" value="0" />
+                        </div>
+
+                    </div>
+
+                </div>
+
+                @* ---- Section 4: Follow-up ---- *@
+
+                <div class="crm-form-section">
+
+                    <div class="crm-section-title">Follow-up</div>
+
+                    <div class="crm-field-grid">
+
+                        <div class="crm-field">
+                            <label>Next Follow-up Date</label>
+                            <input type="date" name="NextFollowupDate"
+                                   id="fNextFollowupDate" />
+                        </div>
+
+                        <div class="crm-field full">
+                            <label>Next Remarks</label>
+                            <textarea name="NextRemarks" id="fNextRemarks"
+                                      rows="2"></textarea>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="crm-modal-foot">
+                <button type="button"
+                        class="crm-btn crm-btn-ghost"
+                        onclick="closeLeadModal()">
+                    Cancel
+                </button>
+                <button type="submit"
+                        id="leadSubmit"
+                        class="crm-btn crm-btn-primary">
+                    Save
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<div class="crm-config" hidden>@Html.Raw(System.Text.Json.JsonSerializer.Serialize(config))</div>
+
+
+@section Scripts {
+
+    <script src="~/js/crm.js" asp-append-version="true"></script>
+
+    <script>
+        // ---- All leads for client-side edit prefill ----
+        var leadData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.Leads.Select(l => new
+            {
+                id = l.Id,
+                clientId = l.ClientId,
+                contactNo = l.ContactNo,
+                email = l.Email,
+                city = l.City,
+                stateId = l.StateId,
+                requirement = l.Requirement,
+                source = l.Source,
+                priority = l.Priority,
+                expectedValue = l.ExpectedValue,
+                nextDate = l.NextFollowupDate?.ToString("yyyy-MM-dd"),
+                nextRemarks = l.NextRemarks
+            })));
+
+        // Auto-fill contact when a client is selected.
+        var clientPhones = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            clients.ToDictionary(c => c.Id, c => c.Mobile)));
+
+        function applyFilters() {
+            var selects = document.querySelectorAll('.crm-toolbar-group select');
+            var status = selects[0].value;
+            var step = selects[1].value;
+            var priority = selects[2].value;
+            var url = '@Url.Action("Index", "NewCrmLead")';
+            var params = [];
+            if (status) { params.push('status=' + encodeURIComponent(status)); }
+            if (step) { params.push('step=' + encodeURIComponent(step)); }
+            if (priority) { params.push('priority=' + encodeURIComponent(priority)); }
+            window.location = params.length ? url + '?' + params.join('&') : url;
+        }
+
+        // ---- Inline validation (alert popups band) ----
+
+        function clearFieldErrors() {
+            var els = document.querySelectorAll(
+                '#leadForm .crm-has-error, #leadForm .crm-field-error');
+            for (var i = 0; i < els.length; i++) {
+                var el = els[i];
+                if (el.classList.contains('crm-has-error')) {
+                    el.classList.remove('crm-has-error');
+                } else if (el.parentNode) {
+                    el.parentNode.removeChild(el);
+                }
+            }
+            var box = document.getElementById('leadFormError');
+            box.classList.remove('show');
+            box.textContent = '';
+        }
+
+        function markFieldError(el, msg) {
+            el.classList.add('crm-has-error');
+            var span = document.createElement('span');
+            span.className = 'crm-field-error';
+            span.textContent = msg;
+            el.parentNode.appendChild(span);
+            return el;
+        }
+
+        function validateLeadForm() {
+            clearFieldErrors();
+
+            var f = document.getElementById('leadForm');
+            var bad = [];
+
+            if (!f.ClientId.value) {
+                bad.push(markFieldError(f.ClientId, 'Please select a client.'));
+            }
+
+            if (!f.ContactNo.value.trim()) {
+                bad.push(markFieldError(f.ContactNo, 'Contact number is required.'));
+            }
+
+            if (f.Email.value.trim() && f.Email.value.indexOf('@@') < 0) {
+                bad.push(markFieldError(f.Email, 'Enter a valid email.'));
+            }
+
+            if (!f.Requirement.value.trim()) {
+                bad.push(markFieldError(f.Requirement, 'Requirement is required.'));
+            }
+
+            if (!f.Source.value) {
+                bad.push(markFieldError(f.Source, 'Please select a source.'));
+            }
+
+            if (bad.length > 0) {
+                bad[0].focus();
+                return false;
+            }
+
+            return true;
+        }
+
+        // ---- Auto-fill contact on client select (new lead only) ----
+        document.getElementById('fClientId')
+            .addEventListener('change', function () {
+                var editId = parseInt(
+                    document.getElementById('leadEditId').value || '0', 10);
+                if (editId > 0) { return; }
+                var mob = clientPhones[this.value];
+                if (mob) {
+                    document.getElementById('fContactNo').value = mob;
+                }
+            });
+
+        function openLeadModal(id) {
+            var title = document.getElementById('leadModalTitle');
+            var editId = document.getElementById('leadEditId');
+
+            clearFieldErrors();
+
+            document.getElementById('fClientId').value = '';
+            document.getElementById('fContactNo').value = '';
+            document.getElementById('fEmail').value = '';
+            document.getElementById('fCity').value = '';
+            document.getElementById('fStateId').value = '';
+            document.getElementById('fRequirement').value = '';
+            document.getElementById('fSource').value = '';
+            document.getElementById('fPriority').value = 'Med';
+            document.getElementById('fExpectedValue').value = '0';
+            document.getElementById('fNextFollowupDate').value = '';
+            document.getElementById('fNextRemarks').value = '';
+
+            if (id > 0) {
+                var lead = leadData.find(function (l) { return l.id === id; });
+                if (lead) {
+                    title.textContent = 'Edit Lead';
+                    editId.value = lead.id;
+                    document.getElementById('fClientId').value = lead.clientId;
+                    document.getElementById('fContactNo').value = lead.contactNo || '';
+                    document.getElementById('fEmail').value = lead.email || '';
+                    document.getElementById('fCity').value = lead.city || '';
+                    document.getElementById('fStateId').value =
+                        lead.stateId ? String(lead.stateId) : '';
+                    document.getElementById('fRequirement').value = lead.requirement;
+                    document.getElementById('fSource').value = lead.source;
+                    document.getElementById('fPriority').value = lead.priority;
+                    document.getElementById('fExpectedValue').value = lead.expectedValue;
+                    document.getElementById('fNextFollowupDate').value = lead.nextDate || '';
+                    document.getElementById('fNextRemarks').value = lead.nextRemarks || '';
+                }
+            } else {
+                title.textContent = 'Add Lead';
+                editId.value = 0;
+            }
+
+            document.getElementById('leadModal').style.display = 'flex';
+            document.body.classList.add('crm-modal-open');
+
+            // Naye lead me pehle client par focus.
+            document.getElementById('fClientId').focus();
+        }
+
+        function closeLeadModal() {
+            document.getElementById('leadModal').style.display = 'none';
+            document.body.classList.remove('crm-modal-open');
+        }
+
+        function submitLeadForm(event) {
+            event.preventDefault();
+
+            if (!validateLeadForm()) { return false; }
+
+            var form = event.target;
+            var submit = document.getElementById('leadSubmit');
+            var errBox = document.getElementById('leadFormError');
+
+            postLeadForm(form, submit, errBox, false);
+
+            return false;
+        }
+
+        // force = true → "Save Anyway" (duplicate override).
+        function postLeadForm(form, submit, errBox, force) {
+
+            submit.disabled = true;
+            submit.textContent = 'Saving...';
+
+            var fd = new FormData(form);
+
+            if (force) { fd.append('force', 'true'); }
+
+            fetch(form.action, {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                submit.disabled = false;
+                submit.textContent = 'Save';
+                if (res.success) { window.location.reload(); }
+                else if (res.message &&
+                         res.message.indexOf('DUPLICATE::') === 0) {
+
+                    // Duplicate warning — give the user a choice.
+                    var msg =
+                        res.message.replace('DUPLICATE::', '');
+
+                    errBox.textContent = msg;
+                    errBox.classList.add('show');
+
+                    if (confirm(msg + '\n\nSave anyway?')) {
+                        postLeadForm(
+                            form, submit, errBox, true);
+                    }
+
+                }
+                else {
+                    errBox.textContent = res.message;
+                    errBox.classList.add('show');
+                    document.querySelector(
+                        '#leadModal .crm-modal-body').scrollTop = 0;
+                }
+            })
+            .catch(function () {
+                submit.disabled = false;
+                submit.textContent = 'Save';
+                errBox.textContent = 'Something went wrong. Please try again.';
+                errBox.classList.add('show');
+            });
+
+        }
+    </script>
+}

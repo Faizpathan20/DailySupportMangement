@@ -1,0 +1,269 @@
+@model Master.Models.NewCrmDashboardModel
+
+@{
+    ViewData["Title"] = "Dashboard";
+
+    string Value(decimal v) => v.ToString("N2");
+
+    var maxCount = Model.Funnel.Count > 0
+        ? Math.Max(1, Model.Funnel.Max(f => f.Count))
+        : 1;
+}
+
+<div class="crm-page-head">
+
+    <div>
+        <h1>DASHBOARD</h1>
+        <p>Sales pipeline overview &middot; team performance</p>
+    </div>
+
+    <div class="crm-head-actions">
+
+        <a class="crm-btn crm-btn-primary"
+           href="@Url.Action("Index", "NewCrmLead")">
+            + Add / View Leads
+        </a>
+
+    </div>
+
+</div>
+
+
+<div class="crm-kpi-grid">
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Total Leads", Value = Model.Total.ToString(),
+        Icon = "users", Accent = "#2563eb", Soft = "#eff6ff"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Open", Value = Model.Open.ToString(),
+        Icon = "spark", Accent = "#0ea5e9", Soft = "#e0f2fe"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Won", Value = Model.Won.ToString(),
+        Icon = "trophy", Accent = "#10b981", Soft = "#d1fae5"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Lost", Value = Model.Lost.ToString(),
+        Icon = "x", Accent = "#ef4444", Soft = "#fee2e2"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Overdue", Value = Model.Overdue.ToString(),
+        Icon = "phone", Accent = "#dc2626", Soft = "#fee2e2"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Due Today", Value = Model.DueToday.ToString(),
+        Icon = "check", Accent = "#f59e0b", Soft = "#fef3c7"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Open Pipeline Value",
+        Value = Value(Model.OpenValue),
+        Icon = "check", Accent = "#7c3aed", Soft = "#ede9fe"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Won Value", Value = Value(Model.WonValue),
+        Icon = "trophy", Accent = "#059669", Soft = "#d1fae5"
+    })
+
+</div>
+
+
+<div style="display:grid; gap:20px;
+            grid-template-columns:repeat(auto-fit, minmax(340px, 1fr));">
+
+    @* ===== Step Funnel ===== *@
+
+    <div class="crm-card">
+
+        <div class="crm-card-head">
+            <h2>Pipeline Funnel</h2>
+            <span style="color:#64748b; font-size:13px;">Open leads</span>
+        </div>
+
+        @if (Model.Funnel.Count == 0)
+        {
+            <p class="crm-empty">No steps configured.</p>
+        }
+        else
+        {
+            <div style="display:grid; gap:10px;">
+
+                @foreach (var row in Model.Funnel)
+                {
+                    var pct = (int)Math.Round(
+                        100.0 * row.Count / maxCount);
+
+                    <div>
+                        <div style="display:flex; justify-content:space-between;
+                                    font-size:13px; margin-bottom:4px;">
+                            <strong>@row.StepName</strong>
+                            <span style="color:#64748b;">
+                                @row.Count leads
+                                &middot; &#8377;@Value(row.Value)
+                            </span>
+                        </div>
+                        <div style="background:#f1f5f9; border-radius:8px;
+                                    height:12px; overflow:hidden;">
+                            <div style="width:@pct%;
+                                        background:linear-gradient(90deg,#2563eb,#0ea5e9);
+                                        height:100%; border-radius:8px;">
+                            </div>
+                        </div>
+                    </div>
+                }
+
+            </div>
+        }
+
+    </div>
+
+    @* ===== Team Performance ===== *@
+
+    <div class="crm-card">
+
+        <div class="crm-card-head">
+            <h2>Team Performance</h2>
+        </div>
+
+        @if (Model.Team.Count == 0)
+        {
+            <p class="crm-empty">No leads assigned yet.</p>
+        }
+        else
+        {
+            <div class="crm-table-wrap">
+
+                <table class="crm-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Total</th>
+                            <th>Open</th>
+                            <th>Won</th>
+                            <th>Lost</th>
+                            <th>Won Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.Team)
+                        {
+                            <tr>
+                                <td><strong>@row.UserName</strong></td>
+                                <td>@row.Total</td>
+                                <td>@row.Open</td>
+                                <td>
+                                    <span class="crm-chip crm-c-won">
+                                        @row.Won
+                                    </span>
+                                </td>
+                                <td>@row.Lost</td>
+                                <td>&#8377;@Value(row.WonValue)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+            </div>
+        }
+
+    </div>
+
+</div>
+
+
+@* ===== Overdue Follow-ups ===== *@
+
+<div class="crm-card" style="margin-top:20px;">
+
+    <div class="crm-card-head">
+        <h2>⚠ Overdue Follow-ups</h2>
+        <a class="crm-btn crm-btn-ghost"
+           href="@Url.Action("Index", "NewCrmLead", new { status = "Open" })">
+            View all leads
+        </a>
+    </div>
+
+    @if (Model.OverdueLeads.Count == 0)
+    {
+        <p class="crm-empty">
+            No overdue follow-ups. Everything is on track! ✅
+        </p>
+    }
+    else
+    {
+        <div class="crm-table-wrap">
+
+            <table class="crm-table">
+                <thead>
+                    <tr>
+                        <th>Lead No</th>
+                        <th>Client</th>
+                        <th>Mobile</th>
+                        <th>Step</th>
+                        <th>Due Date</th>
+                        <th>Remarks</th>
+                        <th>Lead By</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var lead in Model.OverdueLeads)
+                    {
+                        var days = (DateTime.Today
+                            - (lead.NextFollowupDate ?? DateTime.Today)).Days;
+
+                        <tr style="background:#fef2f2;">
+                            <td>
+                                <a class="link"
+                                   href="@Url.Action("Detail", "NewCrmLead", new { id = lead.Id })">
+                                    @lead.LeadNo
+                                </a>
+                            </td>
+                            <td>@lead.ClientName</td>
+                            <td>
+                                @(string.IsNullOrWhiteSpace(lead.ContactNo)
+                                    ? lead.ClientMobile : lead.ContactNo)
+                            </td>
+                            <td>@lead.StepName</td>
+                            <td>
+                                <strong style="color:#dc2626;">
+                                    @lead.NextFollowupDate?.ToString("dd-MM-yyyy")
+                                    (@days days late)
+                                </strong>
+                            </td>
+                            <td>@lead.NextRemarks</td>
+                            <td>
+                                @(string.IsNullOrWhiteSpace(lead.LeadBy)
+                                    ? lead.AssignedTo : lead.LeadBy)
+                            </td>
+                            <td>
+                                <a class="crm-btn crm-btn-ghost"
+                                   style="padding:4px 10px; font-size:12px;"
+                                   href="@Url.Action("Detail", "NewCrmLead", new { id = lead.Id })">
+                                    Open
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+        </div>
+    }
+
+</div>

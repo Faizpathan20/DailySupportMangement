@@ -1,0 +1,745 @@
+@model Master.Models.StepMasterViewModel
+
+@{
+    ViewData["Title"] = "Step Master";
+    int totalRecords = Model.TotalRecords;
+}
+
+
+<div class="page-header">
+
+    <div>
+
+        <h1>
+            Step Master
+        </h1>
+
+        <p>
+            Sales pipeline steps (New &rarr; PO Received)
+        </p>
+
+    </div>
+
+</div>
+
+
+<!-- ================= KPI CARDS ================= -->
+
+<div class="dashboard-cards">
+
+
+    <div class="dashboard-card">
+
+        <div class="card-content">
+
+            <p>
+                Total Steps
+            </p>
+
+            <h2 data-kpi="total">
+                @Model.TotalRecords
+            </h2>
+
+        </div>
+
+        <div class="card-icon">
+            📊
+        </div>
+
+    </div>
+
+
+    <div class="dashboard-card">
+
+        <div class="card-content">
+
+            <p>
+                Active
+            </p>
+
+            <h2 data-kpi="active">
+                @Model.ActiveRecords
+            </h2>
+
+        </div>
+
+        <div class="card-icon">
+            ✅
+        </div>
+
+    </div>
+
+
+    <div class="dashboard-card">
+
+        <div class="card-content">
+
+            <p>
+                Inactive
+            </p>
+
+            <h2 data-kpi="inactive">
+                @Model.InActiveRecords
+            </h2>
+
+        </div>
+
+        <div class="card-icon">
+            ⏸️
+        </div>
+
+    </div>
+
+
+    <div class="dashboard-card">
+
+        <div class="card-content">
+
+            <p>
+                In Use (by leads)
+            </p>
+
+            <h2 data-kpi="used">
+                @Model.UsedRecords
+            </h2>
+
+        </div>
+
+        <div class="card-icon">
+            🎯
+        </div>
+
+    </div>
+
+
+</div>
+
+
+<!-- ================= MESSAGES ================= -->
+
+@if (TempData["Success"] != null)
+{
+    <div class="success-message">
+
+        @TempData["Success"]
+
+    </div>
+}
+
+
+@if (TempData["Error"] != null)
+{
+    <div class="error-message">
+
+        @TempData["Error"]
+
+    </div>
+}
+
+
+<!-- ================= STEP SECTION ================= -->
+
+<div class="state-section">
+
+
+    <!-- ================= TABLE TOOLBAR ================= -->
+
+    <div class="table-toolbar">
+
+        <div class="toolbar-left">
+
+            <span class="toolbar-label">
+                Pipeline steps order-wise
+            </span>
+
+        </div>
+
+
+        <div class="toolbar-right">
+
+            <button type="button"
+                    class="primary-btn"
+                    onclick="openAddModal()">
+
+                + Add Step
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- ================= TABLE ================= -->
+
+    <div class="table-container master-table">
+
+        <table id="dataTable">
+
+            <thead>
+
+                <tr>
+
+                    <th class="sortable"
+                        data-sort="num"
+                        onclick="sortTable(this)">
+
+                        <span class="th-text">
+                            Order
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th class="sortable"
+                        data-sort="text"
+                        onclick="sortTable(this)">
+
+                        <span class="th-text">
+                            Step Name
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+                    <th>
+                        Status
+                    </th>
+
+                    <th>
+                        Leads On Step
+                    </th>
+
+                    <th class="actions-col">
+                        Actions
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                @if (Model.Steps.Count == 0)
+                {
+                    <tr class="no-data-row"
+                        data-search="">
+
+                        <td colspan="5"
+                            class="empty-state">
+
+                            No steps found. Add your first pipeline step.
+
+                        </td>
+
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var step in Model.Steps)
+                    {
+                        var searchText =
+                            $"{step.StepOrder} {step.StepName} {step.StatusDisplay}";
+
+                        <tr data-search="@searchText">
+
+                            <td>
+                                <strong>@step.StepOrder</strong>
+                            </td>
+
+                            <td>
+                                @step.StepName
+                            </td>
+
+                            <td>
+
+                                @if (step.IsActive)
+                                {
+                                    <span class="status-active">
+                                        Active
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="status-inactive">
+                                        Inactive
+                                    </span>
+                                }
+
+                            </td>
+
+                            <td>
+
+                                @if (step.LeadCount > 0)
+                                {
+                                    <span class="crm-chip crm-c-new">
+                                        @step.LeadCount lead(s)
+                                    </span>
+                                }
+                                else
+                                {
+                                    <text>-</text>
+                                }
+
+                            </td>
+
+                            <td>
+
+                                <div class="action-cell">
+
+                                    <button type="button"
+                                            class="edit-btn action-btn"
+                                            title="Edit"
+                                            data-json="@step.ToJson()"
+                                            onclick="openEditModal(this)">
+
+                                        ✎
+
+                                    </button>
+
+                                    <form asp-controller="StepMaster"
+                                          asp-action="ToggleActive"
+                                          method="post">
+
+                                        @Html.AntiForgeryToken()
+
+                                        <input type="hidden"
+                                               name="id"
+                                               value="@step.Id" />
+
+                                        <button type="submit"
+                                                class="action-btn"
+                                                title="@(step.IsActive ? "Deactivate" : "Activate")"
+                                                style="@(step.IsActive
+                                                    ? "color:#d97706;"
+                                                    : "color:#059669;")">
+
+                                            @(step.IsActive ? "⏸" : "▶")
+
+                                        </button>
+
+                                    </form>
+
+                                    <form asp-controller="StepMaster"
+                                          asp-action="Delete"
+                                          method="post"
+                                          onsubmit="return masterConfirmAndSubmit(
+                                              this,
+                                              'Delete this step? Leads are blocked if they use it.'
+                                          );">
+
+                                        @Html.AntiForgeryToken()
+
+                                        <input type="hidden"
+                                               name="id"
+                                               value="@step.Id" />
+
+                                        <button type="submit"
+                                                class="delete-btn action-btn"
+                                                title="Delete">
+
+                                            ✕
+
+                                        </button>
+
+                                    </form>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+                    }
+                }
+
+                <!-- Client-side empty row. -->
+                <tr id="noRecordsRow"
+                    class="no-data-row"
+                    data-search=""
+                    style="display: none;">
+
+                    <td colspan="5"
+                        class="empty-state">
+
+                        No Records Found on this filter.
+
+                    </td>
+
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <!-- ================= TABLE FOOTER ================= -->
+
+    <div class="table-footer">
+
+        <div class="footer-left"
+             id="tableInfo">
+
+            Showing 1 to @totalRecords of @totalRecords entries
+
+        </div>
+
+
+        <div class="footer-right"
+             id="pagination">
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ================= ADD / EDIT MODAL ================= -->
+
+<div id="stepModal"
+     class="modal">
+
+
+    <div class="modal-content modal-compact">
+
+        <div class="modal-header">
+
+            <h2 id="modalTitle">
+                Add Step
+            </h2>
+
+            <button type="button"
+                    class="modal-close"
+                    onclick="closeModal()">
+
+                &times;
+
+            </button>
+
+        </div>
+
+
+        <form id="stepForm"
+              method="post"
+              action="@Url.Action("Create", "StepMaster")">
+
+            @Html.AntiForgeryToken()
+
+            <input type="hidden"
+                   id="editId"
+                   name="id" />
+
+
+            <div class="form-grid form-grid-single">
+
+                <div class="form-group">
+
+                    <label>
+                        Step Name <span style="color:#dc2626;">*</span>
+                    </label>
+
+                    <input type="text"
+                           id="edit_StepName"
+                           name="stepName"
+                           maxlength="100"
+                           required
+                           placeholder="e.g. Quotation Done" />
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Step Order <span style="color:#dc2626;">*</span>
+                    </label>
+
+                    <input type="number"
+                           id="edit_StepOrder"
+                           name="stepOrder"
+                           min="1"
+                           required
+                           placeholder="e.g. 3" />
+
+                    <small style="color:#64748b; font-size:12px;">
+                        Pipeline me position (1, 2, 3...)
+                    </small>
+
+                </div>
+
+
+                <div class="form-group"
+                     id="activeGroup"
+                     style="display:none;">
+
+                    <label>
+                        Active
+                    </label>
+
+                    <select id="edit_IsActive"
+                            name="isActive">
+
+                        <option value="true">
+                            Active
+                        </option>
+
+                        <option value="false">
+                            Inactive
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+
+            <div class="modal-actions">
+
+                <button type="submit"
+                        id="btnSubmit"
+                        class="save-btn">
+
+                    Save
+
+                </button>
+
+                <button type="button"
+                        class="cancel-btn"
+                        onclick="closeModal()">
+
+                    Cancel
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+@section Scripts
+{
+    <script>
+
+        // ==========================================
+        // STATE
+        // ==========================================
+
+        var currentPage = 1;
+        var recordsPerPage = 10;
+        var totalRecords = @totalRecords;
+
+        var createUrl =
+            "@Url.Action("Create", "StepMaster")";
+
+        var editUrl =
+            "@Url.Action("Edit", "StepMaster")";
+
+
+        // ==========================================
+        // FILTER TABLE
+        // ==========================================
+
+        function filterTable() {
+
+            currentPage = 1;
+
+            renderTable();
+
+        }
+
+
+        // ==========================================
+        // RENDER TABLE (simple - sab rows)
+        // ==========================================
+
+        function renderTable() {
+
+            var rows =
+                document.querySelectorAll(
+                    "#dataTable tbody tr:not(.no-data-row)"
+                );
+
+            for (var i = 0; i < rows.length; i++) {
+                rows[i].style.display = "";
+            }
+
+            var noRecordsRow =
+                document.getElementById("noRecordsRow");
+
+            if (noRecordsRow) {
+
+                var visible = 0;
+
+                for (var j = 0; j < rows.length; j++) {
+                    if (rows[j].style.display !== "none") {
+                        visible++;
+                    }
+                }
+
+                noRecordsRow.style.display =
+                    visible === 0 ? "" : "none";
+
+            }
+
+            var info =
+                document.getElementById("tableInfo");
+
+            if (info) {
+                info.innerText =
+                    "Showing 1 to " + rows.length
+                    + " of " + rows.length + " entries";
+            }
+
+        }
+
+
+        // ==========================================
+        // SORT TABLE
+        // ==========================================
+
+        function sortTable(th) {
+
+            masterSortTable(th);
+
+        }
+
+
+        // ==========================================
+        // INIT
+        // ==========================================
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            function () {
+                renderTable();
+            }
+        );
+
+
+        // ==========================================
+        // MODAL
+        // ==========================================
+
+        function openAddModal() {
+
+            document.getElementById(
+                "modalTitle"
+            ).innerText = "Add Step";
+
+
+            document.getElementById(
+                "btnSubmit"
+            ).innerText = "Save";
+
+
+            var form =
+                document.getElementById("stepForm");
+
+            form.action = createUrl;
+
+            form.reset();
+
+            document.getElementById(
+                "activeGroup"
+            ).style.display = "none";
+
+
+            document.getElementById(
+                "stepModal"
+            ).style.display = "flex";
+        }
+
+
+        function openEditModal(btn) {
+
+            var data =
+                JSON.parse(
+                    btn.getAttribute("data-json")
+                );
+
+
+            document.getElementById(
+                "modalTitle"
+            ).innerText = "Edit Step";
+
+
+            document.getElementById(
+                "btnSubmit"
+            ).innerText = "Update";
+
+
+            var form =
+                document.getElementById("stepForm");
+
+            form.action = editUrl;
+
+            form.reset();
+
+            document.getElementById(
+                "activeGroup"
+            ).style.display = "";
+
+
+            document.getElementById(
+                "edit_StepName"
+            ).value = data.StepName;
+
+            document.getElementById(
+                "edit_StepOrder"
+            ).value = data.StepOrder;
+
+            document.getElementById(
+                "edit_IsActive"
+            ).value = data.IsActive ? "true" : "false";
+
+            document.getElementById(
+                "editId"
+            ).value = data.Id;
+
+
+            document.getElementById(
+                "stepModal"
+            ).style.display = "flex";
+        }
+
+
+        function closeModal() {
+
+            document.getElementById(
+                "stepModal"
+            ).style.display = "none";
+        }
+
+
+        window.onclick = function (event) {
+
+            const modal =
+                document.getElementById("stepModal");
+
+
+            if (event.target === modal) {
+
+                closeModal();
+
+            }
+
+        };
+
+    </script>
+}

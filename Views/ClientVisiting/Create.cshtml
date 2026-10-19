@@ -112,8 +112,8 @@
                     </select>
 
                     <span class="voice-hint">
-                        New Meeting: ye visit apni nayi meeting chain start karega.
-                        Add to Existing: is visit ko pehle banaye gaye meeting ke sath link karega.
+                        New Meeting: this visit starts a new meeting chain.
+                        Add to Existing: links this visit to a previously created meeting.
                     </span>
 
                     @if (!string.IsNullOrWhiteSpace(GetErr("PreviousMeetingId")))
@@ -360,7 +360,7 @@
                                   id="voiceStatus"></span>
 
                             <span class="voice-hint">
-                                Voice to Text: Mic se bolen, text Remarks ke end me jude ga. Mic tab tak open rahega jab tak Stop nahi click karte.
+                                Voice to Text: speak into the mic; the text is appended to the end of Remarks. The mic stays open until you click Stop.
                             </span>
                         }
 
@@ -405,7 +405,7 @@
 
 
         <span class="voice-hint auto-time-hint">
-            Meeting rules: New Meeting = nayi chain start. Add to Existing = pehle banaye gaye meeting se link. Follow-up date visit date se pehle set nahi ho sakti.
+            Meeting rules: New Meeting starts a new chain. Add to Existing links to an earlier meeting. The follow-up date cannot be earlier than the visit date.
         </span>
 
 
@@ -488,7 +488,7 @@
 
                 if (on) {
                     status.innerText =
-                        "● Listening... Stop click karne tak mic open rahega";
+                        "● Listening... the mic stays open until you click Stop";
                     status.classList.add("visible");
                 } else {
                     status.classList.remove("visible");

@@ -1,0 +1,955 @@
+@model Master.Models.NewCrmTimeLogIndexModel
+
+@{
+    ViewData["Title"] = "Time Log";
+
+    var users = Model.Users;
+
+    string FormatMins(int total)
+    {
+        int h = total / 60;
+        int m = total % 60;
+        return h > 0 ? $"{h}h {m}m" : $"{m}m";
+    }
+
+    string FormatAvg(double mins)
+    {
+        int h = (int)mins / 60;
+        int m = (int)mins % 60;
+        return h > 0 ? $"{h}h {m}m" : $"{m}m";
+    }
+
+    var hasActive = Model.ActiveTimer != null;
+}
+
+<div class="crm-page-head">
+
+    <div>
+        <h1>⏱ TIME LOG</h1>
+        <p>Lead-wise meeting in/out &amp; daily time report</p>
+    </div>
+
+    <div class="crm-head-actions">
+
+        <a class="crm-btn crm-btn-ghost"
+           href="@Url.Action("Index", "NewCrmDashboard")">
+            Dashboard
+        </a>
+
+        <button type="button"
+                class="crm-btn crm-btn-primary"
+                onclick="openLogModal()">
+            + Log Time
+        </button>
+
+    </div>
+
+</div>
+
+
+<div class="crm-kpi-grid">
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Total Entries", Value = Model.TotalEntries.ToString(),
+        Icon = "clock", Accent = "#2563eb", Soft = "#eff6ff"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Today's Time", Value = FormatMins(Model.TodayMinutes),
+        Icon = "calendar", Accent = "#0ea5e9", Soft = "#e0f2fe"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "This Week", Value = FormatMins(Model.WeekMinutes),
+        Icon = "chart", Accent = "#7c3aed", Soft = "#ede9fe"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Avg per Meeting", Value = FormatAvg(Model.AvgMinutes),
+        Icon = "spark", Accent = "#10b981", Soft = "#d1fae5"
+    })
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel
+    {
+        Label = "Live Meeting",
+        Value = hasActive ? "1 Active" : "None",
+        Icon = "phone", Accent = "#dc2626", Soft = "#fee2e2"
+    })
+
+</div>
+
+
+@if (TempData["Success"] != null)
+{
+    <div class="success-message">@TempData["Success"]</div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="error-message">@Html.Raw(TempData["Error"])</div>
+}
+
+
+@* ===== LIVE TIMER CARD ===== *@
+
+<div class="crm-card" id="liveTimerCard"
+     style="@(hasActive ? "" : "display:none;")
+            border-left:4px solid #dc2626;">
+
+    <div class="crm-card-head">
+        <h2>
+            <span style="display:inline-block; width:10px; height:10px;
+                         border-radius:50%; background:#dc2626;
+                         animation:tlPulse 1.2s infinite;"></span>
+            LIVE MEETING
+        </h2>
+    </div>
+
+    <div style="display:flex; flex-wrap:wrap; gap:18px;
+                align-items:center; padding:6px 2px;">
+
+        <div>
+            <div style="font-size:12px; color:#64748b;">Lead</div>
+            <strong style="font-size:15px;">
+                @(Model.ActiveTimer?.LeadNo ?? "-")
+                &middot;
+                @(Model.ActiveTimer?.ClientName ?? "")
+            </strong>
+        </div>
+
+        <div>
+            <div style="font-size:12px; color:#64748b;">Type</div>
+            <span class="crm-chip crm-c-new">
+                @(Model.ActiveTimer?.MeetingType ?? "")
+            </span>
+        </div>
+
+        <div>
+            <div style="font-size:12px; color:#64748b;">Started</div>
+            <strong>
+                @(Model.ActiveTimer?.MeetingIn.ToString("hh:mm tt") ?? "-")
+            </strong>
+        </div>
+
+        <div>
+            <div style="font-size:12px; color:#64748b;">Elapsed</div>
+            <strong id="liveElapsed"
+                    style="font-size:22px; color:#dc2626;
+                           font-family:monospace;">
+                00:00:00
+            </strong>
+        </div>
+
+        <div style="margin-left:auto;">
+            <button type="button"
+                    class="crm-btn crm-btn-primary"
+                    style="background:#dc2626; border-color:#dc2626;"
+                    onclick="stopTimer()">
+                ⏹ STOP MEETING
+            </button>
+        </div>
+
+    </div>
+
+</div>
+
+
+<style>
+    @@keyframes tlPulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50%      { opacity: 0.4; transform: scale(1.4); }
+    }
+</style>
+
+
+<div class="crm-card">
+
+    <div class="crm-toolbar">
+
+        <div class="crm-toolbar-group">
+
+            <input type="date" class="crm-input"
+                   style="width:155px;"
+                   value="@(Model.FromDate?.ToString("yyyy-MM-dd") ?? "")"
+                   onchange="tlApplyFilters()" data-param="fromDate" />
+
+            <input type="date" class="crm-input"
+                   style="width:155px;"
+                   value="@(Model.ToDate?.ToString("yyyy-MM-dd") ?? "")"
+                   onchange="tlApplyFilters()" data-param="toDate" />
+
+            <select class="crm-select"
+                    onchange="tlApplyFilters()"
+                    data-param="user">
+                <option value="">All Users</option>
+                @foreach (var (uid, uname) in users)
+                {
+                    <option value="@uid"
+                            selected="@(Model.UserFilter == uid.ToString())">
+                        @uname
+                    </option>
+                }
+            </select>
+
+            <input type="text"
+                   class="crm-input crm-search"
+                   placeholder="Search lead no, client, notes..."
+                   value="@Model.Search"
+                   oninput="tlDebounceSearch()" />
+
+        </div>
+
+        <div class="crm-toolbar-group">
+
+            <button type="button"
+                    class="crm-btn crm-btn-ghost"
+                    onclick="tlSwitchTab('entries')">
+                Entries
+            </button>
+
+            <button type="button"
+                    class="crm-btn crm-btn-ghost"
+                    onclick="tlSwitchTab('report')">
+                📅 Daily Report
+            </button>
+
+        </div>
+
+    </div>
+
+
+    @* ===== TAB: ENTRIES ===== *@
+
+    <div id="tabEntries">
+
+        <div class="crm-table-wrap">
+
+            <table class="crm-table">
+
+                <thead>
+                    <tr>
+                        <th>Lead</th>
+                        <th>Client</th>
+                        <th>User</th>
+                        <th>Type</th>
+                        <th>Meeting In</th>
+                        <th>Meeting Out</th>
+                        <th>Time</th>
+                        <th>Notes</th>
+                        <th class="crm-actions-col">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (Model.Entries.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="9" class="crm-empty">
+                                No time entries found.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var e in Model.Entries)
+                        {
+                            <tr style="@(e.IsLive ? "background:#fef2f2;" : "")">
+
+                                <td>
+                                    <a class="link"
+                                       href="@Url.Action("Detail", "NewCrmLead", new { id = e.LeadId })">
+                                        @e.LeadNo
+                                    </a>
+                                </td>
+                                <td>@e.ClientName</td>
+                                <td>@e.UserName</td>
+                                <td>
+                                    <span class="crm-chip crm-c-new">
+                                        @e.MeetingType
+                                    </span>
+                                </td>
+                                <td>
+                                    @e.MeetingIn.ToString("dd-MM-yyyy")
+                                    <br />
+                                    <small>@e.MeetingIn.ToString("hh:mm tt")</small>
+                                </td>
+                                <td>
+
+                                    @if (e.MeetingOut.HasValue)
+                                    {
+                                        @e.MeetingOut.Value.ToString("hh:mm tt")
+                                    }
+                                    else
+                                    {
+                                        <span style="color:#dc2626; font-weight:600;">
+                                            LIVE
+                                        </span>
+                                    }
+
+                                </td>
+                                <td>
+
+                                    @if (e.IsLive)
+                                    {
+                                        <span class="tl-live"
+                                              data-in="@(e.MeetingIn.ToString("yyyy-MM-ddTHH:mm:ss") + "+05:30")"
+                                              style="color:#dc2626; font-weight:700;
+                                                     font-family:monospace;">
+                                            ⏱ LIVE
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <strong>@e.DurationDisplay</strong>
+                                    }
+
+                                </td>
+                                <td>
+
+                                    @if (e.Notes.Length > 35)
+                                    {
+                                        @e.Notes.Substring(0, 35)<text>...</text>
+                                    }
+                                    else
+                                    {
+                                        @e.Notes
+                                    }
+
+                                </td>
+
+                                <td class="crm-actions-col">
+                                    <div class="crm-actions">
+
+                                        @if (e.IsLive)
+                                        {
+                                            <button type="button"
+                                                    class="crm-icon-btn danger"
+                                                    title="Stop this meeting"
+                                                    onclick="stopSpecific(@e.Id)">
+                                                ⏹
+                                            </button>
+                                        }
+
+                                        <form asp-controller="NewCrmTimeLog"
+                                              asp-action="Delete"
+                                              method="post"
+                                              onsubmit="return confirm('Delete this time entry?');">
+
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@e.Id" />
+
+                                            <button type="submit"
+                                                    class="crm-icon-btn danger"
+                                                    title="Delete">&#10005;</button>
+
+                                        </form>
+
+                                    </div>
+                                </td>
+
+                            </tr>
+                        }
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+
+    @* ===== TAB: DAILY REPORT ===== *@
+
+    <div id="tabReport" style="display:none;">
+
+        @if (Model.DailyReport.Count == 0)
+        {
+            <p class="crm-empty" style="padding:30px;">
+                No data for daily report.
+            </p>
+        }
+        else
+        {
+            @foreach (var day in Model.DailyReport)
+            {
+                <div style="margin-bottom:22px;">
+
+                    <div style="display:flex; align-items:center;
+                                gap:10px; margin-bottom:8px;">
+
+                        <strong style="font-size:15px;">
+                            📅 @day.Date.ToString("dd-MM-yyyy (dddd)")
+                        </strong>
+
+                        <span class="crm-chip crm-c-won">
+                            Total: @day.TotalDisplay
+                        </span>
+
+                    </div>
+
+                    <div class="crm-table-wrap">
+
+                        <table class="crm-table">
+
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Lead</th>
+                                    <th>Client</th>
+                                    <th>Type</th>
+                                    <th>In</th>
+                                    <th>Out</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+
+                                @foreach (var ug in day.ByUser)
+                                {
+                                    var isFirst = true;
+
+                                    @foreach (var e in ug.Entries)
+                                    {
+                                        <tr>
+
+                                            <td>
+
+                                                @if (isFirst)
+                                                {
+                                                    <strong>
+                                                        @ug.UserName
+                                                    </strong>
+                                                    <br />
+                                                    <small style="color:#64748b;">
+                                                        @ug.TotalDisplay
+                                                    </small>
+
+                                                    isFirst = false;
+                                                }
+
+                                            </td>
+
+                                            <td>@e.LeadNo</td>
+                                            <td>@e.ClientName</td>
+                                            <td>@e.MeetingType</td>
+                                            <td>
+                                                @e.MeetingIn.ToString("hh:mm tt")
+                                            </td>
+                                            <td>
+
+                                                @if (e.MeetingOut.HasValue)
+                                                {
+                                                    @e.MeetingOut.Value.ToString("hh:mm tt")
+                                                }
+                                                else
+                                                {
+                                                    <span style="color:#dc2626;">LIVE</span>
+                                                }
+
+                                            </td>
+                                            <td>
+                                                <strong>
+                                                    @e.DurationDisplay
+                                                </strong>
+                                            </td>
+
+                                        </tr>
+                                    }
+                                }
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+            }
+        }
+
+    </div>
+
+</div>
+
+
+@* ===== MODAL: START TIMER / MANUAL ENTRY ===== *@
+
+<div id="logModal" class="crm-modal">
+
+    <div class="crm-modal-box" style="max-width:520px;">
+
+        <div class="crm-modal-head">
+
+            <div>
+                <h2 id="logModalTitle">Log Time</h2>
+                <p class="crm-modal-sub">
+                    Log time with the timer or manually
+                </p>
+            </div>
+
+            <button type="button"
+                    class="crm-modal-x"
+                    onclick="closeLogModal()">&times;</button>
+
+        </div>
+
+        @* ---- Tabs ---- *@
+
+        <div style="display:flex; border-bottom:1px solid #e2e8f0;">
+
+            <button type="button"
+                    id="tabBtnTimer"
+                    class="tl-tab-btn active"
+                    onclick="tlSwitchMode('timer')">
+                ⏱ Start Timer
+            </button>
+
+            <button type="button"
+                    id="tabBtnManual"
+                    class="tl-tab-btn"
+                    onclick="tlSwitchMode('manual')">
+                ✏️ Manual Entry
+            </button>
+
+        </div>
+
+        <div class="crm-modal-body">
+
+            @Html.AntiForgeryToken()
+
+            <div id="logFormError" class="crm-form-error"></div>
+
+            @* ---- Common: Lead + Type ---- *@
+
+            <div class="crm-field-grid">
+
+                <div class="crm-field full">
+                    <label>
+                        Lead <span class="req">*</span>
+                    </label>
+                    <select id="tlLeadId" required>
+                        <option value="">-- Select Lead --</option>
+                        @foreach (var l in Model.Leads)
+                        {
+                            <option value="@l.Id">@l.Display</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="crm-field full">
+                    <label>Type</label>
+                    <select id="tlType">
+                        <option value="Meeting">Meeting</option>
+                        <option value="Call">Call</option>
+                        <option value="Visit">Visit</option>
+                    </select>
+                </div>
+
+            </div>
+
+            @* ---- Timer Mode ---- *@
+
+            <div id="modeTimer">
+
+                <div class="crm-field full" style="margin-top:12px;">
+                    <label>Notes (optional)</label>
+                    <textarea id="tlTimerNotes" rows="2"
+                              placeholder="e.g. Demo dikhaya..."></textarea>
+                </div>
+
+                <button type="button"
+                        id="tlStartBtn"
+                        class="crm-btn crm-btn-primary"
+                        style="width:100%; margin-top:12px;
+                               background:#059669; border-color:#059669;
+                               font-size:16px; padding:14px;"
+                        onclick="startTimer()">
+                    ⏱ START MEETING
+                </button>
+
+            </div>
+
+            @* ---- Manual Mode ---- *@
+
+            <div id="modeManual" style="display:none;">
+
+                <div class="crm-field-grid" style="margin-top:12px;">
+
+                    <div class="crm-field">
+                        <label>
+                            Date <span class="req">*</span>
+                        </label>
+                        <input type="date" id="tlDate"
+                               value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                    </div>
+
+                    <div class="crm-field">
+                        <label>
+                            Meeting In <span class="req">*</span>
+                        </label>
+                        <input type="time" id="tlInTime" />
+                    </div>
+
+                    <div class="crm-field">
+                        <label>Meeting Out</label>
+                        <input type="time" id="tlOutTime" />
+                    </div>
+
+                    <div class="crm-field full">
+                        <label>Notes</label>
+                        <textarea id="tlManualNotes" rows="2"></textarea>
+                    </div>
+
+                </div>
+
+                <button type="button"
+                        class="crm-btn crm-btn-primary"
+                        style="width:100%; margin-top:12px;"
+                        onclick="saveManual()">
+                    Save Entry
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<style>
+    .tl-tab-btn {
+        flex: 1;
+        padding: 12px;
+        background: #f8fafc;
+        border: none;
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        font-size: 13.5px;
+        font-weight: 600;
+        color: #64748b;
+        transition: all .15s ease;
+    }
+
+    .tl-tab-btn.active {
+        background: #fff;
+        color: #2563eb;
+        border-bottom-color: #2563eb;
+    }
+</style>
+
+
+@section Scripts {
+
+    <script>
+
+        // ---- Leads for lead dropdown (id -> "LEAD-0001 · Client") ----
+        var leadNames = {};
+
+        @foreach (var l in Model.Leads)
+        {
+            <text>leadNames[@l.Id] = @Html.Raw(
+                System.Text.Json.JsonSerializer.Serialize(l.Display));</text>
+        }
+
+        // ---- LIVE timer (server time se sync) ----
+        // Explicit IST offset: correct instant regardless of the browser timezone.
+        var activeIn = @(hasActive
+            ? "\"" + Model.ActiveTimer!.MeetingIn
+                .ToString("yyyy-MM-ddTHH:mm:ss") + "+05:30\""
+            : "null");
+
+        function pad(n) { return n < 10 ? "0" + n : "" + n; }
+
+        function tickLive() {
+            // Header (current user ka apna timer).
+            if (activeIn) {
+                var start = new Date(activeIn);
+                var diff = Math.floor((Date.now() - start.getTime()) / 1000);
+                if (diff < 0) { diff = 0; }
+                var h = Math.floor(diff / 3600);
+                var m = Math.floor((diff % 3600) / 60);
+                var s = diff % 60;
+                var el = document.getElementById("liveElapsed");
+                if (el) {
+                    el.textContent = pad(h) + ":" + pad(m) + ":" + pad(s);
+                }
+            }
+
+            // Table ki LIVE rows — har row ka apna elapsed (data-in se).
+            var lives = document.querySelectorAll(".tl-live");
+            for (var i = 0; i < lives.length; i++) {
+                var din = lives[i].getAttribute("data-in");
+                if (!din) { continue; }
+                var st = new Date(din);
+                if (isNaN(st.getTime())) { continue; }
+                var d2 = Math.floor((Date.now() - st.getTime()) / 1000);
+                if (d2 < 0) { d2 = 0; }
+                var h2 = Math.floor(d2 / 3600);
+                var m2 = Math.floor((d2 % 3600) / 60);
+                var s2 = d2 % 60;
+                lives[i].textContent = "⏱ " +
+                    (h2 > 0 ? pad(h2) + ":" : "") + pad(m2) + ":" + pad(s2);
+            }
+        }
+
+        setInterval(tickLive, 1000);
+        tickLive();
+
+        // ---- Modal ----
+        function openLogModal() {
+            // Lead Detail se aaye ho toh wo lead pre-select.
+            document.getElementById("tlLeadId").value =
+                "@(Model.LeadId?.ToString() ?? "")";
+            document.getElementById("tlType").value = "Meeting";
+            document.getElementById("tlTimerNotes").value = "";
+            document.getElementById("tlDate").value =
+                new Date().toISOString().slice(0, 10);
+            document.getElementById("tlInTime").value = "";
+            document.getElementById("tlOutTime").value = "";
+            document.getElementById("tlManualNotes").value = "";
+            clearLogError();
+            tlSwitchMode("timer");
+            document.getElementById("logModal").style.display = "flex";
+            document.body.classList.add("crm-modal-open");
+        }
+
+        function closeLogModal() {
+            document.getElementById("logModal").style.display = "none";
+            document.body.classList.remove("crm-modal-open");
+        }
+
+        function tlSwitchMode(mode) {
+            var isTimer = mode === "timer";
+            document.getElementById("modeTimer").style.display =
+                isTimer ? "" : "none";
+            document.getElementById("modeManual").style.display =
+                isTimer ? "none" : "";
+            document.getElementById("tabBtnTimer").classList.toggle(
+                "active", isTimer);
+            document.getElementById("tabBtnManual").classList.toggle(
+                "active", !isTimer);
+        }
+
+        function clearLogError() {
+            var box = document.getElementById("logFormError");
+            box.classList.remove("show");
+            box.textContent = "";
+        }
+
+        function showLogError(msg) {
+            var box = document.getElementById("logFormError");
+            box.textContent = msg;
+            box.classList.add("show");
+            document.querySelector(
+                "#logModal .crm-modal-body").scrollTop = 0;
+        }
+
+        // ---- Start Timer (AJAX) ----
+        function startTimer() {
+            var leadId = document.getElementById("tlLeadId").value;
+            if (!leadId) { showLogError("Please select a lead."); return; }
+
+            var btn = document.getElementById("tlStartBtn");
+            btn.disabled = true;
+            btn.textContent = "Starting...";
+
+            var body = new URLSearchParams();
+            body.append("leadId", leadId);
+            body.append("meetingType",
+                document.getElementById("tlType").value);
+            body.append("notes",
+                document.getElementById("tlTimerNotes").value);
+            body.append("__RequestVerificationToken",
+                document.querySelector(
+                    "#logModal input[name='__RequestVerificationToken']"
+                )?.value || document.querySelector(
+                    "input[name='__RequestVerificationToken']")?.value || "");
+
+            fetch("@Url.Action("StartTimer", "NewCrmTimeLog")", {
+                method: "POST",
+                body: body,
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Content-Type":
+                        "application/x-www-form-urlencoded"
+                }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                btn.disabled = false;
+                btn.textContent = "⏱ START MEETING";
+                if (res.success) { window.location.reload(); }
+                else { showLogError(res.message); }
+            })
+            .catch(function () {
+                btn.disabled = false;
+                btn.textContent = "⏱ START MEETING";
+                showLogError("Something went wrong. Please try again.");
+            });
+        }
+
+        // ---- Stop Timer (current user) ----
+        function stopTimer() {
+            if (!confirm("Stop the current meeting?")) { return; }
+
+            var body = new URLSearchParams();
+            body.append("__RequestVerificationToken",
+                document.querySelector(
+                    "input[name='__RequestVerificationToken']")?.value || "");
+
+            fetch("@Url.Action("StopTimer", "NewCrmTimeLog")", {
+                method: "POST",
+                body: body,
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Content-Type":
+                        "application/x-www-form-urlencoded"
+                }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.success) { window.location.reload(); }
+                else {
+                    alert(res.message);
+                    // If a stale LIVE card exists, the server sends a reload.
+                    if (res.reload) { window.location.reload(); }
+                }
+            })
+            .catch(function () {
+                alert("Something went wrong. Please try again.");
+            });
+        }
+
+        // ---- Stop specific (kisi LIVE entry ka apna timer) ----
+        function stopSpecific(id) {
+            if (!confirm("Stop this meeting?")) { return; }
+
+            var body = new URLSearchParams();
+            body.append("id", id);
+            body.append("__RequestVerificationToken",
+                document.querySelector(
+                    "input[name='__RequestVerificationToken']")?.value || "");
+
+            fetch("@Url.Action("StopTimer", "NewCrmTimeLog")", {
+                method: "POST",
+                body: body,
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Content-Type":
+                        "application/x-www-form-urlencoded"
+                }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.success) { window.location.reload(); }
+                else {
+                    alert(res.message);
+                    if (res.reload) { window.location.reload(); }
+                }
+            })
+            .catch(function () {
+                alert("Something went wrong. Please try again.");
+            });
+        }
+
+        // ---- Save Manual ----
+        function saveManual() {
+            clearLogError();
+
+            var leadId = document.getElementById("tlLeadId").value;
+            var date = document.getElementById("tlDate").value;
+            var inTime = document.getElementById("tlInTime").value;
+            var outTime = document.getElementById("tlOutTime").value;
+
+            if (!leadId) { showLogError("Please select a lead."); return; }
+            if (!date) { showLogError("Please select a date."); return; }
+            if (!inTime) { showLogError("Meeting in time is required."); return; }
+
+            var body = new URLSearchParams();
+            body.append("leadId", leadId);
+            body.append("meetingType",
+                document.getElementById("tlType").value);
+            body.append("entryDate", date);
+            body.append("inTime", inTime);
+            body.append("outTime", outTime);
+            body.append("notes",
+                document.getElementById("tlManualNotes").value);
+            body.append("__RequestVerificationToken",
+                document.querySelector(
+                    "input[name='__RequestVerificationToken']")?.value || "");
+
+            fetch("@Url.Action("SaveManual", "NewCrmTimeLog")", {
+                method: "POST",
+                body: body,
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Content-Type":
+                        "application/x-www-form-urlencoded"
+                }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.success) { window.location.reload(); }
+                else { showLogError(res.message); }
+            })
+            .catch(function () {
+                showLogError("Something went wrong. Please try again.");
+            });
+        }
+
+        // ---- Tabs (Entries / Daily Report) ----
+        function tlSwitchTab(tab) {
+            var isEntries = tab === "entries";
+            document.getElementById("tabEntries").style.display =
+                isEntries ? "" : "none";
+            document.getElementById("tabReport").style.display =
+                isEntries ? "none" : "";
+        }
+
+        // ---- Filters ----
+        function tlApplyFilters() {
+            var params = [];
+            var controls = document.querySelectorAll(
+                ".crm-toolbar [data-param]");
+
+            for (var i = 0; i < controls.length; i++) {
+                var c = controls[i];
+                if (c.value) {
+                    params.push(
+                        c.getAttribute("data-param") + "=" +
+                        encodeURIComponent(c.value));
+                }
+            }
+
+            var searchEl = document.querySelector(
+                ".crm-toolbar .crm-search");
+            if (searchEl && searchEl.value) {
+                params.push("search=" +
+                    encodeURIComponent(searchEl.value));
+            }
+
+            var url = "@Url.Action("Index", "NewCrmTimeLog")";
+            window.location = params.length
+                ? url + "?" + params.join("&")
+                : url;
+        }
+
+        var tlSearchTimer = null;
+
+        function tlDebounceSearch() {
+            clearTimeout(tlSearchTimer);
+            tlSearchTimer = setTimeout(tlApplyFilters, 600);
+        }
+
+    </script>
+}

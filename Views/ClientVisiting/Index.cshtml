@@ -575,8 +575,8 @@
                         </select>
 
                         <span class="voice-hint">
-                            New Meeting: ye visit apni nayi meeting chain start karega.
-                            Add to Existing: is visit ko pehle banaye gaye meeting ke sath link karega.
+                            New Meeting: this visit starts a new meeting chain.
+                            Add to Existing: links this visit to a previously created meeting.
                         </span>
 
                         @if (!string.IsNullOrWhiteSpace(GetErr("PreviousMeetingId")))
@@ -849,7 +849,7 @@
                                       id="voiceStatus"></span>
 
                                 <span class="voice-hint">
-                                    Voice to Text: Mic se bolen, text Remarks ke end me jude ga. Mic tab tak open rahega jab tak Stop nahi click karte.
+                                    Voice to Text: speak into the mic; the text is appended to the end of Remarks. The mic stays open until you click Stop.
                                 </span>
                             }
 
@@ -915,8 +915,8 @@
 {
     <script>
 
-        // Modal ko server-side rendered values
-        // + field errors ke saath auto open karo
+        // Auto-open the modal with the server-side rendered values
+        // and field errors.
         document.addEventListener(
             "DOMContentLoaded",
             function () {
@@ -1704,7 +1704,7 @@
 
                 if (on) {
                     status.innerText =
-                        "● Listening... Stop click karne tak mic open rahega";
+                        "● Listening... the mic stays open until you click Stop";
                     status.classList.add("visible");
                 } else {
                     status.classList.remove("visible");

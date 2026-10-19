@@ -1,0 +1,933 @@
+@model Master.Models.NewCrmLeadDetailModel
+
+@{
+    ViewData["Title"] = "Lead Detail";
+
+    var lead = Model.Lead;
+    var steps = Model.Steps;
+    var timeline = Model.Timeline;
+
+    string Chip(string value) =>
+        "crm-chip crm-c-" + (string.IsNullOrWhiteSpace(value)
+            ? "default"
+            : value.ToLower().Replace(" ", ""));
+
+    var isOpen = lead.Status == "Open";
+
+    // Next step ka naam (agar ho).
+    var nextStep = isOpen
+        ? steps.FirstOrDefault(s => s.StepOrder > lead.StepOrder)
+        : null;
+
+    // Lead ka contact (fallback: client mobile).
+    var contact = string.IsNullOrWhiteSpace(lead.ContactNo)
+        ? lead.ClientMobile
+        : lead.ContactNo;
+
+    // WhatsApp / Call links (contact se).
+    var digitsOnly = new string(
+        (contact ?? "").Where(char.IsDigit).ToArray());
+
+    var waLink = digitsOnly.Length >= 10
+        ? "https://wa.me/91" + digitsOnly.Substring(digitsOnly.Length - 10)
+        : "";
+
+    var callLink = digitsOnly.Length > 0
+        ? "tel:" + digitsOnly
+        : "";
+
+    var today = DateTime.Today.ToString("yyyy-MM-dd");
+}
+
+<div class="crm-page-head">
+
+    <div>
+        <h1>@lead.LeadNo</h1>
+        <p>@lead.ClientName &middot; @lead.Source</p>
+    </div>
+
+    <div class="crm-head-actions">
+
+        @if (!string.IsNullOrEmpty(waLink))
+        {
+            <a class="crm-btn crm-btn-wa"
+               href="@waLink" target="_blank">
+                📱 WhatsApp
+            </a>
+        }
+
+        @if (!string.IsNullOrEmpty(callLink))
+        {
+            <a class="crm-btn crm-btn-call"
+               href="@callLink">
+                📞 Call
+            </a>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(lead.Email))
+        {
+            <a class="crm-btn crm-btn-email"
+               href="mailto:@lead.Email">
+                ✉ Email
+            </a>
+        }
+
+        <a class="crm-btn crm-btn-ghost"
+           href="@Url.Action("Index", "NewCrmLead")">
+            &larr; Back
+        </a>
+
+        <a class="crm-btn crm-btn-ghost"
+           style="border-color:#818cf8; color:#4f46e5;"
+           href="@Url.Action("Index", "NewCrmTimeLog", new { leadId = lead.Id })">
+            ⏱ Log Time
+        </a>
+
+    </div>
+
+</div>
+
+
+@if (TempData["Success"] != null)
+{
+    <div class="success-message">@TempData["Success"]</div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="error-message">@Html.Raw(TempData["Error"])</div>
+}
+
+
+@* ===== Overdue Banner ===== *@
+
+@if (lead.IsOverdue)
+{
+    <div class="crm-alert crm-alert-error">
+        <span>&#9888;</span>
+        <span>
+            Follow-up overdue since
+            @lead.NextFollowupDate.Value.ToString("dd-MM-yyyy")
+            &mdash; follow up soon.
+        </span>
+    </div>
+}
+
+
+@* ===== Closed Lead Status Banner (WON / LOST) ===== *@
+
+@if (!isOpen)
+{
+    var isWon = lead.Status == "Won";
+
+    <div class="crm-closed-banner @(isWon ? "won" : "lost")">
+
+        <div class="banner-icon">
+            @(isWon ? "🏆" : "❌")
+        </div>
+
+        <div>
+
+            <h3>
+                @(isWon
+                    ? "This lead is marked WON! 🎉"
+                    : "This lead is marked Lost.")
+            </h3>
+
+            <p>
+
+                @if (isWon)
+                {
+                    <text>
+                        Step: @lead.StepName &middot;
+                        Value: &#8377; @lead.ExpectedValue.ToString("N2")
+                    </text>
+                }
+                else
+                {
+                    <text>
+                        Reason: @(string.IsNullOrWhiteSpace(lead.LostReason)
+                            ? "(no reason recorded)"
+                            : lead.LostReason)
+                    </text>
+                }
+
+            </p>
+
+        </div>
+
+    </div>
+}
+
+
+@* ===== Profile Card ===== *@
+
+<div class="crm-card">
+
+    <div class="crm-profile">
+
+        <div class="crm-avatar">
+            @(string.IsNullOrWhiteSpace(lead.ClientName)
+                ? "?" : lead.ClientName.Substring(0, 1).ToUpper())
+        </div>
+
+        <div class="crm-profile-main">
+            <h2>@lead.ClientName</h2>
+            <p>@lead.Requirement</p>
+        </div>
+
+        <div style="margin-left:auto; text-align:right;">
+            <span class="@Chip(lead.Status)">@lead.Status</span>
+            <div style="margin-top:6px;">
+                <span class="@Chip(lead.Priority)">@lead.Priority</span>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="crm-detail-grid">
+
+        <div class="crm-detail-item">
+            <span class="crm-detail-label">Lead No</span>
+            <span class="crm-detail-value">@lead.LeadNo</span>
+        </div>
+
+        <div class="crm-detail-item">
+            <span class="crm-detail-label">Contact</span>
+            <span class="crm-detail-value">@(contact == "" ? "-" : contact)</span>
+        </div>
+
+        <div class="crm-detail-item">
+            <span class="crm-detail-label">Email</span>
+            <span class="crm-detail-value">
+                @(string.IsNullOrWhiteSpace(lead.Email) ? "-" : lead.Email)
+            </span>
+        </div>
+
+        <div class="crm-detail-item">
+            <span class="crm-detail-label">City</span>
+            <span class="crm-detail-value">
+                @(string.IsNullOrWhiteSpace(lead.City) ? "-" : lead.City)
+            </span>
+        </div>
+
+        <div class="crm-detail-item">
+            <span class="crm-detail-label">State</span>
+            <span class="crm-detail-value">
+                @(string.IsNullOrWhiteSpace(lead.StateName) ? "-" : lead.StateName)
+            </span>
+        </div>
+
+        <div class="crm-detail-item">
+            <span class="crm-detail-label">Expected Value</span>
+            <span class="crm-detail-value">
+                &#8377; @lead.ExpectedValue.ToString("N2")
+            </span>
+        </div>
+
+        <div class="crm-detail-item">
+            <span class="crm-detail-label">Lead By</span>
+            <span class="crm-detail-value">
+                @(string.IsNullOrWhiteSpace(lead.LeadBy)
+                    ? lead.AssignedTo : lead.LeadBy)
+            </span>
+        </div>
+
+        <div class="crm-detail-item">
+            <span class="crm-detail-label">Assigned To</span>
+            <span class="crm-detail-value">
+                @lead.AssignedTo
+                &nbsp;
+                <button type="button"
+                        class="crm-icon-btn"
+                        title="Reassign lead"
+                        onclick="openReassign()"
+                        style="font-size:14px;">
+                    &#9998;
+                </button>
+            </span>
+        </div>
+
+        <div class="crm-detail-item">
+            <span class="crm-detail-label">Next Follow-up</span>
+            <span class="crm-detail-value">
+                @if (lead.NextFollowupDate.HasValue)
+                {
+                    if (lead.IsOverdue)
+                    {
+                        <strong style="color:#dc2626;">
+                            @lead.NextFollowupDate.Value.ToString("dd-MM-yyyy") (Overdue ⚠)
+                        </strong>
+                    }
+                    else
+                    {
+                        @lead.NextFollowupDate.Value.ToString("dd-MM-yyyy")
+                    }
+                }
+                else
+                {
+                    <text>-</text>
+                }
+            </span>
+        </div>
+
+        <div class="crm-detail-item">
+            <span class="crm-detail-label">Next Remarks</span>
+            <span class="crm-detail-value">
+                @(string.IsNullOrWhiteSpace(lead.NextRemarks)
+                    ? "-" : lead.NextRemarks)
+            </span>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(lead.LostReason))
+        {
+            <div class="crm-detail-item">
+                <span class="crm-detail-label">Lost Reason</span>
+                <span class="crm-detail-value" style="color:#dc2626;">
+                    @lead.LostReason
+                </span>
+            </div>
+        }
+
+        <div class="crm-detail-item">
+            <span class="crm-detail-label">Created</span>
+            <span class="crm-detail-value">
+                @lead.CreatedAt.ToString("dd-MM-yyyy HH:mm")
+            </span>
+        </div>
+
+    </div>
+
+</div>
+
+
+@* ===== Pipeline Steps ===== *@
+
+<div class="crm-card">
+
+    <div class="crm-card-head">
+        <h2>Pipeline</h2>
+    </div>
+
+    <div class="crm-steps">
+
+        @foreach (var step in steps)
+        {
+            var done = step.StepOrder < lead.StepOrder
+                        || (step.StepOrder == lead.StepOrder && !isOpen);
+            var current = step.StepOrder == lead.StepOrder && isOpen;
+
+            <div class="crm-step @(done ? "done" : current ? "current" : "")">
+                @(done ? "✓ " : current ? "➜ " : "")@step.StepName
+            </div>
+
+            @if (step.StepOrder < steps.Max(s => s.StepOrder))
+            {
+                <span class="crm-step-arrow">&rarr;</span>
+            }
+        }
+
+    </div>
+
+</div>
+
+
+@* ===== Actions (modal popups) - OPTION A: color cards ===== *@
+
+<div class="crm-card">
+
+    <div class="crm-card-head">
+        <h2>Actions</h2>
+    </div>
+
+    @if (isOpen)
+    {
+        <div class="crm-actions-grid">
+
+            @* -- Advance Step (featured / primary) -- *@
+            <div class="crm-action-card accent-blue featured">
+
+                <div class="crm-action-icon">⏭️</div>
+
+                <h3>Advance Step</h3>
+
+                <p>
+                    @(nextStep != null
+                        ? "Move stage forward: " + nextStep.StepName
+                        : "This is the last step — just mark it WON.")
+                </p>
+
+                @if (nextStep != null)
+                {
+                    <button type="button"
+                            class="crm-btn crm-btn-primary"
+                            onclick="openAction('adv')">
+                        Advance to @nextStep.StepName &rarr;
+                    </button>
+                }
+
+            </div>
+
+            @* -- Mark WON -- *@
+            <div class="crm-action-card accent-green">
+
+                <div class="crm-action-icon">🏆</div>
+
+                <h3>Mark WON</h3>
+
+                <p>Got the PO? Mark the lead as WON.</p>
+
+                <button type="button"
+                        class="crm-btn crm-btn-primary"
+                        style="background:#059669; border-color:#059669;"
+                        onclick="openAction('won')">
+                    Mark WON
+                </button>
+
+            </div>
+
+            @* -- Mark Lost -- *@
+            <div class="crm-action-card accent-red">
+
+                <div class="crm-action-icon">❌</div>
+
+                <h3>Mark Lost</h3>
+
+                <p>Didn't convert? Close it with a reason.</p>
+
+                <button type="button"
+                        class="crm-btn crm-btn-ghost"
+                        style="color:#dc2626; border-color:#fca5a5;"
+                        onclick="openAction('lost')">
+                    Mark Lost
+                </button>
+
+            </div>
+
+            @* -- Schedule Follow-up -- *@
+            <div class="crm-action-card accent-amber">
+
+                <div class="crm-action-icon">📞</div>
+
+                <h3>Schedule Follow-up</h3>
+
+                <p>Set the next follow-up date and a reminder.</p>
+
+                <button type="button"
+                        class="crm-btn crm-btn-ghost"
+                        onclick="openAction('fu')">
+                    Schedule Follow-up
+                </button>
+
+            </div>
+
+        </div>
+    }
+    else
+    {
+        <p class="crm-empty" style="padding:14px;">
+            Actions are disabled — this lead is marked @lead.Status.
+        </p>
+    }
+
+</div>
+
+
+@* ===== Action Modals ===== *@
+
+@* -- Modal: Advance Step (date compulsory) -- *@
+<div id="act-adv" class="crm-modal crm-lead-action-modal">
+
+    <div class="crm-modal-box" style="max-width:520px;">
+
+        <div class="crm-modal-head">
+            <h2>Advance Step</h2>
+            <button type="button" class="crm-modal-x"
+                    onclick="closeActions()">&times;</button>
+        </div>
+
+        <form asp-controller="NewCrmLead"
+              asp-action="AdvanceStep"
+              method="post"
+              onsubmit="return submitAction(this,
+                  '@Url.Action("AdvanceStep", "NewCrmLead")');">
+
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@lead.Id" />
+
+            <div class="crm-modal-body">
+
+                <div class="crm-form-error"></div>
+
+                <p class="crm-modal-sub" style="margin-bottom:14px;">
+                    <strong>@lead.StepName</strong>
+                    &rarr;
+                    <strong>@(nextStep?.StepName ?? "-")</strong>
+                </p>
+
+                <div class="crm-field-grid">
+
+                    <div class="crm-field">
+                        <label>
+                            Next Follow-up Date <span class="req">*</span>
+                        </label>
+                        <input type="date" name="nextDate"
+                               min="@today" required />
+                    </div>
+
+                    <div class="crm-field full">
+                        <label>
+                            What happened? <span class="req">*</span>
+                        </label>
+                        <textarea name="remarks" rows="2" required
+                                  placeholder="e.g. Demo successful..."></textarea>
+                    </div>
+
+                    <div class="crm-field full">
+                        <label>Next action (optional)</label>
+                        <textarea name="nextRemarks" rows="2"
+                                  placeholder="What is the next action?"></textarea>
+                    </div>
+
+                    <div class="crm-field full">
+                        <label>⏱ Time spent (min)</label>
+                        <input type="number" name="minutes"
+                               min="1" value="15" />
+                        <small style="color:#64748b; font-size:12px;">
+                            A Time Log entry will be created automatically
+                        </small>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="crm-modal-foot">
+                <button type="button" class="crm-btn crm-btn-ghost"
+                        onclick="closeActions()">
+                    Cancel
+                </button>
+                <button type="submit" class="crm-btn crm-btn-primary">
+                    Advance Step
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+@* -- Modal: Mark WON -- *@
+<div id="act-won" class="crm-modal crm-lead-action-modal">
+
+    <div class="crm-modal-box" style="max-width:460px;">
+
+        <div class="crm-modal-head">
+            <h2>Mark as WON</h2>
+            <button type="button" class="crm-modal-x"
+                    onclick="closeActions()">&times;</button>
+        </div>
+
+        <form asp-controller="NewCrmLead"
+              asp-action="MarkWon"
+              method="post"
+              onsubmit="return submitAction(this,
+                  '@Url.Action("MarkWon", "NewCrmLead")');">
+
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@lead.Id" />
+
+            <div class="crm-modal-body">
+
+                <div class="crm-form-error"></div>
+
+                <p class="crm-modal-sub" style="margin-bottom:14px;">
+                    This lead will be marked WON and moved to the
+                    last pipeline step.
+                </p>
+
+                <div class="crm-field">
+                    <label>Remarks (optional)</label>
+                    <textarea name="remarks" rows="2"
+                              placeholder="Default: PO Received"></textarea>
+                </div>
+
+                <div class="crm-field" style="margin-top:10px;">
+                    <label>⏱ Time spent (min)</label>
+                    <input type="number" name="minutes"
+                           min="1" value="15" />
+                </div>
+
+            </div>
+
+            <div class="crm-modal-foot">
+                <button type="button" class="crm-btn crm-btn-ghost"
+                        onclick="closeActions()">
+                    Cancel
+                </button>
+                <button type="submit" class="crm-btn crm-btn-primary"
+                        style="background:#059669; border-color:#059669;">
+                    Mark WON
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+@* -- Modal: Mark Lost -- *@
+<div id="act-lost" class="crm-modal crm-lead-action-modal">
+
+    <div class="crm-modal-box" style="max-width:460px;">
+
+        <div class="crm-modal-head">
+            <h2>Mark as Lost</h2>
+            <button type="button" class="crm-modal-x"
+                    onclick="closeActions()">&times;</button>
+        </div>
+
+        <form asp-controller="NewCrmLead"
+              asp-action="MarkLost"
+              method="post"
+              onsubmit="return submitAction(this,
+                  '@Url.Action("MarkLost", "NewCrmLead")');">
+
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@lead.Id" />
+
+            <div class="crm-modal-body">
+
+                <div class="crm-form-error"></div>
+
+                <div class="crm-field">
+                    <label>
+                        Lost Reason <span class="req">*</span>
+                    </label>
+                    <textarea name="lostReason" rows="2" required
+                              placeholder="Why didn't it convert?"></textarea>
+                </div>
+
+                <div class="crm-field" style="margin-top:10px;">
+                    <label>⏱ Time spent (min)</label>
+                    <input type="number" name="minutes"
+                           min="1" value="15" />
+                </div>
+
+            </div>
+
+            <div class="crm-modal-foot">
+                <button type="button" class="crm-btn crm-btn-ghost"
+                        onclick="closeActions()">
+                    Cancel
+                </button>
+                <button type="submit" class="crm-btn crm-btn-ghost"
+                        style="color:#dc2626; border-color:#fca5a5;">
+                    Mark Lost
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+@* -- Modal: Schedule Follow-up -- *@
+<div id="act-fu" class="crm-modal crm-lead-action-modal">
+
+    <div class="crm-modal-box" style="max-width:460px;">
+
+        <div class="crm-modal-head">
+            <h2>Schedule Follow-up</h2>
+            <button type="button" class="crm-modal-x"
+                    onclick="closeActions()">&times;</button>
+        </div>
+
+        <form asp-controller="NewCrmLead"
+              asp-action="AddFollowUp"
+              method="post"
+              onsubmit="return submitAction(this,
+                  '@Url.Action("AddFollowUp", "NewCrmLead")');">
+
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@lead.Id" />
+
+            <div class="crm-modal-body">
+
+                <div class="crm-form-error"></div>
+
+                <div class="crm-field-grid">
+
+                    <div class="crm-field">
+                        <label>
+                            Next Follow-up Date <span class="req">*</span>
+                        </label>
+                        <input type="date" name="nextDate"
+                               min="@today" required />
+                    </div>
+
+                    <div class="crm-field full">
+                        <label>
+                            Remarks <span class="req">*</span>
+                        </label>
+                        <textarea name="remarks" rows="2" required
+                                  placeholder="What is the next action?"></textarea>
+                    </div>
+
+                    <div class="crm-field full">
+                        <label>⏱ Time spent (min)</label>
+                        <input type="number" name="minutes"
+                               min="1" value="15" />
+                        <small style="color:#64748b; font-size:12px;">
+                            A Time Log entry will be created automatically
+                        </small>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="crm-modal-foot">
+                <button type="button" class="crm-btn crm-btn-ghost"
+                        onclick="closeActions()">
+                    Cancel
+                </button>
+                <button type="submit" class="crm-btn crm-btn-primary">
+                    Save Follow-up
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+@* ===== MODAL: REASSIGN ===== *@
+
+<div id="reassignModal" class="crm-modal">
+
+    <div class="crm-modal-box" style="max-width:420px;">
+
+        <div class="crm-modal-head">
+            <h2>👤 Reassign Lead</h2>
+            <button type="button" class="crm-modal-x"
+                    onclick="closeReassign()">&times;</button>
+        </div>
+
+        <form asp-controller="NewCrmLead"
+              asp-action="Reassign"
+              method="post"
+              onsubmit="return submitAction(this,
+                  '@Url.Action("Reassign", "NewCrmLead")');">
+
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@lead.Id" />
+
+            <div class="crm-modal-body">
+
+                <div class="crm-form-error"></div>
+
+                <div class="crm-field full">
+                    <label>
+                        Assign To <span class="req">*</span>
+                    </label>
+                    <select name="assignedUserId" required>
+
+                        @foreach (var (uid, uname) in Model.Users)
+                        {
+                            <option value="@uid"
+                                    selected="@(uname == lead.AssignedTo)">
+                                @uname
+                            </option>
+                        }
+
+                    </select>
+                </div>
+
+            </div>
+
+            <div class="crm-modal-foot">
+                <button type="button" class="crm-btn crm-btn-ghost"
+                        onclick="closeReassign()">
+                    Cancel
+                </button>
+                <button type="submit" class="crm-btn crm-btn-primary">
+                    Reassign
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+@* ===== Timeline (follow-ups + history) ===== *@
+
+<div class="crm-card">
+
+    <div class="crm-card-head">
+        <h2>Activity Timeline</h2>
+        <span style="color:#64748b; font-size:13px;">
+            @timeline.Count events
+        </span>
+    </div>
+
+    @if (timeline.Count == 0)
+    {
+        <p class="crm-empty">No activity yet.</p>
+    }
+    else
+    {
+        <div class="crm-timeline">
+
+            @foreach (var item in timeline)
+            {
+                var isFollowUp = item.Kind == "FollowUp";
+
+                <div class="crm-tl-item">
+
+                    <div class="crm-tl-dot"
+                         style="@(isFollowUp ? "" : "background:#6366f1;")"></div>
+
+                    <div class="crm-tl-body">
+
+                        <div class="crm-tl-head">
+                            <span class="crm-tl-title">
+                                @if (isFollowUp)
+                                {
+                                    <span class="crm-chip crm-c-new">Follow-up</span>
+                                }
+                                else
+                                {
+                                    <span class="crm-chip crm-c-negotiation">Step</span>
+                                }
+                                &nbsp;@item.Title
+                            </span>
+
+                            <span class="crm-tl-date">
+                                @item.EventDate.ToString("dd-MM-yyyy HH:mm")
+                                @if (!string.IsNullOrWhiteSpace(item.By))
+                                {
+                                    <text> &middot; @item.By</text>
+                                }
+                            </span>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(item.Remarks))
+                        {
+                            <div class="crm-tl-text">@item.Remarks</div>
+                        }
+
+                    </div>
+
+                </div>
+            }
+
+        </div>
+    }
+
+</div>
+
+
+@section Scripts {
+    <script>
+        // ---- Action modals (no raw form opens inline) ----
+
+        function openAction(name) {
+            closeActions();
+            var m = document.getElementById('act-' + name);
+            if (m) {
+                m.style.display = 'flex';
+                document.body.classList.add('crm-modal-open');
+            }
+        }
+
+        function closeActions() {
+            var ms = document.querySelectorAll('.crm-lead-action-modal');
+            for (var i = 0; i < ms.length; i++) {
+                ms[i].style.display = 'none';
+            }
+            document.body.classList.remove('crm-modal-open');
+        }
+
+        // AJAX submit + inline error (no alert/confirm).
+        function submitAction(form, url) {
+            var errBox = form.querySelector('.crm-form-error');
+            errBox.classList.remove('show');
+            errBox.textContent = '';
+
+            // Inline required validation.
+            var reqs = form.querySelectorAll('[required]');
+            var first = null;
+
+            for (var i = 0; i < reqs.length; i++) {
+                var el = reqs[i];
+                el.classList.remove('crm-has-error');
+                if (!el.value.trim()) {
+                    el.classList.add('crm-has-error');
+                    if (!first) { first = el; }
+                }
+            }
+
+            if (first) {
+                first.focus();
+                return false;
+            }
+
+            var btn = form.querySelector('[type="submit"]');
+            var oldText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+
+            fetch(url, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                btn.disabled = false;
+                btn.textContent = oldText;
+                if (res.success) { window.location.reload(); }
+                else {
+                    errBox.textContent = res.message;
+                    errBox.classList.add('show');
+                    form.querySelector('.crm-modal-body').scrollTop = 0;
+                }
+            })
+            .catch(function () {
+                btn.disabled = false;
+                btn.textContent = oldText;
+                errBox.textContent = 'Something went wrong. Please try again.';
+                errBox.classList.add('show');
+            });
+
+            return false;
+        }
+
+        // Close the modal on ESC.
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') { closeActions(); }
+        });
+
+        // ---- Reassign modal ----
+        function openReassign() {
+            var m = document.getElementById('reassignModal');
+            m.style.display = 'flex';
+            document.body.classList.add('crm-modal-open');
+        }
+
+        function closeReassign() {
+            document.getElementById('reassignModal')
+                .style.display = 'none';
+            document.body.classList.remove('crm-modal-open');
+        }
+    </script>
+}

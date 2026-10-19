@@ -1,0 +1,596 @@
+@model NewCrmReportModel
+
+@{
+    ViewData["Title"] = "Reports";
+
+    string Chip(string value) =>
+        "crm-chip crm-c-" + (string.IsNullOrWhiteSpace(value)
+            ? "default"
+            : value.ToLower().Replace(" ", ""));
+
+    string Value(decimal v) => v.ToString("N2");
+
+    var config = new Dictionary<string, object?>
+    {
+        ["tableId"] = "dataTable",
+        ["searchId"] = "gridSearch",
+        ["recordsId"] = "gridRecords",
+        ["infoId"] = "gridInfo",
+        ["paginationId"] = "gridPagination",
+        ["noRecordsId"] = "gridNoRecords",
+        ["totalRecords"] = Model.DetailLeads.Count,
+        ["recordsPerPage"] = 10,
+        ["entityLabel"] = "Lead",
+        ["exportName"] = "NEW_CRM_Report_Leads"
+    };
+}
+
+<div class="crm-page-head">
+    <div>
+        <h1>REPORTS</h1>
+        <p>Pipeline, leads and follow-up due report</p>
+    </div>
+    <div class="crm-head-actions">
+        <a class="crm-btn crm-btn-ghost"
+           href="@Url.Action("Index", "NewCrmDashboard")">Dashboard</a>
+        <a class="crm-btn crm-btn-ghost"
+           href="@Url.Action("Index", "NewCrmLead")">Sales Leads</a>
+    </div>
+</div>
+
+@* ===== FILTER BAR ===== *@
+
+<form method="get" class="crm-card rep-filter-card">
+
+    <div class="rep-filter-head">
+        <span class="rep-filter-icon">🔍</span>
+        <strong>Filters</strong>
+        <span class="rep-filter-hint">
+            Dates apply to the lead's created date
+        </span>
+    </div>
+
+    <div class="rep-filter-grid">
+
+        <div class="crm-field">
+            <label>From Date</label>
+            <input type="date" name="fromDate" class="crm-input"
+                   value="@Model.FromDate?.ToString("yyyy-MM-dd")" />
+        </div>
+
+        <div class="crm-field">
+            <label>To Date</label>
+            <input type="date" name="toDate" class="crm-input"
+                   value="@Model.ToDate?.ToString("yyyy-MM-dd")" />
+        </div>
+
+        <div class="crm-field">
+            <label>Status</label>
+            <select name="status" class="crm-select">
+                @foreach (var s in Model.Statuses)
+                {
+                    <option value="@s" selected="@(s == (Model.Status ?? "All"))">@s</option>
+                }
+            </select>
+        </div>
+
+        <div class="crm-field">
+            <label>Lead By</label>
+            <select name="leadBy" class="crm-select">
+                <option value="">All Lead By</option>
+                @foreach (var u in Model.LeadByList)
+                {
+                    <option value="@u" selected="@(u == Model.LeadBy)">@u</option>
+                }
+            </select>
+        </div>
+
+        <div class="crm-field">
+            <label>Source</label>
+            <select name="source" class="crm-select">
+                <option value="">All Source</option>
+                @foreach (var src in Model.Sources)
+                {
+                    <option value="@src" selected="@(src == Model.Source)">@src</option>
+                }
+            </select>
+        </div>
+
+        <div class="crm-field">
+            <label>Priority</label>
+            <select name="priority" class="crm-select">
+                @foreach (var p in Model.Priorities)
+                {
+                    <option value="@p" selected="@(p == (Model.Priority ?? "All"))">@p</option>
+                }
+            </select>
+        </div>
+
+    </div>
+
+    <div class="rep-filter-actions">
+        <button type="submit" class="crm-btn crm-btn-primary">
+            Apply Filters
+        </button>
+        <a href="@Url.Action("Index", "NewCrmReport")"
+           class="crm-btn crm-btn-ghost">Reset</a>
+    </div>
+
+</form>
+
+@* ===== KPIs ===== *@
+
+<div class="crm-kpi-grid">
+
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel { Label = "Total Leads", Value = Model.Kpi.Total.ToString(), Icon = "users", Accent = "#2563eb", Soft = "#eff6ff" })
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel { Label = "Open", Value = Model.Kpi.Open.ToString(), Icon = "spark", Accent = "#0ea5e9", Soft = "#e0f2fe" })
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel { Label = "Won", Value = Model.Kpi.Won.ToString(), Icon = "trophy", Accent = "#10b981", Soft = "#d1fae5" })
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel { Label = "Lost", Value = Model.Kpi.Lost.ToString(), Icon = "x", Accent = "#ef4444", Soft = "#fee2e2" })
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel { Label = "Win Rate", Value = Model.Kpi.WinRate.ToString("0.00") + "%", Icon = "check", Accent = "#7c3aed", Soft = "#ede9fe" })
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel { Label = "Won Value", Value = Value(Model.Kpi.WonValue), Icon = "check", Accent = "#059669", Soft = "#d1fae5" })
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel { Label = "Open Value", Value = Value(Model.Kpi.OpenValue), Icon = "spark", Accent = "#2563eb", Soft = "#eff6ff" })
+    @await Html.PartialAsync("_CrmKpi", new CrmKpiViewModel { Label = "Overdue", Value = Model.Kpi.Overdue.ToString(), Icon = "phone", Accent = "#dc2626", Soft = "#fee2e2" })
+
+</div>
+
+@* ===== FILTERED LEADS ===== *@
+
+<div class="crm-card rep-card">
+
+    <div class="crm-card-head">
+        <h2>
+            📋 Filtered Leads
+            <span class="rep-count">@Model.DetailLeads.Count</span>
+        </h2>
+    </div>
+
+    @if (Model.DetailLeads.Count == 0)
+    {
+        <div class="rep-empty">
+            <div class="rep-empty-icon">🕵️</div>
+            <strong>No leads found</strong>
+            <p>Try different filters.</p>
+        </div>
+    }
+    else
+    {
+
+        <div class="crm-toolbar">
+
+            <div class="crm-toolbar-group">
+                <input type="text" id="gridSearch" class="crm-input crm-search"
+                       placeholder="Search lead no, client, mobile..." oninput="crmFilter()" />
+            </div>
+
+            <div class="crm-toolbar-group">
+                <select id="gridRecords" class="crm-select" onchange="crmChangeRecordsPerPage()">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+                <button type="button" class="crm-btn crm-btn-ghost" onclick="crmExportExcel()">📥 Excel</button>
+                <button type="button" class="crm-btn crm-btn-ghost" onclick="crmExportCSV()">📥 CSV</button>
+                <button type="button" class="crm-btn crm-btn-ghost" onclick="crmPrint()">🖨 Print</button>
+            </div>
+
+        </div>
+
+        <div class="crm-table-wrap">
+            <table id="dataTable" class="crm-table rep-table">
+                <thead>
+                    <tr>
+                        <th>Lead No</th>
+                        <th>Client</th>
+                        <th>Contact</th>
+                        <th>Source</th>
+                        <th>Priority</th>
+                        <th>Stage</th>
+                        <th>Status</th>
+                        <th>Next Follow-up</th>
+                        <th>Lead By</th>
+                        <th>Created</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var lead in Model.DetailLeads)
+                    {
+                        var c = string.IsNullOrWhiteSpace(lead.ContactNo) ? lead.ClientMobile : lead.ContactNo;
+                        var st = string.Join(" ", lead.LeadNo, lead.ClientName, c, lead.Source, lead.Priority, lead.StepName, lead.Status, lead.LeadBy);
+                        <tr data-search="@st">
+                            <td>
+                                <a class="link rep-lead-link"
+                                   href="@Url.Action("Detail", "NewCrmLead", new { id = lead.Id })">@lead.LeadNo</a>
+                            </td>
+                            <td><strong>@lead.ClientName</strong></td>
+                            <td class="rep-mono">@(c == "" ? "-" : c)</td>
+                            <td>@lead.Source</td>
+                            <td><span class="@Chip(lead.Priority)">@lead.Priority</span></td>
+                            <td>@lead.StepName</td>
+                            <td><span class="@Chip(lead.Status)">@lead.Status</span></td>
+                            <td class="rep-mono">@(lead.NextFollowupDate?.ToString("dd-MM-yyyy") ?? "-")</td>
+                            <td>@lead.LeadBy</td>
+                            <td class="rep-mono">@lead.CreatedAt.ToString("dd-MM-yyyy")</td>
+                            <td class="rep-mono">
+                                @if (lead.TimeEntries > 0)
+                                {
+                                    <strong>@lead.TimeDisplay</strong>
+                                }
+                                else
+                                {
+                                    <span style="color:#cbd5e1;">-</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    <tr id="gridNoRecords" class="no-data-row" style="display:none">
+                        <td colspan="11" class="crm-empty">No leads found.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="crm-table-foot">
+            <div id="gridInfo">Showing 0 to 0 of 0 entries</div>
+            <div class="crm-pagination" id="gridPagination"></div>
+        </div>
+
+        <div class="crm-config" hidden>@Html.Raw(System.Text.Json.JsonSerializer.Serialize(config))</div>
+
+    }
+
+</div>
+
+@* ===== FOLLOW-UP DUE REPORT ===== *@
+
+@if (Model.OverdueLeads.Any() || Model.DueTodayLeads.Any())
+{
+
+    <div class="crm-card rep-card">
+
+        <div class="crm-card-head">
+            <h2>⏰ Follow-up Due Report</h2>
+        </div>
+
+        <div class="rep-duo">
+
+            @* ---- Overdue (red) ---- *@
+
+            <div class="rep-panel rep-panel-red">
+
+                <div class="rep-panel-head">
+                    <span>🔴 Overdue</span>
+                    <span class="rep-pill rep-pill-red">@Model.OverdueLeads.Count</span>
+                </div>
+
+                @if (Model.OverdueLeads.Count == 0)
+                {
+                    <div class="rep-empty rep-empty-sm">
+                        <div class="rep-empty-icon">🎉</div>
+                        <strong>No overdue follow-ups!</strong>
+                    </div>
+                }
+                else
+                {
+                    <div class="crm-table-wrap rep-panel-body">
+                        <table class="crm-table rep-table">
+                            <thead>
+                                <tr>
+                                    <th>Lead</th>
+                                    <th>Client</th>
+                                    <th>Due</th>
+                                    <th>Late</th>
+                                    <th>Next Remarks</th>
+                                    <th>Lead By</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var lead in Model.OverdueLeads)
+                                {
+                                    var days = (DateTime.Today - (lead.NextFollowupDate ?? DateTime.Today)).Days;
+                                    <tr>
+                                        <td>
+                                            <a class="link rep-lead-link"
+                                               href="@Url.Action("Detail", "NewCrmLead", new { id = lead.Id })">@lead.LeadNo</a>
+                                        </td>
+                                        <td><strong>@lead.ClientName</strong></td>
+                                        <td class="rep-mono">
+                                            <strong style="color:#dc2626;">
+                                                @lead.NextFollowupDate?.ToString("dd-MM-yyyy")
+                                            </strong>
+                                        </td>
+                                        <td>
+                                            <span class="rep-pill rep-pill-red">
+                                                @days day@(days == 1 ? "" : "s") late
+                                            </span>
+                                        </td>
+                                        <td>@lead.NextRemarks</td>
+                                        <td>@lead.LeadBy</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+            </div>
+
+            @* ---- Due Today (amber) ---- *@
+
+            <div class="rep-panel rep-panel-amber">
+
+                <div class="rep-panel-head">
+                    <span>🟡 Due Today</span>
+                    <span class="rep-pill rep-pill-amber">@Model.DueTodayLeads.Count</span>
+                </div>
+
+                @if (Model.DueTodayLeads.Count == 0)
+                {
+                    <div class="rep-empty rep-empty-sm">
+                        <div class="rep-empty-icon">☕</div>
+                        <strong>No follow-ups due today.</strong>
+                    </div>
+                }
+                else
+                {
+                    <div class="crm-table-wrap rep-panel-body">
+                        <table class="crm-table rep-table">
+                            <thead>
+                                <tr>
+                                    <th>Lead</th>
+                                    <th>Client</th>
+                                    <th>Due</th>
+                                    <th>Next Remarks</th>
+                                    <th>Lead By</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var lead in Model.DueTodayLeads)
+                                {
+                                    <tr>
+                                        <td>
+                                            <a class="link rep-lead-link"
+                                               href="@Url.Action("Detail", "NewCrmLead", new { id = lead.Id })">@lead.LeadNo</a>
+                                        </td>
+                                        <td><strong>@lead.ClientName</strong></td>
+                                        <td>
+                                            <span class="rep-pill rep-pill-amber">Today</span>
+                                        </td>
+                                        <td>@lead.NextRemarks</td>
+                                        <td>@lead.LeadBy</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+            </div>
+
+        </div>
+
+    </div>
+
+}
+
+@section Scripts {
+    @if (Model.DetailLeads.Any())
+    {
+        <script src="~/js/crm.js" asp-append-version="true"></script>
+    }
+}
+
+<style>
+    /* ==========================================
+       REPORTS PAGE (scoped to this page only)
+       ========================================== */
+
+    /* ---- Filter card ---- */
+
+    .rep-filter-card .rep-filter-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 14px;
+        font-size: 13.5px;
+        color: var(--crm-ink, #0f172a);
+    }
+
+    .rep-filter-card .rep-filter-icon {
+        font-size: 15px;
+    }
+
+    .rep-filter-card .rep-filter-hint {
+        margin-left: auto;
+        font-size: 11.5px;
+        color: #94a3b8;
+    }
+
+    .rep-filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .rep-filter-grid .crm-field label {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    .rep-filter-grid .crm-input,
+    .rep-filter-grid .crm-select {
+        width: 100%;
+    }
+
+    .rep-filter-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+
+    /* ---- Count badge in card head ---- */
+
+    .rep-count {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 2px 10px;
+        border-radius: 999px;
+        background: #eff6ff;
+        color: #2563eb;
+        font-size: 12px;
+        font-weight: 700;
+        vertical-align: middle;
+    }
+
+    /* ---- Zebra + soft hover (reports tables only) ---- */
+
+    .rep-table tbody tr:nth-child(even) {
+        background: #fafcff;
+    }
+
+    .rep-table tbody tr:hover {
+        background: #f0f7ff;
+    }
+
+    .rep-lead-link {
+        font-weight: 700;
+    }
+
+    /* Numbers / dates: keep the alignment clean */
+    .rep-mono {
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* ---- Empty states ---- */
+
+    .rep-empty {
+        text-align: center;
+        padding: 36px 14px;
+        color: #94a3b8;
+    }
+
+    .rep-empty strong {
+        display: block;
+        color: #64748b;
+        font-size: 14px;
+        margin-bottom: 4px;
+    }
+
+    .rep-empty p {
+        margin: 0;
+        font-size: 12.5px;
+    }
+
+    .rep-empty-icon {
+        font-size: 30px;
+        margin-bottom: 8px;
+    }
+
+    .rep-empty-sm {
+        padding: 26px 14px;
+    }
+
+    .rep-empty-sm .rep-empty-icon {
+        font-size: 24px;
+    }
+
+    /* ---- Follow-up due panels ---- */
+
+    .rep-duo {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    @@media (max-width: 1100px) {
+        .rep-duo {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .rep-panel {
+        border: 1px solid var(--crm-line, #e2e8f0);
+        border-radius: 14px;
+        overflow: hidden;
+        background: #fff;
+    }
+
+    .rep-panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px 14px;
+        font-size: 13.5px;
+        font-weight: 700;
+    }
+
+    .rep-panel-red {
+        border-color: #fecaca;
+    }
+
+    .rep-panel-red .rep-panel-head {
+        background: #fef2f2;
+        color: #b91c1c;
+        border-bottom: 1px solid #fecaca;
+    }
+
+    .rep-panel-amber {
+        border-color: #fde68a;
+    }
+
+    .rep-panel-amber .rep-panel-head {
+        background: #fffbeb;
+        color: #b45309;
+        border-bottom: 1px solid #fde68a;
+    }
+
+    /* Table wrap inside a panel is border-less */
+    .rep-panel-body {
+        border: none;
+        border-radius: 0;
+    }
+
+    .rep-panel-red .rep-table tbody tr:nth-child(even) {
+        background: #fff8f8;
+    }
+
+    .rep-panel-red .rep-table tbody tr:hover {
+        background: #fef2f2;
+    }
+
+    .rep-panel-amber .rep-table tbody tr:nth-child(even) {
+        background: #fffdf5;
+    }
+
+    .rep-panel-amber .rep-table tbody tr:hover {
+        background: #fffbeb;
+    }
+
+    /* ---- Pills ---- */
+
+    .rep-pill {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 11.5px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .rep-pill-red {
+        background: #dc2626;
+        color: #fff;
+    }
+
+    .rep-pill-amber {
+        background: #f59e0b;
+        color: #fff;
+    }
+</style>
