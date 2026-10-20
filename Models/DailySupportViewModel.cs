@@ -16,6 +16,28 @@ public class DailySupportViewModel
 
     public int PendingCount { get; set; }
 
+    // Naye KPI cards (ticketing system)
+    public int PendingReviewCount { get; set; }
+
+    public int OverdueCount { get; set; }
+
+    // ---- List page filters ----
+    public int? FilterStatusId { get; set; }
+
+    public int? FilterAssignedTo { get; set; }
+
+    public int? FilterPriorityId { get; set; }
+
+    public string? FilterView { get; set; }
+
+    public string? Search { get; set; }
+
+    public List<TicketOption> StatusOptions { get; set; } = new();
+
+    public List<TicketOption> PriorityOptions { get; set; } = new();
+
+    public List<TicketOption> UserOptions { get; set; } = new();
+
     public bool HasStatusKpi { get; set; }
 
     public List<MasterColumnViewModel> Fields { get; set; }

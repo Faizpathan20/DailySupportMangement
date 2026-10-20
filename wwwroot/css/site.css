@@ -1492,6 +1492,16 @@ body {
     border: 1px solid #f1f5f9;
 }
 
+/* Space between stacked sections / cards so they do not look
+   stuck together. */
+.state-section + .state-section,
+.state-section + .dashboard-cards,
+.dashboard-cards + .state-section,
+.state-section + .tkt-info-wrap,
+.tkt-info-wrap + .state-section {
+    margin-top: 18px;
+}
+
 
 .section-header {
     display: flex;
@@ -2440,6 +2450,45 @@ td form {
     color: #5b21b6;
 
     background: #ede9fe;
+}
+
+
+/* Ticketing workflow: Pending Review + Resolved */
+
+.badge-pendingreview {
+    color: #c2410c;
+
+    background: #ffedd5;
+}
+
+
+.badge-resolved {
+    color: #166534;
+
+    background: #dcfce7;
+}
+
+
+/* Clickable grid row (goes to ticket detail) */
+
+tr.tkt-row-link {
+    cursor: pointer;
+}
+
+
+tr.tkt-row-link:hover {
+    background: #f8fafc;
+}
+
+
+/* Page header: title on the left, action buttons on the right */
+
+.page-header .header-actions {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
 }
 
 
@@ -5826,4 +5875,1451 @@ body.crm-modal-open {
     font-weight: 800;
     color: var(--crm-ink);
     line-height: 1;
+}
+
+
+/* =========================================================
+   DAILY SUPPORT - MOBILE RESPONSIVE
+   Phones (<=700px) get a stacked "card" table so the wide
+   1150px grid never needs horizontal scrolling. Tablets
+   (<=1000px) get a squeezed but still scrollable table.
+   ========================================================= */
+
+/* Mobile-only sort dropdown; the table header is hidden on
+   phones so sorting lives in the toolbar instead. */
+.mobile-sort {
+    display: none;
+}
+
+
+/* Tablet: KPI cards 2-up, toolbars wrap cleanly. */
+@media (max-width: 1000px) {
+
+    .state-section {
+        padding: 20px;
+    }
+
+    .support-table table {
+        min-width: 1000px;
+    }
+
+    .support-table .col-wrap {
+        min-width: 130px;
+        max-width: 220px;
+    }
+
+}
+
+
+/* Phone: turn each row into a stacked card. */
+@media (max-width: 700px) {
+
+    /* ---------- Page shell ---------- */
+
+    .page-header h1 {
+        font-size: 22px;
+    }
+
+    .page-header p {
+        font-size: 13px;
+    }
+
+    .state-section {
+        padding: 14px;
+        border-radius: 10px;
+    }
+
+    /* ---------- KPI cards: single column, tighter ---------- */
+
+    .dashboard-card {
+        padding: 16px 18px;
+        min-height: 80px;
+    }
+
+    .card-content h2 {
+        font-size: 22px;
+    }
+
+    .card-icon {
+        font-size: 26px;
+    }
+
+    /* ---------- Toolbar ---------- */
+
+    .table-toolbar {
+        gap: 10px;
+    }
+
+    .toolbar-left {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .mobile-sort {
+        display: block;
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 14px;
+        background: white;
+        cursor: pointer;
+    }
+
+    .toolbar-center {
+        width: 100%;
+    }
+
+    .toolbar-center .export-btn {
+        flex: 1 1 0;
+        text-align: center;
+    }
+
+    .toolbar-right {
+        width: 100%;
+        gap: 8px;
+    }
+
+    .toolbar-right > .primary-btn {
+        flex: 1 1 100%;
+        text-align: center;
+        margin-right: 0 !important;
+    }
+
+    /* ---------- Card-style table ---------- */
+
+    .support-table {
+        overflow-x: visible;
+    }
+
+    .support-table table {
+        min-width: 0;
+        width: 100%;
+        display: block;
+    }
+
+    .support-table thead {
+        /* Column captions move into each cell via data-label. */
+        display: none;
+    }
+
+    .support-table tbody {
+        display: block;
+    }
+
+    .support-table tbody tr {
+        display: block;
+
+        margin-bottom: 14px;
+        padding: 6px 14px;
+
+        background: #ffffff;
+
+        border: 1px solid #e6eaf1;
+        border-radius: 12px;
+
+        box-shadow:
+            0 1px 2px rgba(15, 23, 42, 0.04),
+            0 6px 16px -10px rgba(15, 23, 42, 0.18);
+    }
+
+    .support-table tbody tr.no-data-row {
+        padding: 0;
+        border: none;
+        box-shadow: none;
+        background: transparent;
+    }
+
+    /* Each cell = label (top) + value (below). */
+    .support-table td {
+        display: block;
+
+        width: auto;
+
+        padding: 9px 0;
+
+        border-bottom: 1px dashed #eef2f7;
+
+        text-align: left;
+
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+
+        min-width: 0 !important;
+        max-width: none !important;
+    }
+
+    .support-table td:last-child {
+        border-bottom: none;
+    }
+
+    .support-table td::before {
+        content: attr(data-label);
+
+        display: block;
+
+        margin-bottom: 3px;
+
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+
+        color: #94a3b8;
+    }
+
+    .support-table td.empty-state {
+        display: block;
+        text-align: center;
+        padding: 26px 10px;
+    }
+
+    .support-table td.empty-state::before {
+        content: none;
+    }
+
+    /* The Actions cell: label left, buttons right. */
+    .support-table td.actions-col-cell {
+        display: flex;
+
+        align-items: center;
+        justify-content: space-between;
+
+        gap: 14px;
+
+        padding-top: 12px;
+    }
+
+    .support-table td.actions-col-cell::before {
+        margin-bottom: 0;
+    }
+
+    .support-table .action-cell {
+        justify-content: flex-end;
+    }
+
+    .support-table .action-btn {
+        width: 34px;
+        height: 34px;
+        font-size: 15px;
+        border-radius: 8px;
+    }
+
+    /* ---------- Table footer / pagination ---------- */
+
+    .table-footer {
+        align-items: center;
+        text-align: center;
+    }
+
+    .footer-left,
+    .footer-right {
+        width: 100%;
+    }
+
+    .footer-right {
+        justify-content: center;
+    }
+
+    .page-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+
+    /* ---------- Modal ---------- */
+
+    .modal {
+        padding: 12px;
+    }
+
+    .modal-content,
+    .modal-wide,
+    .modal-compact {
+        width: 100%;
+        max-width: 100%;
+        padding: 18px;
+        border-radius: 14px;
+        max-height: 92vh;
+    }
+
+    .modal-header {
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+    }
+
+    .modal-header h2 {
+        font-size: 18px;
+    }
+
+    /* Single column form on phones. */
+    .form-grid,
+    .form-grid-single {
+        grid-template-columns: 1fr;
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .modal-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .modal-actions .save-btn,
+    .modal-actions .cancel-btn {
+        width: 100%;
+    }
+
+    .status-tracker-row {
+        flex-wrap: wrap;
+    }
+
+    /* Voice buttons wrap instead of squashing. */
+    .voice-controls {
+        flex-wrap: wrap;
+    }
+
+    /* ---------- Create form (Add Support) ---------- */
+
+    .call-form-section {
+        margin-bottom: 16px;
+    }
+
+    .mobile-search-row {
+        flex-direction: column;
+    }
+
+    .mobile-search-btn {
+        width: 100%;
+    }
+}
+
+
+/* Very small phones: KPI numbers + labels tighten further. */
+@media (max-width: 420px) {
+
+    .state-section {
+        padding: 12px;
+    }
+
+    .support-table tbody tr {
+        padding: 6px 12px;
+    }
+
+    .support-table td::before {
+        font-size: 10.5px;
+    }
+
+    .toolbar-center .export-btn {
+        padding: 7px 10px;
+        font-size: 12px;
+    }
+}
+
+
+/* ============================================================
+   TICKETING SYSTEM — badges, timeline, review
+   (Daily Support Step 3+)
+   ============================================================ */
+
+/* ---- Status / Priority badges ---- */
+
+.tkt-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+.tkt-b-open            { background: #dbeafe; color: #1e40af; }
+.tkt-b-inprogress      { background: #fef3c7; color: #92400e; }
+.tkt-b-onhold          { background: #e2e8f0; color: #475569; }
+.tkt-b-pendingreview   { background: #ffedd5; color: #c2410c; }
+.tkt-b-resolved        { background: #dcfce7; color: #166534; }
+.tkt-b-closed          { background: #1e293b; color: #f1f5f9; }
+.tkt-b-default         { background: #f1f5f9; color: #475569; }
+
+.tkt-b-urgent          { background: #fee2e2; color: #b91c1c; }
+.tkt-b-high            { background: #ffedd5; color: #c2410c; }
+.tkt-b-medium          { background: #fef9c3; color: #a16207; }
+.tkt-b-low             { background: #dcfce7; color: #166534; }
+
+/* ---- Ticket header ---- */
+
+.tkt-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.tkt-header h1 {
+    margin: 0;
+    font-size: 24px;
+}
+
+/* ---- Info grid ---- */
+
+.tkt-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+}
+
+.tkt-info-item label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #64748b;
+    margin-bottom: 3px;
+    font-weight: 600;
+}
+
+.tkt-info-item span {
+    font-size: 14px;
+    color: #0f172a;
+}
+
+/* ---- Action buttons ---- */
+
+.tkt-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 4px 0 0;
+}
+
+.tkt-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 16px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #e2e8f0;
+    color: #1e293b;
+    transition: filter .15s ease;
+}
+
+.tkt-btn:hover { filter: brightness(.95); }
+
+.tkt-btn-primary { background: #2563eb; color: #fff; }
+.tkt-btn-warn    { background: #d97706; color: #fff; }
+.tkt-btn-info    { background: #6366f1; color: #fff; }
+.tkt-btn-ok      { background: #16a34a; color: #fff; }
+.tkt-btn-dark    { background: #1e293b; color: #fff; }
+.tkt-btn-danger  { background: #dc2626; color: #fff; }
+
+/* ---- Timeline ---- */
+
+.tkt-timeline {
+    position: relative;
+    padding-left: 44px;
+    margin-top: 10px;
+}
+
+.tkt-timeline::before {
+    content: "";
+    position: absolute;
+    left: 15px;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    background: #e2e8f0;
+}
+
+.tkt-tl-item {
+    position: relative;
+    margin-bottom: 14px;
+}
+
+/* Icon bubble (emoji) instead of a plain dot */
+.tkt-tl-icon {
+    position: absolute;
+    left: -44px;
+    top: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .08);
+}
+
+.tkt-tl-icon.ic-work    { border-color: #93c5fd; background: #eff6ff; }
+.tkt-tl-icon.ic-status  { border-color: #fcd34d; background: #fffbeb; }
+.tkt-tl-icon.ic-assign  { border-color: #c4b5fd; background: #f5f3ff; }
+.tkt-tl-icon.ic-created { border-color: #86efac; background: #f0fdf4; }
+
+/* Card look for each entry */
+.tkt-tl-card {
+    border: 1px solid #eef2f7;
+    background: #fff;
+    border-radius: 10px;
+    padding: 10px 12px;
+    transition: box-shadow .15s ease, border-color .15s ease;
+}
+
+.tkt-tl-card:hover {
+    border-color: #dbe4f0;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .06);
+}
+
+.tkt-tl-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    justify-content: space-between;
+}
+
+.tkt-tl-title {
+    font-weight: 700;
+    font-size: 14px;
+    color: #0f172a;
+}
+
+.tkt-tl-time {
+    font-size: 12px;
+    font-weight: 600;
+    color: #2563eb;
+    white-space: nowrap;
+}
+
+.tkt-tl-subline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.tkt-tl-meta {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.tkt-tl-exact {
+    color: #94a3b8;
+}
+
+/* Old -> New change row */
+.tkt-tl-change {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.tkt-tl-old {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: line-through;
+}
+
+.tkt-tl-arrow {
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.tkt-tl-body {
+    margin-top: 8px;
+    font-size: 14px;
+    color: #334155;
+    white-space: pre-wrap;
+}
+
+.tkt-tl-next {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #6366f1;
+}
+
+/* Filter chips */
+.tkt-tl-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.tkt-tl-chip {
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s ease;
+}
+
+.tkt-tl-chip:hover {
+    background: #f1f5f9;
+}
+
+.tkt-tl-chip.active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+}
+
+.tkt-stars {
+    color: #f59e0b;
+    font-size: 14px;
+    letter-spacing: 1px;
+}
+
+/* ---- Review box ---- */
+
+.tkt-review-box {
+    border: 2px dashed #fbbf24;
+    background: #fffbeb;
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 14px;
+}
+
+.tkt-review-box h3 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    color: #92400e;
+}
+
+.tkt-rating-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+    align-items: center;
+}
+
+/* Star picker (reverse order trick) */
+.tkt-stars-pick {
+    display: inline-flex;
+    flex-direction: row-reverse;
+    gap: 4px;
+}
+
+.tkt-stars-pick input { display: none; }
+
+.tkt-stars-pick label {
+    font-size: 26px;
+    color: #cbd5e1;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.tkt-stars-pick input:checked ~ label,
+.tkt-stars-pick label:hover,
+.tkt-stars-pick label:hover ~ label {
+    color: #f59e0b;
+}
+
+/* ---- Client tickets mini list ---- */
+
+.tkt-mini-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tkt-mini-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    text-decoration: none;
+    color: inherit;
+    background: #fff;
+}
+
+.tkt-mini-row:hover { background: #f8fafc; }
+
+.tkt-mini-no {
+    font-weight: 700;
+    font-size: 13px;
+    color: #2563eb;
+}
+
+.tkt-mini-subject {
+    flex: 1 1 180px;
+    font-size: 13px;
+    color: #334155;
+}
+
+/* ---- Mobile ---- */
+
+@media (max-width: 700px) {
+
+    .tkt-header h1 { font-size: 19px; }
+
+    .tkt-actions { gap: 8px; }
+
+    .tkt-btn {
+        flex: 1 1 46%;
+        justify-content: center;
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    .tkt-review-box { padding: 12px; }
+
+    .tkt-info-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 420px) {
+
+    .tkt-info-grid { grid-template-columns: 1fr; }
+
+    .tkt-btn { flex: 1 1 100%; }
+}
+
+/* ============================================================
+   TICKET DETAIL — summary header, info cards,
+   grouped timeline, client tickets table
+   ============================================================ */
+
+/* ---- Summary header ---- */
+
+.tkt-summary {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #2563eb;
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-top: 10px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .05);
+}
+
+.tkt-summary-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.tkt-summary-top h1 {
+    margin: 0;
+    font-size: 22px;
+    letter-spacing: .3px;
+    color: #0f172a;
+}
+
+.tkt-summary-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 13px;
+    color: #475569;
+}
+
+/* ---- Stale warning ---- */
+
+.tkt-stale {
+    margin-top: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* ---- Sticky action bar ---- */
+
+.tkt-action-bar {
+    position: sticky;
+    top: 8px;
+    z-index: 30;
+    padding: 12px 16px;
+    background: #ffffff;
+}
+
+/* ---- Info cards (3 grouped sections) ---- */
+
+.tkt-info-wrap {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.tkt-info-card {
+    padding: 16px;
+}
+
+.tkt-info-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.tkt-info-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px dashed #eef2f7;
+}
+
+.tkt-info-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.tkt-info-key {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    color: #64748b;
+}
+
+.tkt-info-val {
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+    text-align: right;
+}
+
+/* ---- Issue block ---- */
+
+.tkt-issue-subject {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 6px;
+}
+
+.tkt-issue-body {
+    font-size: 14px;
+    color: #334155;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+/* ---- Grouped timeline ---- */
+
+.tkt-tl-group {
+    margin-bottom: 18px;
+}
+
+.tkt-tl-daylabel {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 8px;
+    padding: 3px 12px;
+    border-radius: 999px;
+    background: #eef2f7;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+}
+
+.tkt-tl-day {
+    display: flex;
+    flex-direction: column;
+}
+
+.tkt-tl-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 5px 8px;
+    border-radius: 8px;
+    transition: background .15s ease;
+}
+
+.tkt-tl-line:hover {
+    background: #f8fafc;
+}
+
+.tkt-tl-caret {
+    margin-left: auto;
+    color: #94a3b8;
+    font-size: 12px;
+    transition: transform .15s ease;
+}
+
+/* Collapsed entries hide detail, show a single compact line. */
+.tkt-tl-item.collapsed .tkt-tl-detail {
+    display: none;
+}
+
+.tkt-tl-item.collapsed .tkt-tl-caret {
+    transform: rotate(-90deg);
+}
+
+.tkt-tl-item.collapsed .tkt-tl-line {
+    color: #64748b;
+}
+
+.tkt-tl-item.collapsed .tkt-tl-title {
+    font-weight: 600;
+    color: #475569;
+}
+
+.tkt-tl-detail {
+    padding: 4px 8px 10px;
+}
+
+/* Compact the icon bubble inside grouped timeline. */
+.tkt-tl-group .tkt-tl-icon {
+    position: absolute;
+    left: -44px;
+    top: 4px;
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
+}
+
+/* ---- Client tickets header count ---- */
+
+.tkt-client-count {
+    margin-left: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+}
+
+.tkt-link {
+    color: #2563eb;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.tkt-link:hover {
+    text-decoration: underline;
+}
+
+.tkt-current-tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #e0e7ff;
+    color: #3730a3;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.tkt-current-row {
+    background: #f5f8ff;
+}
+
+.tkt-client-table table {
+    font-size: 13px;
+}
+
+.tkt-client-table th {
+    white-space: nowrap;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #64748b;
+}
+
+.tkt-client-table .col-nowrap {
+    white-space: nowrap;
+}
+
+.tkt-client-table .col-wrap {
+    min-width: 180px;
+}
+
+.cell-sub {
+    display: block;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+@media (max-width: 700px) {
+
+    .tkt-summary { padding: 12px 14px; }
+    .tkt-summary-top h1 { font-size: 18px; }
+    .tkt-info-wrap { grid-template-columns: 1fr; }
+    .tkt-action-bar { position: static; }
+}
+
+/* ---- Timeline quick-add bar ---- */
+
+.tkt-quickadd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    margin: 4px 0 14px;
+    border: 1px solid #dbe4f0;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+
+.tkt-quickadd-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.tkt-quickadd-input {
+    flex: 1 1 220px;
+    min-width: 160px;
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.tkt-quickadd-status {
+    flex: 0 0 auto;
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 13px;
+    background: #fff;
+}
+
+.tkt-quickadd-time {
+    flex: 0 0 70px;
+    width: 70px;
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.tkt-quickadd-btn {
+    flex: 0 0 auto;
+    padding: 8px 16px;
+}
+
+/* ---- Per-entry Start Work button ---- */
+
+.tkt-tl-start {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #fff;
+    color: #334155;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all .15s ease;
+}
+
+.tkt-tl-start:hover {
+    background: #1e293b;
+    border-color: #1e293b;
+    color: #fff;
+}
+
+/* ---- Filter bar (3 dropdowns in one row) ---- */
+
+.tkt-filter-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #eef2f7;
+}
+
+.tkt-filter-head .form-section-title {
+    margin: 0;
+}
+
+/* Quick selection pills in the same row as Apply/Reset */
+.tkt-quick-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex: 1 1 auto;
+}
+
+.tkt-filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.tkt-filter-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.6fr);
+    gap: 14px;
+    align-items: end;
+}
+
+.tkt-filter-field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+
+.tkt-filter-field select,
+.tkt-filter-field input {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 14px;
+    color: #0f172a;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.tkt-filter-field select:focus,
+.tkt-filter-field input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
+
+.tkt-filter-field input::placeholder {
+    color: #94a3b8;
+}
+
+@media (max-width: 900px) {
+
+    .tkt-filter-row {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 560px) {
+
+    .tkt-filter-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* ---- Simple flat timeline ---- */
+
+.tkt-flat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 6px;
+}
+
+.tkt-flat-row {
+    display: flex;
+    gap: 12px;
+    padding: 12px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .15s ease, box-shadow .15s ease;
+}
+
+.tkt-flat-row:hover {
+    background: #f8fafc;
+}
+
+.tkt-flat-row.selected {
+    background: #eff6ff;
+    box-shadow: inset 3px 0 0 #2563eb;
+}
+
+.tkt-flat-row:focus {
+    outline: none;
+    background: #f8fafc;
+}
+
+/* Small "Work" hint that appears on hover */
+.tkt-flat-work {
+    display: none;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: #1e293b;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.tkt-flat-row:hover .tkt-flat-work,
+.tkt-flat-row.selected .tkt-flat-work {
+    display: inline-block;
+}
+
+.tkt-flat-row:last-child {
+    border-bottom: none;
+}
+
+.tkt-flat-icon {
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    background: #f1f5f9;
+    border: 2px solid #e2e8f0;
+}
+
+.tkt-flat-icon.ic-work    { border-color: #93c5fd; background: #eff6ff; }
+.tkt-flat-icon.ic-status  { border-color: #fcd34d; background: #fffbeb; }
+.tkt-flat-icon.ic-assign  { border-color: #c4b5fd; background: #f5f3ff; }
+.tkt-flat-icon.ic-created { border-color: #86efac; background: #f0fdf4; }
+
+.tkt-flat-main {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tkt-flat-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.tkt-flat-title {
+    font-weight: 700;
+    font-size: 14px;
+    color: #0f172a;
+}
+
+.tkt-flat-time {
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: 600;
+    color: #2563eb;
+    white-space: nowrap;
+}
+
+.tkt-flat-body {
+    margin-top: 5px;
+    font-size: 14px;
+    color: #334155;
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
+.tkt-flat-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+
+/* ============================================================
+   NEW TICKET — clean sectioned form
+   ============================================================ */
+
+.nt-wrap {
+    padding: 6px 0 0;
+}
+
+.nt-section {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .04);
+}
+
+.nt-section .form-section-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eef2f7;
+}
+
+.nt-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.nt-req {
+    color: #dc2626;
+}
+
+/* Search block spans full width above the grid */
+.nt-search-block {
+    margin-bottom: 16px;
+    padding: 12px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+
+.nt-search-block > label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+
+.nt-search-row {
+    display: flex;
+    gap: 8px;
+}
+
+.nt-search-row input {
+    flex: 1 1 auto;
+}
+
+/* Confirmation chip after selecting a client */
+.nt-client-chip {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #166534;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Sticky footer action bar */
+.nt-footer {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 18px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 -2px 10px rgba(15, 23, 42, .05);
+}
+
+@media (max-width: 700px) {
+
+    .nt-section { padding: 14px; }
+    .nt-footer { position: static; }
+}
+
+
+/* ============================================================
+   DAILY SUPPORT — Filters + clickable KPI cards
+   ============================================================ */
+
+.tkt-filter-bar {
+    padding: 14px 16px;
+}
+
+.tkt-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.tkt-pill {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: all .15s ease;
+}
+
+.tkt-pill:hover {
+    background: #f1f5f9;
+}
+
+.tkt-pill.active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+}
+
+/* Clickable KPI cards */
+
+a.tkt-kpi-link {
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+
+a.tkt-kpi-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, .12);
+}
+
+a.tkt-kpi-active {
+    outline: 2px solid #2563eb;
+    outline-offset: -2px;
+}
+
+@media (max-width: 700px) {
+
+    .tkt-pills {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .tkt-filter-bar {
+        padding: 12px;
+    }
 }

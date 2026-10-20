@@ -1,0 +1,925 @@
+@model Master.Models.TicketDetailViewModel
+
+@{
+    ViewData["Title"] = "Ticket " + Model.TicketNo;
+
+    string Badge(string? name, string prefix) =>
+        $"tkt-badge {prefix}-" + (string.IsNullOrWhiteSpace(name)
+            ? "default"
+            : name!.ToLower().Replace(" ", ""));
+
+    string Dash(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "&mdash;" : value!;
+
+    // Relative time: "2 hours ago", "yesterday", "3 days ago".
+    string TimeAgo(DateTime at)
+    {
+        var diff = Master.Configurations.TicketService.NowIst - at;
+
+        if (diff.TotalSeconds < 60) return "just now";
+        if (diff.TotalMinutes < 60)
+            return $"{(int)diff.TotalMinutes} min ago";
+        if (diff.TotalHours < 24)
+            return $"{(int)diff.TotalHours} hours ago";
+        if (diff.TotalDays < 2) return "yesterday";
+        if (diff.TotalDays < 30)
+            return $"{(int)diff.TotalDays} days ago";
+
+        return at.ToString("dd MMM yyyy");
+    }
+
+    var lastActivity = Model.Timeline.Count > 0
+        ? Model.Timeline.Max(t => t.At)
+        : (DateTime?)null;
+
+    var staleDays = lastActivity.HasValue
+        ? (Master.Configurations.TicketService.NowIst - lastActivity.Value).TotalDays
+        : 0;
+
+    bool isStale = staleDays >= 2
+        && !Model.IsClosed
+        && Model.Timeline.Count > 0;
+
+    // Option A: when the ticket is "Open", hide "Open" from the work
+    // status dropdown (adding work auto-moves it to In Progress).
+    // All other statuses stay visible so the current one can be kept.
+    bool isOpenTicket =
+        string.Equals(Model.StatusName, "Open",
+            StringComparison.OrdinalIgnoreCase);
+
+    var workStatusOptions = isOpenTicket
+        ? Model.StatusOptions
+            .Where(s => !string.Equals(
+                s.Name, "Open", StringComparison.OrdinalIgnoreCase))
+            .ToList()
+        : Model.StatusOptions;
+}
+
+<div class="page-header">
+
+    <a href="@Url.Action("Index", "DailySupport")"
+       class="back-link">
+
+        &larr; Back to Daily Support
+
+    </a>
+
+    <!-- ===== Summary header ===== -->
+    <div class="tkt-summary">
+
+        <div class="tkt-summary-top">
+
+            <h1>
+                @Model.TicketNo
+            </h1>
+
+            <span class="@Badge(Model.StatusName, "tkt-b")">
+                @Model.StatusName
+            </span>
+
+            @if (!string.IsNullOrWhiteSpace(Model.PriorityName))
+            {
+                <span class="@Badge(Model.PriorityName, "tkt-b")">
+                    @Model.PriorityName
+                </span>
+            }
+
+        </div>
+
+        <div class="tkt-summary-meta">
+
+            <span>
+                <strong>@Model.ClientName</strong>
+            </span>
+
+            @if (!string.IsNullOrWhiteSpace(Model.Mobile))
+            {
+                <span>&middot; &#128241; @Model.Mobile</span>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Model.AssignedToName))
+            {
+                <span>&middot; &#128100; @Model.AssignedToName</span>
+            }
+
+            <span>&middot; &#9201; @Model.TimeSpentDisplay</span>
+
+            @if (lastActivity.HasValue)
+            {
+                <span>&middot; Last activity: @TimeAgo(lastActivity.Value)</span>
+            }
+
+        </div>
+
+        @if (isStale)
+        {
+            <div class="tkt-stale">
+                &#9888; @((int)staleDays) din se koi activity nahi &mdash;
+                follow-up karein.
+            </div>
+        }
+
+    </div>
+
+</div>
+
+
+@if (TempData["Success"] != null)
+{
+    <div class="success-message">
+        @TempData["Success"]
+    </div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="error-message">
+        @Html.Raw(TempData["Error"])
+    </div>
+}
+
+@* Anti-forgery token for AJAX posts *@
+@Html.AntiForgeryToken()
+
+
+<!-- ================= ACTIONS (sticky) ================= -->
+
+<div class="state-section tkt-action-bar">
+
+    <div class="tkt-actions">
+
+        <button type="button"
+                class="tkt-btn tkt-btn-dark"
+                onclick="openUpdateModal()">
+
+            &#10133; Add Today's Work
+
+        </button>
+
+        <button type="button"
+                class="tkt-btn"
+                onclick="openAssignModal()">
+
+            &#128100; Assign / Reassign
+
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- ================= TICKET INFORMATION ================= -->
+
+<div class="tkt-info-wrap">
+
+    <!-- Ticket Details -->
+    <div class="state-section tkt-info-card">
+
+        <div class="form-section-title">
+            &#127915; TICKET DETAILS
+        </div>
+
+        <div class="tkt-info-list">
+
+            <div class="tkt-info-row">
+                <span class="tkt-info-key">Ticket No</span>
+                <span class="tkt-info-val">@Model.TicketNo</span>
+            </div>
+
+            <div class="tkt-info-row">
+                <span class="tkt-info-key">Support Date</span>
+                <span class="tkt-info-val">
+                    @Model.SupportDate.ToString("dd MMM yyyy, hh:mm tt")
+                </span>
+            </div>
+
+            <div class="tkt-info-row">
+                <span class="tkt-info-key">Status</span>
+                <span class="tkt-info-val">
+                    <span class="@Badge(Model.StatusName, "tkt-b")">
+                        @Model.StatusName
+                    </span>
+                </span>
+            </div>
+
+            <div class="tkt-info-row">
+                <span class="tkt-info-key">Priority</span>
+                <span class="tkt-info-val">
+                    @if (!string.IsNullOrWhiteSpace(Model.PriorityName))
+                    {
+                        <span class="@Badge(Model.PriorityName, "tkt-b")">
+                            @Model.PriorityName
+                        </span>
+                    }
+                    else
+                    {
+                        <text>&mdash;</text>
+                    }
+                </span>
+            </div>
+
+            <div class="tkt-info-row">
+                <span class="tkt-info-key">Assigned To</span>
+                <span class="tkt-info-val">@Html.Raw(Dash(Model.AssignedToName))</span>
+            </div>
+
+            <div class="tkt-info-row">
+                <span class="tkt-info-key">Time Spent</span>
+                <span class="tkt-info-val">@Model.TimeSpentDisplay</span>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- Classification -->
+    <div class="state-section tkt-info-card">
+
+        <div class="form-section-title">
+            &#128193; CLASSIFICATION
+        </div>
+
+        <div class="tkt-info-list">
+
+            <div class="tkt-info-row">
+                <span class="tkt-info-key">Channel</span>
+                <span class="tkt-info-val">@Html.Raw(Dash(Model.ChannelName))</span>
+            </div>
+
+            <div class="tkt-info-row">
+                <span class="tkt-info-key">Call Type</span>
+                <span class="tkt-info-val">@Html.Raw(Dash(Model.CallTypeName))</span>
+            </div>
+
+            <div class="tkt-info-row">
+                <span class="tkt-info-key">Category</span>
+                <span class="tkt-info-val">@Html.Raw(Dash(Model.CategoryName))</span>
+            </div>
+
+            <div class="tkt-info-row">
+                <span class="tkt-info-key">Sub Category</span>
+                <span class="tkt-info-val">@Html.Raw(Dash(Model.SubCategoryName))</span>
+            </div>
+
+            <div class="tkt-info-row">
+                <span class="tkt-info-key">Caller Name</span>
+                <span class="tkt-info-val">@Html.Raw(Dash(Model.CallerName))</span>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- Resolved / Closed -->
+    <div class="state-section tkt-info-card">
+
+        <div class="form-section-title">
+            &#9200; TIMELINE
+        </div>
+
+        <div class="tkt-info-list">
+
+            <div class="tkt-info-row">
+                <span class="tkt-info-key">Resolved On</span>
+                <span class="tkt-info-val">
+                    @(Model.ResolvedOn.HasValue
+                        ? Model.ResolvedOn.Value.ToString("dd MMM yyyy, hh:mm tt")
+                        : "—")
+                </span>
+            </div>
+
+            <div class="tkt-info-row">
+                <span class="tkt-info-key">Closed On</span>
+                <span class="tkt-info-val">
+                    @(Model.ClosedOn.HasValue
+                        ? Model.ClosedOn.Value.ToString("dd MMM yyyy, hh:mm tt")
+                        : "—")
+                </span>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ================= ISSUE / DESCRIPTION ================= -->
+
+<div class="state-section">
+
+    <div class="form-section-title">
+        &#128221; ISSUE
+    </div>
+
+    <div class="tkt-issue-subject">
+        @Model.Subject
+    </div>
+
+    <div class="tkt-issue-body">
+        @Model.Description
+    </div>
+
+</div>
+
+
+<!-- ================= ACTIVITY TIMELINE (grouped) ================= -->
+
+<div class="state-section">
+
+    <div class="form-section-title">
+
+        ACTIVITY TIMELINE
+        <span style="color:#64748b; font-size:12px; font-weight:400;">
+            &mdash; @Model.Timeline.Count entries
+        </span>
+
+    </div>
+
+    @if (Model.Timeline.Count == 0)
+    {
+        <p style="color:#64748b; font-size:14px;">
+            No activity yet.
+        </p>
+    }
+    else
+    {
+        <div class="tkt-flat">
+
+            @foreach (var item in Model.Timeline.OrderByDescending(t => t.At))
+            {
+                var kindKey = string.IsNullOrWhiteSpace(item.KindKey)
+                    ? "work"
+                    : item.KindKey;
+
+                <div class="tkt-flat-row"
+                     tabindex="0"
+                     title="Click to start work on this ticket"
+                     data-body="@(item.Body ?? string.Empty)"
+                     onclick="selectTimelineEntry(this)">
+
+                    <div class="tkt-flat-icon @("ic-" + kindKey)">
+                        @(string.IsNullOrWhiteSpace(item.Icon)
+                            ? "\U0001F4DD"
+                            : item.Icon)
+                    </div>
+
+                    <div class="tkt-flat-main">
+
+                        <div class="tkt-flat-head">
+
+                            <span class="tkt-flat-title">
+                                @item.Title
+                            </span>
+
+                            @if (!string.IsNullOrWhiteSpace(item.OldStatus)
+                                && !string.IsNullOrWhiteSpace(item.NewStatus))
+                            {
+                                <span class="tkt-tl-old">
+                                    @item.OldStatus
+                                </span>
+
+                                <span class="tkt-tl-arrow">&rarr;</span>
+
+                                <span class="@Badge(item.NewStatus, "tkt-b")">
+                                    @item.NewStatus
+                                </span>
+                            }
+
+                            <span class="tkt-flat-work">&#9889; Work</span>
+
+                            <span class="tkt-flat-time"
+                                  title="@item.At.ToString("dd/MM/yyyy HH:mm")">
+
+                                @TimeAgo(item.At)
+
+                            </span>
+
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(item.Body))
+                        {
+                            <div class="tkt-flat-body">
+                                @item.Body
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(item.NextAction))
+                        {
+                            <div class="tkt-tl-next">
+                                &#10132; Next: @item.NextAction
+                            </div>
+                        }
+
+                        <div class="tkt-flat-meta">
+
+                            @if (!string.IsNullOrWhiteSpace(item.ByName))
+                            {
+                                <span>&#128100; @item.ByName</span>
+                            }
+
+                            @if (item.KindKey == "work" && item.WorkDate.HasValue)
+                            {
+                                <span>Work for @item.WorkDate.Value.ToString("dd MMM")</span>
+                            }
+
+                            @if (item.TimeSpent.HasValue && item.TimeSpent.Value > 0)
+                            {
+                                <span>&#9201; @(item.TimeSpent.Value)m</span>
+                            }
+
+                        </div>
+
+                    </div>
+
+                </div>
+            }
+
+        </div>
+    }
+
+</div>
+
+
+<!-- ================= CLIENT TICKETS (full table) ================= -->
+
+<div class="state-section" id="clientTickets">
+
+    <div class="form-section-title">
+
+        &#128196; @Model.ClientName &mdash; TICKETS
+
+        <span class="tkt-client-count">
+            Total @Model.ClientTotalTickets
+            (@Model.ClientOpenTickets open, @Model.ClientClosedTickets closed)
+        </span>
+
+    </div>
+
+    @if (Model.ClientTickets.Count == 0)
+    {
+        <p style="color:#64748b; font-size:14px;">
+            Is client ka koi ticket nahi mila.
+        </p>
+    }
+    else
+    {
+        <div class="table-container tkt-client-table">
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Ticket No</th>
+                        <th>Date</th>
+                        <th>Issue</th>
+                        <th>Category</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Assigned</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @{ int rowNo = 0; }
+
+                    @foreach (var t in Model.ClientTickets)
+                    {
+                        rowNo++;
+
+                        bool isCurrent = t.Id == Model.Id;
+
+                        <tr class="@(isCurrent ? "tkt-current-row" : "")">
+
+                            <td>@rowNo</td>
+
+                            <td class="col-nowrap">
+                                <a href="@Url.Action("Detail", "DailySupport", new { id = t.Id })"
+                                   class="tkt-link">
+
+                                    @t.TicketNo
+
+                                </a>
+
+                                @if (isCurrent)
+                                {
+                                    <span class="tkt-current-tag">current</span>
+                                }
+                            </td>
+
+                            <td class="col-nowrap">
+                                @t.SupportDate.ToString("dd/MM/yy")
+                            </td>
+
+                            <td class="col-wrap">
+                                @t.Subject
+                            </td>
+
+                            <td class="col-nowrap">
+                                @Html.Raw(Dash(t.CategoryName))
+                                @if (!string.IsNullOrWhiteSpace(t.SubCategoryName))
+                                {
+                                    <small class="cell-sub">
+                                        @t.SubCategoryName
+                                    </small>
+                                }
+                            </td>
+
+                            <td class="col-nowrap">
+                                @if (!string.IsNullOrWhiteSpace(t.PriorityName))
+                                {
+                                    <span class="@Badge(t.PriorityName, "tkt-b")">
+                                        @t.PriorityName
+                                    </span>
+                                }
+                                else
+                                {
+                                    <text>&mdash;</text>
+                                }
+                            </td>
+
+                            <td class="col-nowrap">
+                                <span class="@Badge(t.StatusName, "tkt-b")">
+                                    @t.StatusName
+                                </span>
+                            </td>
+
+                            <td class="col-nowrap">
+                                @Html.Raw(Dash(t.AssignedToName))
+                            </td>
+
+                            <td class="col-nowrap">
+                                @t.TimeSpentDisplay
+                            </td>
+
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+    }
+
+</div>
+
+
+<!-- ================= ADD WORK MODAL ================= -->
+
+<div id="updateModal" class="modal">
+
+    <div class="modal-content modal-compact">
+
+        <div class="modal-header">
+
+            <h2>
+                Add Today's Work
+            </h2>
+
+            <button type="button"
+                    class="modal-close"
+                    onclick="closeUpdateModal()">
+
+                &times;
+
+            </button>
+
+        </div>
+
+        <div class="form-grid form-grid-single">
+
+            <div class="form-group">
+                <label>
+                    Work Date <span style="color:#dc2626;">*</span>
+                </label>
+                <input type="date"
+                       id="upd_WorkDate"
+                       value="@DateTime.Today.ToString("yyyy-MM-dd")"
+                       required />
+            </div>
+
+            <div class="form-group">
+                <label>
+                    Status <span style="color:#dc2626;">*</span>
+                </label>
+                <select id="upd_StatusId" required>
+                    @foreach (var s in workStatusOptions)
+                    {
+                        <option value="@s.Id"
+                                selected="@(s.Id == Model.StatusId)">
+                            @s.Name
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    Work Done <span style="color:#dc2626;">*</span>
+                </label>
+                <textarea id="upd_WorkDone"
+                          rows="3"
+                          placeholder="What did you do today?"
+                          required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    Time Spent (minutes)
+                </label>
+                <input type="number"
+                       id="upd_TimeSpent"
+                       min="0"
+                       placeholder="e.g. 45" />
+            </div>
+
+            <div class="form-group">
+                <label>
+                    Next Action
+                </label>
+                <input type="text"
+                       id="upd_NextAction"
+                       maxlength="500"
+                       placeholder="What is next?" />
+            </div>
+
+        </div>
+
+        <div class="modal-actions">
+
+            <button type="button"
+                    class="save-btn"
+                    onclick="saveUpdate()">
+
+                Save Work
+
+            </button>
+
+            <button type="button"
+                    class="cancel-btn"
+                    onclick="closeUpdateModal()">
+
+                Cancel
+
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ================= ASSIGN MODAL ================= -->
+
+<div id="assignModal" class="modal">
+
+    <div class="modal-content modal-compact">
+
+        <div class="modal-header">
+
+            <h2>
+                Assign / Reassign
+            </h2>
+
+            <button type="button"
+                    class="modal-close"
+                    onclick="closeAssignModal()">
+
+                &times;
+
+            </button>
+
+        </div>
+
+        <div class="form-grid form-grid-single">
+
+            <div class="form-group">
+
+                <label>
+                    Assign To
+                </label>
+
+                <select id="assign_UserId">
+
+                    @foreach (var u in Model.Users)
+                    {
+                        <option value="@u.Id"
+                                selected="@(Model.AssignedTo == u.Id)">
+
+                            @u.Name
+
+                        </option>
+                    }
+
+                </select>
+
+            </div>
+
+        </div>
+
+        <div class="modal-actions">
+
+            <button type="button"
+                    class="save-btn"
+                    onclick="saveAssign()">
+
+                Assign
+
+            </button>
+
+            <button type="button"
+                    class="cancel-btn"
+                    onclick="closeAssignModal()">
+
+                Cancel
+
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+@section Scripts
+{
+    <script>
+
+        var ticketId = @Model.Id;
+
+        var token = document.querySelector(
+            'input[name="__RequestVerificationToken"]').value;
+
+        var currentStatusId = @Model.StatusId;
+
+        // ==========================================
+        // TIMELINE — CLICK AN ENTRY TO START WORK
+        // ==========================================
+
+        // Highlights the clicked entry and opens the work modal
+        // pre-filled with that entry's note.
+        function selectTimelineEntry(row) {
+
+            var rows = document.querySelectorAll('.tkt-flat-row');
+
+            for (var i = 0; i < rows.length; i++) {
+                rows[i].classList.remove('selected');
+            }
+
+            row.classList.add('selected');
+
+            var body = row.getAttribute('data-body') || '';
+
+            openUpdateModal();
+
+            if (body) {
+                var done = document.getElementById('upd_WorkDone');
+                if (done && !done.value) {
+                    done.value = body;
+                }
+            }
+        }
+
+        // ==========================================
+        // WORK UPDATE
+        // ==========================================
+
+        function openUpdateModal() {
+
+            document.getElementById('upd_WorkDate').value =
+                '@DateTime.Today.ToString("yyyy-MM-dd")';
+
+            // Default to the ticket's current status. If that option is
+            // not available (e.g. "Open" is hidden while the ticket is
+            // Open), fall back to the first option (In Progress).
+            var statusSel = document.getElementById('upd_StatusId');
+
+            statusSel.value = currentStatusId;
+
+            if (!statusSel.value && statusSel.options.length > 0) {
+                statusSel.selectedIndex = 0;
+            }
+
+            document.getElementById('upd_WorkDone').value = '';
+            document.getElementById('upd_TimeSpent').value = '';
+            document.getElementById('upd_NextAction').value = '';
+
+            document.getElementById('updateModal').style.display = 'flex';
+        }
+
+        function closeUpdateModal() {
+            document.getElementById('updateModal').style.display = 'none';
+        }
+
+        function saveUpdate() {
+
+            var workDate = document.getElementById('upd_WorkDate').value;
+            var statusId = document.getElementById('upd_StatusId').value;
+            var workDone = document.getElementById('upd_WorkDone')
+                .value.trim();
+            var timeSpent = document.getElementById('upd_TimeSpent').value;
+            var nextAction = document.getElementById('upd_NextAction')
+                .value.trim();
+
+            if (!workDone) {
+                masterShowToast('Please write the work done.', 'error');
+                return;
+            }
+
+            var url = '@Url.Action("AddUpdate","DailySupport")';
+
+            var headers = { 'X-Requested-With': 'XMLHttpRequest' };
+            headers['RequestVerificationToken'] = token;
+
+            var body = new URLSearchParams();
+            body.append('__RequestVerificationToken', token);
+            body.append('ticketId', ticketId);
+            body.append('workDate', workDate);
+            body.append('statusId', statusId);
+            body.append('workDone', workDone);
+            body.append('timeSpent', timeSpent || '');
+            body.append('nextAction', nextAction);
+
+            fetch(url, { method: 'POST', headers: headers, body: body })
+                .then(r => r.json())
+                .then(function (res) {
+
+                    if (!res.success) {
+                        masterShowToast(res.message, 'error');
+                        return;
+                    }
+
+                    closeUpdateModal();
+
+                    masterShowToast(res.message, 'success');
+
+                    setTimeout(function () {
+                        window.location.reload();
+                    }, 600);
+                });
+        }
+
+        // ==========================================
+        // ASSIGN
+        // ==========================================
+
+        function openAssignModal() {
+            document.getElementById('assignModal').style.display = 'flex';
+        }
+
+        function closeAssignModal() {
+            document.getElementById('assignModal').style.display = 'none';
+        }
+
+        function saveAssign() {
+
+            var userId = document.getElementById('assign_UserId').value;
+
+            postAction('@Url.Action("Assign","DailySupport")', {
+                ticketId: ticketId,
+                userId: userId
+            });
+        }
+
+        // ==========================================
+        // SHARED POST
+        // ==========================================
+
+        function postAction(url, data) {
+
+            var headers = { 'X-Requested-With': 'XMLHttpRequest' };
+            headers['RequestVerificationToken'] = token;
+
+            var body = new URLSearchParams();
+            body.append('__RequestVerificationToken', token);
+
+            for (var key in data) {
+                body.append(key, data[key]);
+            }
+
+            fetch(url, { method: 'POST', headers: headers, body: body })
+                .then(r => r.json())
+                .then(function (res) {
+
+                    masterShowToast(
+                        res.message,
+                        res.success ? 'success' : 'error');
+
+                    if (res.success) {
+                        setTimeout(function () {
+                            window.location.reload();
+                        }, 700);
+                    }
+                });
+        }
+
+    </script>
+}

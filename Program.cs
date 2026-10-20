@@ -15,6 +15,10 @@ builder.Services.AddControllersWithViews();
 // the static FieldRegistry-based field generation).
 builder.Services.AddSingleton<Master.Configuration.DynamicTableService>();
 
+// Ticketing system service (Daily Support masters,
+// tickets, work updates, status workflow, review).
+builder.Services.AddScoped<Master.Configurations.TicketService>();
+
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 

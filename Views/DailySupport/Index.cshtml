@@ -55,19 +55,16 @@
 
     string StatusPillClass(string status)
     {
-        return status == "Closed"
-            ? "badge-completed"
-            : status == "Open"
-                ? "badge-open"
-                : status == "In Progress"
-                    ? "badge-inprogress"
-                    : status == "On Hold"
-                        ? "badge-onhold"
-                        : status == "Pending"
-                            ? "badge-pending"
-                            : status == "Cancelled"
-                                ? "badge-cancelled"
-                                : "badge-default";
+        return status switch
+        {
+            "Closed" => "badge-completed",
+            "Resolved" => "badge-resolved",
+            "Open" => "badge-open",
+            "In Progress" => "badge-inprogress",
+            "On Hold" => "badge-onhold",
+            "Cancelled" => "badge-cancelled",
+            _ => "badge-default"
+        };
     }
 
     var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -88,7 +85,7 @@
         </h1>
 
         <p>
-            Manage daily support records
+            Manage daily support tickets
         </p>
 
     </div>
@@ -96,42 +93,18 @@
 </div>
 
 
-<!-- ================= KPI CARDS ================= -->
+<!-- ================= KPI CARDS (clickable, top) ================= -->
 
 <div class="dashboard-cards">
 
 
-    <div class="dashboard-card">
+    <a href="@Url.Action("Index", "DailySupport", new { view = "open", assignedTo = Model.FilterAssignedTo, priorityId = Model.FilterPriorityId })"
+       class="dashboard-card tkt-kpi-link @(Model.FilterView == "open" ? "tkt-kpi-active" : "")">
 
         <div class="card-content">
 
             <p>
-                Today Calls
-            </p>
-
-            <h2 data-kpi="today">
-                @Model.TodayCalls
-            </h2>
-
-            <span class="kpi-sub">
-                Total @Model.TotalRecords calls
-            </span>
-
-        </div>
-
-        <div class="card-icon">
-            📞
-        </div>
-
-    </div>
-
-
-    <div class="dashboard-card">
-
-        <div class="card-content">
-
-            <p>
-                Open Calls
+                Open
             </p>
 
             <h2 data-kpi="open">
@@ -145,26 +118,79 @@
         </div>
 
         <div class="card-icon">
-            ⚠️
+            📥
         </div>
 
-    </div>
+    </a>
 
 
-    <div class="dashboard-card">
+    <a href="@Url.Action("Index", "DailySupport", new { view = "inprogress", assignedTo = Model.FilterAssignedTo, priorityId = Model.FilterPriorityId })"
+       class="dashboard-card tkt-kpi-link @(Model.FilterView == "inprogress" ? "tkt-kpi-active" : "")">
 
         <div class="card-content">
 
             <p>
-                Closed Today
+                In Progress
             </p>
 
-            <h2 data-kpi="closed-today">
+            <h2 data-kpi="inprogress">
+                @Model.PendingCount
+            </h2>
+
+            <span class="kpi-sub">
+                Being worked on
+            </span>
+
+        </div>
+
+        <div class="card-icon">
+            🔧
+        </div>
+
+    </a>
+
+
+    <a href="@Url.Action("Index", "DailySupport", new { view = "overdue", assignedTo = Model.FilterAssignedTo, priorityId = Model.FilterPriorityId })"
+       class="dashboard-card tkt-kpi-link @(Model.FilterView == "overdue" ? "tkt-kpi-active" : "")">
+
+        <div class="card-content">
+
+            <p>
+                SLA Overdue
+            </p>
+
+            <h2 data-kpi="overdue">
+                @Model.OverdueCount
+            </h2>
+
+            <span class="kpi-sub">
+                Time nikal gaya
+            </span>
+
+        </div>
+
+        <div class="card-icon">
+            🔴
+        </div>
+
+    </a>
+
+
+    <a href="@Url.Action("Index", "DailySupport", new { view = "resolvedToday", assignedTo = Model.FilterAssignedTo, priorityId = Model.FilterPriorityId })"
+       class="dashboard-card tkt-kpi-link @(Model.FilterView == "resolvedToday" ? "tkt-kpi-active" : "")">
+
+        <div class="card-content">
+
+            <p>
+                Resolved Today
+            </p>
+
+            <h2 data-kpi="resolvedtoday">
                 @Model.ClosedToday
             </h2>
 
             <span class="kpi-sub">
-                Done today
+                Aaj solve hua
             </span>
 
         </div>
@@ -173,35 +199,177 @@
             ✅
         </div>
 
-    </div>
-
-
-    <div class="dashboard-card">
-
-        <div class="card-content">
-
-            <p>
-                Pending
-            </p>
-
-            <h2 data-kpi="pending">
-                @Model.PendingCount
-            </h2>
-
-            <span class="kpi-sub">
-                In Progress
-            </span>
-
-        </div>
-
-        <div class="card-icon">
-            ⏳
-        </div>
-
-    </div>
+    </a>
 
 
 </div>
+
+
+<!-- ================= FILTER BAR ================= -->
+
+<div class="state-section tkt-filter-bar">
+
+    <form method="get"
+          id="ticketFilterForm"
+          action="@Url.Action("Index", "DailySupport")">
+
+        <input type="hidden" name="view" id="filterView"
+               value="@Model.FilterView" />
+
+        <div class="tkt-filter-head">
+
+            <div class="form-section-title">
+                FILTERS
+            </div>
+
+            <!-- Quick selection pills (one-click status filter) -->
+            <div class="tkt-quick-pills">
+
+                <a href="@Url.Action("Index", "DailySupport", new { assignedTo = Model.FilterAssignedTo, priorityId = Model.FilterPriorityId, search = Model.Search })"
+                   class="tkt-pill @(string.IsNullOrEmpty(Model.FilterView) && !Model.FilterStatusId.HasValue ? "active" : "")">
+
+                    All
+
+                </a>
+
+                @foreach (var s in Model.StatusOptions)
+                {
+                    var isActive = Model.FilterStatusId == s.Id;
+
+                    <a href="@Url.Action("Index", "DailySupport", new { statusId = s.Id, assignedTo = Model.FilterAssignedTo, priorityId = Model.FilterPriorityId, search = Model.Search })"
+                       class="tkt-pill @(isActive ? "active" : "")">
+
+                        @s.Name
+
+                    </a>
+                }
+
+            </div>
+
+            <div class="tkt-filter-actions">
+
+                <button type="submit"
+                        class="primary-btn">
+
+                    Apply
+
+                </button>
+
+                <a href="@Url.Action("Index", "DailySupport")"
+                   class="cancel-btn"
+                   style="text-decoration:none; display:inline-block;">
+
+                    Reset
+
+                </a>
+
+            </div>
+
+        </div>
+
+        <!-- Three dropdowns in one row -->
+        <div class="tkt-filter-row">
+
+            <div class="tkt-filter-field">
+
+                <label>
+                    Status
+                </label>
+
+                <select name="statusId"
+                        onchange="document.getElementById('ticketFilterForm').submit()">
+
+                    <option value="">
+                        All Statuses
+                    </option>
+
+                    @foreach (var s in Model.StatusOptions)
+                    {
+                        <option value="@s.Id"
+                                selected="@(Model.FilterStatusId == s.Id)">
+
+                            @s.Name
+
+                        </option>
+                    }
+
+                </select>
+
+            </div>
+
+            <div class="tkt-filter-field">
+
+                <label>
+                    Assigned To
+                </label>
+
+                <select name="assignedTo"
+                        onchange="document.getElementById('ticketFilterForm').submit()">
+
+                    <option value="">
+                        All Users
+                    </option>
+
+                    @foreach (var u in Model.UserOptions)
+                    {
+                        <option value="@u.Id"
+                                selected="@(Model.FilterAssignedTo == u.Id)">
+
+                            @u.Name
+
+                        </option>
+                    }
+
+                </select>
+
+            </div>
+
+            <div class="tkt-filter-field">
+
+                <label>
+                    Priority
+                </label>
+
+                <select name="priorityId"
+                        onchange="document.getElementById('ticketFilterForm').submit()">
+
+                    <option value="">
+                        All Priorities
+                    </option>
+
+                    @foreach (var p in Model.PriorityOptions)
+                    {
+                        <option value="@p.Id"
+                                selected="@(Model.FilterPriorityId == p.Id)">
+
+                            @p.Name
+
+                        </option>
+                    }
+
+                </select>
+
+            </div>
+
+            <div class="tkt-filter-field tkt-filter-search">
+
+                <label>
+                    Search
+                </label>
+
+                <input type="text"
+                       name="search"
+                       value="@Model.Search"
+                       placeholder="Ticket No / Client / Issue..." />
+
+            </div>
+
+        </div>
+
+    </form>
+
+</div>
+
 
 
 <!-- ================= MESSAGES ================= -->
@@ -253,6 +421,21 @@
                 records per page
             </span>
 
+            <!-- Mobile-only sort control: the table header is
+                 hidden on phones, so sorting moves here. -->
+            <select id="mobileSort"
+                    class="mobile-sort"
+                    onchange="mobileSortTable()">
+
+                <option value="">Sort: Default</option>
+
+                @for (int i = 0; i < gridColumns.Length; i++)
+                {
+                    <option value="@i">Sort: @gridColumns[i].Display</option>
+                }
+
+            </select>
+
         </div>
 
 
@@ -296,8 +479,9 @@
                    placeholder="Search..."
                    oninput="filterTable()" />
 
-            <a href="@Url.Action("Create", "Clients", new { returnUrl = Url.Action("Index", "DailySupport") })" class="primary-btn" style="margin-right:8px;">+ New Customer</a>
-            <a href="@Url.Action("Create", "DailySupport")" class="primary-btn">+ New Call Entry</a>
+            <a href="@Url.Action("NewTicket", "DailySupport")" class="primary-btn" style="margin-right:8px; text-decoration:none; display:inline-block;">+ New Ticket</a>
+
+            <a href="@Url.Action("Create", "Clients", new { returnUrl = Url.Action("Index", "DailySupport") })" class="primary-btn" style="margin-right:8px; text-decoration:none; display:inline-block;">+ New Customer</a>
 
         </div>
 
@@ -379,7 +563,9 @@
                         string statusClass =
                             StatusPillClass(statusValue);
 
-                        <tr data-search="@searchText">
+                        <tr data-search="@searchText"
+                            class="tkt-row-link"
+                            data-href="@Url.Action("Detail", "DailySupport", new { id = support.Get("Id") })">
 
                             @foreach (var col in gridColumns)
                             {
@@ -388,7 +574,7 @@
                                         ? "col-nowrap"
                                         : "col-wrap";
 
-                                <td class="@tdClass">
+                                <td class="@tdClass" data-label="@col.Display">
 
                                     @if (col.Name == "Status")
                                     {
@@ -434,7 +620,7 @@
                                 </td>
                             }
 
-                            <td>
+                            <td class="actions-col-cell" data-label="Actions">
 
                                 <div class="action-cell">
 
@@ -444,7 +630,19 @@
                                                 .JsonSerializer
                                                 .Serialize(
                                                     support.Values);
+
+                                        var rowId =
+                                            support.Get("Id");
                                     }
+
+                                    <a href="@Url.Action("Detail", "DailySupport", new { id = rowId })"
+                                       class="action-btn"
+                                       title="View Ticket"
+                                       style="color:#2563eb; text-decoration:none;">
+
+                                        👁
+
+                                    </a>
 
                                     <button type="button"
                                             class="edit-btn action-btn"
@@ -945,6 +1143,25 @@
 
 
         // ==========================================
+        // ROW CLICK -> TICKET DETAIL
+        // ==========================================
+
+        document.addEventListener('click', function (e) {
+
+            var row = e.target.closest('tr.tkt-row-link');
+
+            if (!row) return;
+
+            // Action buttons / links chhodo.
+            if (e.target.closest('a, button, input, form')) return;
+
+            var href = row.getAttribute('data-href');
+
+            if (href) window.location.href = href;
+        });
+
+
+        // ==========================================
         // FILTER TABLE
         // ==========================================
 
@@ -1238,6 +1455,39 @@
             currentPage = 1;
 
             renderTable();
+
+        }
+
+
+        // ==========================================
+        // MOBILE SORT (header is hidden on phones)
+        // ==========================================
+
+        function mobileSortTable() {
+
+            var select =
+                document.getElementById("mobileSort");
+
+            if (!select || select.value === "") {
+                return;
+            }
+
+            var index = parseInt(select.value);
+
+            var headers =
+                document.querySelectorAll(
+                    "#dataTable thead th.sortable"
+                );
+
+            if (headers[index]) {
+
+                masterSortTable(headers[index]);
+
+                currentPage = 1;
+
+                renderTable();
+
+            }
 
         }
 

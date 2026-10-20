@@ -1,0 +1,919 @@
+@model Master.Models.LookupMasterViewModel
+
+@{
+    var def = Model.Definition;
+    ViewData["Title"] = def.Title;
+
+    int totalRecords = Model.TotalRecords;
+    int colCount = 4; // Name + Status + Usage + Actions
+
+    if (def.HasSortOrder) colCount++;
+    if (!string.IsNullOrEmpty(def.ExtraNumberColumn)) colCount++;
+    if (!string.IsNullOrEmpty(def.ExtraBoolColumn)) colCount++;
+    if (!string.IsNullOrEmpty(def.ParentTable)) colCount++;
+}
+
+
+<div class="page-header">
+
+    <div>
+
+        <h1>
+            @def.Title
+        </h1>
+
+        <p>
+            @def.Subtitle
+        </p>
+
+    </div>
+
+</div>
+
+
+<!-- ================= KPI CARDS ================= -->
+
+<div class="dashboard-cards">
+
+
+    <div class="dashboard-card">
+
+        <div class="card-content">
+
+            <p>
+                Total
+            </p>
+
+            <h2 data-kpi="total">
+                @Model.TotalRecords
+            </h2>
+
+        </div>
+
+        <div class="card-icon">
+            📊
+        </div>
+
+    </div>
+
+
+    <div class="dashboard-card">
+
+        <div class="card-content">
+
+            <p>
+                Active
+            </p>
+
+            <h2 data-kpi="active">
+                @Model.ActiveRecords
+            </h2>
+
+        </div>
+
+        <div class="card-icon">
+            ✅
+        </div>
+
+    </div>
+
+
+    <div class="dashboard-card">
+
+        <div class="card-content">
+
+            <p>
+                Inactive
+            </p>
+
+            <h2 data-kpi="inactive">
+                @Model.InActiveRecords
+            </h2>
+
+        </div>
+
+        <div class="card-icon">
+            ⏸️
+        </div>
+
+    </div>
+
+
+    <div class="dashboard-card">
+
+        <div class="card-content">
+
+            <p>
+                In Use (tickets)
+            </p>
+
+            <h2 data-kpi="used">
+                @Model.UsedRecords
+            </h2>
+
+        </div>
+
+        <div class="card-icon">
+            🎯
+        </div>
+
+    </div>
+
+
+</div>
+
+
+<!-- ================= MESSAGES ================= -->
+
+@if (TempData["Success"] != null)
+{
+    <div class="success-message">
+
+        @TempData["Success"]
+
+    </div>
+}
+
+
+@if (TempData["Error"] != null)
+{
+    <div class="error-message">
+
+        @TempData["Error"]
+
+    </div>
+}
+
+
+<!-- ================= SECTION ================= -->
+
+<div class="state-section">
+
+
+    <div class="table-toolbar">
+
+        <div class="toolbar-left">
+
+            <span class="toolbar-label">
+                @def.Title entries
+            </span>
+
+        </div>
+
+
+        <div class="toolbar-right">
+
+            <button type="button"
+                    class="primary-btn"
+                    onclick="openAddModal()">
+
+                + Add @def.NameLabel
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- ================= TABLE ================= -->
+
+    <div class="table-container master-table">
+
+        <table id="dataTable">
+
+            <thead>
+
+                <tr>
+
+                    @if (def.HasSortOrder)
+                    {
+                        <th class="sortable"
+                            data-sort="num"
+                            onclick="sortTable(this)">
+
+                            <span class="th-text">
+                                Order
+                            </span>
+
+                            <span class="sort-indicator">
+                                <span class="sort-up"></span>
+                                <span class="sort-down"></span>
+                            </span>
+
+                        </th>
+                    }
+
+
+                    @if (!string.IsNullOrEmpty(def.ParentTable))
+                    {
+                        <th class="sortable"
+                            data-sort="text"
+                            onclick="sortTable(this)">
+
+                            <span class="th-text">
+                                @def.ParentLabel
+                            </span>
+
+                            <span class="sort-indicator">
+                                <span class="sort-up"></span>
+                                <span class="sort-down"></span>
+                            </span>
+
+                        </th>
+                    }
+
+
+                    <th class="sortable"
+                        data-sort="text"
+                        onclick="sortTable(this)">
+
+                        <span class="th-text">
+                            @def.NameLabel
+                        </span>
+
+                        <span class="sort-indicator">
+                            <span class="sort-up"></span>
+                            <span class="sort-down"></span>
+                        </span>
+
+                    </th>
+
+
+                    @if (!string.IsNullOrEmpty(def.ExtraNumberColumn))
+                    {
+                        <th class="sortable"
+                            data-sort="num"
+                            onclick="sortTable(this)">
+
+                            <span class="th-text">
+                                @def.ExtraNumberLabel
+                            </span>
+
+                            <span class="sort-indicator">
+                                <span class="sort-up"></span>
+                                <span class="sort-down"></span>
+                            </span>
+
+                        </th>
+                    }
+
+
+                    @if (!string.IsNullOrEmpty(def.ExtraBoolColumn))
+                    {
+                        <th>
+                            @def.ExtraBoolLabel
+                        </th>
+                    }
+
+
+                    <th>
+                        Status
+                    </th>
+
+                    <th>
+                        In Use
+                    </th>
+
+                    <th class="actions-col">
+                        Actions
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                @if (Model.Rows.Count == 0)
+                {
+                    <tr class="no-data-row"
+                        data-search="">
+
+                        <td colspan="@colCount"
+                            class="empty-state">
+
+                            No entries found. Add your first @def.NameLabel.ToLower().
+
+                        </td>
+
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var row in Model.Rows)
+                    {
+                        var searchText =
+                            $"{row.Name} {row.ParentName} {row.StatusDisplay}";
+
+                        <tr data-search="@searchText">
+
+                            @if (def.HasSortOrder)
+                            {
+                                <td>
+                                    <strong>@row.SortOrder</strong>
+                                </td>
+                            }
+
+
+                            @if (!string.IsNullOrEmpty(def.ParentTable))
+                            {
+                                <td>
+                                    @row.ParentName
+                                </td>
+                            }
+
+
+                            <td>
+                                @row.Name
+                            </td>
+
+
+                            @if (!string.IsNullOrEmpty(def.ExtraNumberColumn))
+                            {
+                                <td>
+                                    @if (row.ExtraNumber.HasValue)
+                                    {
+                                        <text>@row.ExtraNumber h</text>
+                                    }
+                                    else
+                                    {
+                                        <text>-</text>
+                                    }
+                                </td>
+                            }
+
+
+                            @if (!string.IsNullOrEmpty(def.ExtraBoolColumn))
+                            {
+                                <td>
+
+                                    @if (row.ExtraBool == true)
+                                    {
+                                        <span class="crm-chip crm-c-new">
+                                            Yes
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <text>No</text>
+                                    }
+
+                                </td>
+                            }
+
+
+                            <td>
+
+                                @if (row.IsActive)
+                                {
+                                    <span class="status-active">
+                                        Active
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="status-inactive">
+                                        Inactive
+                                    </span>
+                                }
+
+                            </td>
+
+
+                            <td>
+
+                                @if (row.UsageCount > 0)
+                                {
+                                    <span class="crm-chip crm-c-new">
+                                        @row.UsageCount ticket(s)
+                                    </span>
+                                }
+                                else
+                                {
+                                    <text>-</text>
+                                }
+
+                            </td>
+
+
+                            <td>
+
+                                <div class="action-cell">
+
+                                    <button type="button"
+                                            class="edit-btn action-btn"
+                                            title="Edit"
+                                            data-json="@row.ToJson()"
+                                            onclick="openEditModal(this)">
+
+                                        ✎
+
+                                    </button>
+
+                                    <form asp-controller="@def.ControllerName"
+                                          asp-action="ToggleActive"
+                                          method="post">
+
+                                        @Html.AntiForgeryToken()
+
+                                        <input type="hidden"
+                                               name="id"
+                                               value="@row.Id" />
+
+                                        <button type="submit"
+                                                class="action-btn"
+                                                title="@(row.IsActive ? "Deactivate" : "Activate")"
+                                                style="@(row.IsActive
+                                                    ? "color:#d97706;"
+                                                    : "color:#059669;")">
+
+                                            @(row.IsActive ? "⏸" : "▶")
+
+                                        </button>
+
+                                    </form>
+
+                                    <form asp-controller="@def.ControllerName"
+                                          asp-action="Delete"
+                                          method="post"
+                                          onsubmit="return masterConfirmAndSubmit(
+                                              this,
+                                              'Delete this entry? Used entries are blocked.'
+                                          );">
+
+                                        @Html.AntiForgeryToken()
+
+                                        <input type="hidden"
+                                               name="id"
+                                               value="@row.Id" />
+
+                                        <button type="submit"
+                                                class="delete-btn action-btn"
+                                                title="Delete">
+
+                                            ✕
+
+                                        </button>
+
+                                    </form>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+                    }
+                }
+
+
+                <tr id="noRecordsRow"
+                    class="no-data-row"
+                    data-search=""
+                    style="display: none;">
+
+                    <td colspan="@colCount"
+                        class="empty-state">
+
+                        No Records Found on this filter.
+
+                    </td>
+
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <div class="table-footer">
+
+        <div class="footer-left"
+             id="tableInfo">
+
+            Showing 1 to @totalRecords of @totalRecords entries
+
+        </div>
+
+
+        <div class="footer-right"
+             id="pagination">
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ================= ADD / EDIT MODAL ================= -->
+
+<div id="lookupModal"
+     class="modal">
+
+
+    <div class="modal-content modal-compact">
+
+        <div class="modal-header">
+
+            <h2 id="modalTitle">
+                Add @def.NameLabel
+            </h2>
+
+            <button type="button"
+                    class="modal-close"
+                    onclick="closeModal()">
+
+                &times;
+
+            </button>
+
+        </div>
+
+
+        <form id="lookupForm"
+              method="post"
+              action="@Url.Action("Create", def.ControllerName)">
+
+            @Html.AntiForgeryToken()
+
+            <input type="hidden"
+                   id="editId"
+                   name="id" />
+
+
+            <div class="form-grid form-grid-single">
+
+
+                @if (!string.IsNullOrEmpty(def.ParentTable))
+                {
+                    <div class="form-group">
+
+                        <label>
+                            @def.ParentLabel <span style="color:#dc2626;">*</span>
+                        </label>
+
+                        <select id="edit_ParentId"
+                                name="parentId"
+                                required>
+
+                            <option value="">
+                                -- Select @def.ParentLabel --
+                            </option>
+
+                            @foreach (var option in Model.ParentOptions)
+                            {
+                                <option value="@option.Id">
+                                    @option.Name
+                                </option>
+                            }
+
+                        </select>
+
+                    </div>
+                }
+
+
+                <div class="form-group">
+
+                    <label>
+                        @def.NameLabel <span style="color:#dc2626;">*</span>
+                    </label>
+
+                    <input type="text"
+                           id="edit_Name"
+                           name="name"
+                           maxlength="100"
+                           required
+                           placeholder="e.g. @def.NameLabel" />
+
+                </div>
+
+
+                @if (def.HasSortOrder)
+                {
+                    <div class="form-group">
+
+                        <label>
+                            Sort Order
+                        </label>
+
+                        <input type="number"
+                               id="edit_SortOrder"
+                               name="sortOrder"
+                               min="0"
+                               placeholder="e.g. 1" />
+
+                        <small style="color:#64748b; font-size:12px;">
+                            Chhota number pehle dikhega.
+                        </small>
+
+                    </div>
+                }
+
+
+                @if (!string.IsNullOrEmpty(def.ExtraNumberColumn))
+                {
+                    <div class="form-group">
+
+                        <label>
+                            @def.ExtraNumberLabel <span style="color:#dc2626;">*</span>
+                        </label>
+
+                        <input type="number"
+                               id="edit_ExtraNumber"
+                               name="extraNumber"
+                               min="0"
+                               value="@def.ExtraNumberDefault"
+                               required />
+
+                        <small style="color:#64748b; font-size:12px;">
+                            Is priority ka target time (ghante me).
+                        </small>
+
+                    </div>
+                }
+
+
+                @if (!string.IsNullOrEmpty(def.ExtraBoolColumn))
+                {
+                    <div class="form-group">
+
+                        <label>
+                            @def.ExtraBoolLabel
+                        </label>
+
+                        <select id="edit_ExtraBool"
+                                name="extraBool">
+
+                            <option value="false">
+                                No
+                            </option>
+
+                            <option value="true">
+                                Yes
+                            </option>
+
+                        </select>
+
+                    </div>
+                }
+
+
+                @if (def.HasIsActive)
+                {
+                    <div class="form-group"
+                         id="activeGroup"
+                         style="display:none;">
+
+                        <label>
+                            Active
+                        </label>
+
+                        <select id="edit_IsActive"
+                                name="isActive">
+
+                            <option value="true">
+                                Active
+                            </option>
+
+                            <option value="false">
+                                Inactive
+                            </option>
+
+                        </select>
+
+                    </div>
+                }
+
+            </div>
+
+
+            <div class="modal-actions">
+
+                <button type="submit"
+                        id="btnSubmit"
+                        class="save-btn">
+
+                    Save
+
+                </button>
+
+                <button type="button"
+                        class="cancel-btn"
+                        onclick="closeModal()">
+
+                    Cancel
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+@section Scripts
+{
+    <script>
+
+        var totalRecords = @totalRecords;
+
+        var createUrl =
+            "@Url.Action("Create", def.ControllerName)";
+
+        var editUrl =
+            "@Url.Action("Edit", def.ControllerName)";
+
+        var hasParent =
+            @(string.IsNullOrEmpty(def.ParentTable) ? "false" : "true");
+
+        var hasExtraNumber =
+            @(string.IsNullOrEmpty(def.ExtraNumberColumn) ? "false" : "true");
+
+        var hasExtraBool =
+            @(string.IsNullOrEmpty(def.ExtraBoolColumn) ? "false" : "true");
+
+        var defaultExtraNumber = @def.ExtraNumberDefault;
+
+
+        function renderTable() {
+
+            var rows =
+                document.querySelectorAll(
+                    "#dataTable tbody tr:not(.no-data-row)"
+                );
+
+            for (var i = 0; i < rows.length; i++) {
+                rows[i].style.display = "";
+            }
+
+            var noRecordsRow =
+                document.getElementById("noRecordsRow");
+
+            if (noRecordsRow) {
+
+                noRecordsRow.style.display =
+                    rows.length === 0 ? "" : "none";
+
+            }
+
+            var info =
+                document.getElementById("tableInfo");
+
+            if (info) {
+                info.innerText =
+                    "Showing 1 to " + rows.length
+                    + " of " + rows.length + " entries";
+            }
+
+        }
+
+
+        function sortTable(th) {
+
+            masterSortTable(th);
+
+        }
+
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            function () {
+                renderTable();
+            }
+        );
+
+
+        function openAddModal() {
+
+            document.getElementById(
+                "modalTitle"
+            ).innerText = "Add @def.NameLabel";
+
+            document.getElementById(
+                "btnSubmit"
+            ).innerText = "Save";
+
+            var form =
+                document.getElementById("lookupForm");
+
+            form.action = createUrl;
+
+            form.reset();
+
+            if (hasExtraNumber) {
+                document.getElementById(
+                    "edit_ExtraNumber"
+                ).value = defaultExtraNumber;
+            }
+
+            document.getElementById(
+                "activeGroup"
+            ).style.display = "none";
+
+            document.getElementById(
+                "lookupModal"
+            ).style.display = "flex";
+        }
+
+
+        function openEditModal(btn) {
+
+            var data =
+                JSON.parse(
+                    btn.getAttribute("data-json")
+                );
+
+            document.getElementById(
+                "modalTitle"
+            ).innerText = "Edit @def.NameLabel";
+
+            document.getElementById(
+                "btnSubmit"
+            ).innerText = "Update";
+
+            var form =
+                document.getElementById("lookupForm");
+
+            form.action = editUrl;
+
+            form.reset();
+
+            document.getElementById(
+                "activeGroup"
+            ).style.display = "";
+
+            document.getElementById(
+                "edit_Name"
+            ).value = data.Name;
+
+            document.getElementById(
+                "edit_SortOrder"
+            ).value = data.SortOrder;
+
+            document.getElementById(
+                "edit_IsActive"
+            ).value = data.IsActive ? "true" : "false";
+
+            document.getElementById(
+                "editId"
+            ).value = data.Id;
+
+            if (hasExtraNumber) {
+                document.getElementById(
+                    "edit_ExtraNumber"
+                ).value = data.ExtraNumber === null
+                    ? defaultExtraNumber
+                    : data.ExtraNumber;
+            }
+
+            if (hasExtraBool) {
+                document.getElementById(
+                    "edit_ExtraBool"
+                ).value = data.ExtraBool ? "true" : "false";
+            }
+
+            if (hasParent) {
+                document.getElementById(
+                    "edit_ParentId"
+                ).value = data.ParentId === null
+                    ? ""
+                    : data.ParentId;
+            }
+
+            document.getElementById(
+                "lookupModal"
+            ).style.display = "flex";
+        }
+
+
+        function closeModal() {
+
+            document.getElementById(
+                "lookupModal"
+            ).style.display = "none";
+        }
+
+
+        window.onclick = function (event) {
+
+            const modal =
+                document.getElementById("lookupModal");
+
+            if (event.target === modal) {
+
+                closeModal();
+
+            }
+
+        };
+
+    </script>
+}

@@ -1,0 +1,1024 @@
+@model Master.Models.TicketCreateViewModel
+@using System.Text.Json
+
+@{
+    ViewData["Title"] = "New Ticket";
+
+    var clientsJson = ViewData["ClientsJson"] as string ?? "[]";
+}
+
+<div class="page-header">
+
+    <a href="@Url.Action("Index", "DailySupport")"
+       class="back-link">
+
+        &larr; Back to Daily Support
+
+    </a>
+
+    <div>
+
+        <h1>
+            New Support Ticket
+        </h1>
+
+        <p>
+            Fill the details below &mdash; Ticket No is generated automatically
+        </p>
+
+    </div>
+
+</div>
+
+
+@if (TempData["Error"] != null)
+{
+    <div class="error-message">
+
+        @Html.Raw(TempData["Error"])
+
+    </div>
+}
+
+
+<div class="state-section nt-wrap">
+
+    <form method="post"
+          id="ticketCreateForm"
+          action="@Url.Action("NewTicket", "DailySupport")"
+          novalidate>
+
+        @Html.AntiForgeryToken()
+
+
+        <!-- ================= TICKET INFO ================= -->
+
+        <div class="call-form-section nt-section">
+
+            <div class="form-section-title">
+                &#127915; TICKET INFO
+            </div>
+
+            <div class="form-grid">
+
+                <div class="form-group">
+
+                    <label>
+                        Ticket No
+                    </label>
+
+                    <input type="text"
+                           class="ticket-input"
+                           value="@Model.TicketNo"
+                           readonly />
+
+                    <small class="nt-hint">
+                        Auto-generated
+                    </small>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Priority <span class="nt-req">*</span>
+                    </label>
+
+                    <select name="PriorityId"
+                            id="edit_PriorityId"
+                            required>
+
+                        <option value="">
+                            -- Select Priority --
+                        </option>
+
+                        @foreach (var p in Model.Priorities)
+                        {
+                            <option value="@p.Id"
+                                    selected="@(Model.PriorityId == p.Id)">
+
+                                @p.Name
+
+                            </option>
+                        }
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Call Date
+                    </label>
+
+                    <input type="text"
+                           class="call-date-input"
+                           value="@DateTime.Today.ToString("dd/MM/yyyy")"
+                           readonly />
+
+                    <input type="hidden"
+                           name="SupportDate"
+                           value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Status
+                    </label>
+
+                    <select name="StatusId" id="edit_StatusId">
+
+                        @foreach (var s in Model.Statuses)
+                        {
+                            <option value="@s.Id"
+                                    selected="@(Model.StatusId == s.Id)">
+
+                                @s.Name
+
+                            </option>
+                        }
+
+                    </select>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ================= CUSTOMER ================= -->
+
+        <div class="call-form-section nt-section">
+
+            <div class="form-section-title">
+                &#128100; CUSTOMER
+            </div>
+
+            <div class="nt-search-block">
+
+                <label>
+                    Search Existing Client
+                </label>
+
+                <div class="nt-search-row">
+
+                    <input type="text"
+                           id="searchMobile"
+                           placeholder="Search by name or mobile number" />
+
+                    <button type="button"
+                            class="mobile-search-btn"
+                            id="searchMobileBtn">
+
+                        Search
+
+                    </button>
+
+                </div>
+
+                <div class="suggestion-box"
+                     id="mobileSuggestions">
+
+                </div>
+
+            </div>
+
+            <div class="form-grid">
+
+                <div class="form-group client-select-wrapper">
+
+                    <label>
+                        Select Client <span class="nt-req">*</span>
+                    </label>
+
+                    <input type="hidden"
+                           name="ClientId"
+                           id="clientIdField"
+                           value="@Model.ClientId" />
+
+                    <input type="text"
+                           id="clientSearchInput"
+                           placeholder="Type to search client"
+                           autocomplete="off" />
+
+                    <div class="select-dropdown"
+                         id="clientDropdown">
+
+                    </div>
+
+                    <small id="selectedClientChip"
+                           class="nt-client-chip"
+                           style="display:none;">
+
+                    </small>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Mobile
+                    </label>
+
+                    <input type="text"
+                           name="Mobile"
+                           id="mobileField"
+                           maxlength="20"
+                           value="@Model.Mobile"
+                           placeholder="Mobile No." />
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Caller Name
+                    </label>
+
+                    <input type="text"
+                           name="CallerName"
+                           id="callerNameField"
+                           maxlength="150"
+                           value="@Model.CallerName"
+                           placeholder="Caller Name" />
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ================= CLASSIFICATION ================= -->
+
+        <div class="call-form-section nt-section">
+
+            <div class="form-section-title">
+                &#128193; CLASSIFICATION
+            </div>
+
+            <div class="form-grid">
+
+                <div class="form-group">
+
+                    <label>
+                        Channel
+                    </label>
+
+                    <select name="ChannelId" id="edit_ChannelId">
+
+                        <option value="">
+                            -- Select Channel --
+                        </option>
+
+                        @foreach (var c in Model.Channels)
+                        {
+                            <option value="@c.Id"
+                                    selected="@(Model.ChannelId == c.Id)">
+
+                                @c.Name
+
+                            </option>
+                        }
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Call Type
+                    </label>
+
+                    <select name="CallTypeId" id="edit_CallTypeId">
+
+                        <option value="">
+                            -- Select Call Type --
+                        </option>
+
+                        @foreach (var c in Model.CallTypes)
+                        {
+                            <option value="@c.Id"
+                                    selected="@(Model.CallTypeId == c.Id)">
+
+                                @c.Name
+
+                            </option>
+                        }
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Category
+                    </label>
+
+                    <select name="CategoryId" id="edit_CategoryId">
+
+                        <option value="">
+                            -- Select Category --
+                        </option>
+
+                        @foreach (var c in Model.Categories)
+                        {
+                            <option value="@c.Id"
+                                    selected="@(Model.CategoryId == c.Id)">
+
+                                @c.Name
+
+                            </option>
+                        }
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Sub Category
+                    </label>
+
+                    <select name="SubCategoryId"
+                            id="edit_SubCategoryId">
+
+                        <option value="">
+                            -- Select Sub Category --
+                        </option>
+
+                    </select>
+
+                    <small class="nt-hint">
+                        Changes after selecting a category
+                    </small>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Assign To <span class="nt-req">*</span>
+                    </label>
+
+                    <select name="AssignedTo" id="edit_AssignedTo" required>
+
+                        <option value="">
+                            -- Select Assign To --
+                        </option>
+
+                        @foreach (var u in Model.Users)
+                        {
+                            <option value="@u.Id"
+                                    selected="@(Model.AssignedTo == u.Id)">
+
+                                @u.Name
+
+                            </option>
+                        }
+
+                    </select>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ================= PROBLEM ================= -->
+
+        <div class="call-form-section nt-section">
+
+            <div class="form-section-title">
+                &#128221; PROBLEM
+            </div>
+
+            <div class="form-grid">
+
+                <div class="form-group form-group-full">
+
+                    <label>
+                        Issue (Subject) <span class="nt-req">*</span>
+                    </label>
+
+                    <input type="text"
+                           name="Subject"
+                           id="edit_Subject"
+                           maxlength="300"
+                           value="@Model.Subject"
+                           placeholder="Short issue title"
+                           required />
+
+                </div>
+
+
+                <div class="form-group form-group-full">
+
+                    <label>
+                        Description <span class="nt-req">*</span>
+                    </label>
+
+                    <textarea name="Description"
+                              id="edit_Description"
+                              rows="4"
+                              placeholder="Describe the client's problem / request"
+                              required>@Model.Description</textarea>
+
+
+                    <div class="voice-controls">
+
+                        <button type="button"
+                                class="voice-btn mic-btn"
+                                id="voiceMicBtn_Description"
+                                onclick="startVoice('Description')">
+
+                            Mic
+
+                        </button>
+
+                        <button type="button"
+                                class="voice-btn voice-stop"
+                                onclick="stopVoice()">
+
+                            Stop
+
+                        </button>
+
+                        <button type="button"
+                                class="voice-btn voice-reset"
+                                onclick="resetVoice('Description')">
+
+                            Reset
+
+                        </button>
+
+                    </div>
+
+                    <span class="voice-status"
+                          id="voiceStatus_Description"></span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="nt-footer">
+
+            <button type="button"
+                    class="cancel-btn"
+                    id="clearFormBtn">
+
+                Clear
+
+            </button>
+
+            <button type="submit"
+                    class="save-btn">
+
+                Create Ticket
+
+            </button>
+
+        </div>
+
+    </form>
+
+</div>
+
+
+@section Scripts
+{
+    <script>
+
+        var clients = @Html.Raw(clientsJson);
+
+        var subCategories = [
+            @foreach (var s in Model.SubCategories)
+            {
+                <text>{ id: @s.Id, name: "@Html.Raw(s.Name.Replace("\"", "\\\""))", parentId: @s.ParentId },</text>
+            }
+        ];
+
+        var selectedSubCategoryId = "@(Model.SubCategoryId?.ToString() ?? "")";
+
+        var mobileTimer = null;
+
+        // ==========================================
+        // CLIENT SEARCH
+        // ==========================================
+
+        function setClient(id, name, mobile) {
+
+            document.getElementById('clientIdField').value = id || '';
+
+            document.getElementById('clientSearchInput').value =
+                name || '';
+
+            if (mobile) {
+                document.getElementById('mobileField').value = mobile;
+            }
+
+            if (name
+                && !document.getElementById('callerNameField').value) {
+                document.getElementById('callerNameField').value = name;
+            }
+
+            // Show a small confirmation chip with the selected client.
+            var chip = document.getElementById('selectedClientChip');
+
+            if (chip && name) {
+                var extra = mobile ? ' &middot; ' + mobile : '';
+                chip.innerHTML = '&#10003; ' + name + extra;
+                chip.style.display = 'inline-block';
+            }
+
+            hideClientDropdown();
+            hideSuggestions();
+        }
+
+        function renderClientDropdown(matches) {
+
+            var dd = document.getElementById('clientDropdown');
+
+            if (!matches || matches.length === 0) {
+                dd.style.display = 'none';
+                dd.innerHTML = '';
+                return;
+            }
+
+            var html = '';
+
+            for (var i = 0; i < matches.length; i++) {
+                html += '<div class="select-option" '
+                    + 'data-id="' + matches[i].id + '" '
+                    + 'data-name="' + matches[i].name + '">'
+                    + matches[i].name + '</div>';
+            }
+
+            dd.innerHTML = html;
+            dd.style.display = 'block';
+
+            var opts = dd.querySelectorAll('.select-option');
+
+            for (var j = 0; j < opts.length; j++) {
+                opts[j].addEventListener('click', function () {
+                    setClient(
+                        this.getAttribute('data-id'),
+                        this.getAttribute('data-name'),
+                        '');
+                });
+            }
+        }
+
+        function hideClientDropdown() {
+
+            var dd = document.getElementById('clientDropdown');
+
+            if (dd) {
+                dd.style.display = 'none';
+                dd.innerHTML = '';
+            }
+        }
+
+        function filterClients(term) {
+
+            if (!term) {
+                return clients.slice(0, 20);
+            }
+
+            var t = term.toLowerCase();
+            var res = [];
+
+            for (var i = 0; i < clients.length; i++) {
+                if (clients[i].name
+                    && clients[i].name.toLowerCase().indexOf(t) >= 0) {
+                    res.push(clients[i]);
+                }
+                if (res.length > 50) {
+                    break;
+                }
+            }
+
+            return res;
+        }
+
+        // ==========================================
+        // MOBILE SUGGESTIONS
+        // ==========================================
+
+        function renderSuggestions(list) {
+
+            var box = document.getElementById('mobileSuggestions');
+
+            if (!list || list.length === 0) {
+                box.style.display = 'none';
+                box.innerHTML = '';
+                return;
+            }
+
+            var html = '';
+
+            for (var i = 0; i < list.length; i++) {
+                html += '<div class="suggestion-item" '
+                    + 'data-id="' + list[i].id + '" '
+                    + 'data-name="' + list[i].name + '">'
+                    + list[i].name + '</div>';
+            }
+
+            box.innerHTML = html;
+            box.style.display = 'block';
+
+            var items = box.querySelectorAll('.suggestion-item');
+
+            for (var j = 0; j < items.length; j++) {
+                items[j].addEventListener('click', function () {
+                    setClient(
+                        this.getAttribute('data-id'),
+                        this.getAttribute('data-name'),
+                        '');
+                });
+            }
+        }
+
+        function hideSuggestions() {
+
+            var box = document.getElementById('mobileSuggestions');
+
+            if (box) {
+                box.style.display = 'none';
+                box.innerHTML = '';
+            }
+        }
+
+        // ==========================================
+        // DUPLICATE TICKET CHECK
+        // ==========================================
+
+        function checkDuplicate(mobile) {
+
+            if (!mobile || mobile.length < 6) {
+                return;
+            }
+
+            fetch('@Url.Action("CheckDuplicate","DailySupport")'
+                + '?mobile=' + encodeURIComponent(mobile),
+                { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(r => r.json())
+                .then(data => {
+
+                    if (data && data.hasDuplicate) {
+
+                        var nums = data.tickets
+                            .map(t => t.ticketNo)
+                            .join(', ');
+
+                        masterShowToast(
+                            'Warning: is mobile ka pehle se open ticket hai — '
+                            + nums,
+                            'error');
+                    }
+                });
+        }
+
+        // ==========================================
+        // SUBCATEGORY CASCADE
+        // ==========================================
+
+        function loadSubCategories(categoryId, keepSelection) {
+
+            var sel =
+                document.getElementById('edit_SubCategoryId');
+
+            sel.innerHTML =
+                '<option value="">-- Select Sub Category --</option>';
+
+            for (var i = 0; i < subCategories.length; i++) {
+
+                var s = subCategories[i];
+
+                if (categoryId && s.parentId !== parseInt(categoryId)) {
+                    continue;
+                }
+
+                var opt = document.createElement('option');
+                opt.value = s.id;
+                opt.text = s.name;
+
+                if (keepSelection
+                    && selectedSubCategoryId === String(s.id)) {
+                    opt.selected = true;
+                }
+
+                sel.appendChild(opt);
+            }
+        }
+
+        // ==========================================
+        // INIT
+        // ==========================================
+
+        document.addEventListener('DOMContentLoaded', function () {
+
+            var clientSearchInput =
+                document.getElementById('clientSearchInput');
+
+            clientSearchInput.addEventListener('input', function () {
+                renderClientDropdown(filterClients(this.value));
+            });
+
+            clientSearchInput.addEventListener('focus', function () {
+                renderClientDropdown(filterClients(this.value));
+            });
+
+            document.addEventListener('click', function (e) {
+
+                var dd = document.getElementById('clientDropdown');
+                var box = document.getElementById('mobileSuggestions');
+                var sm = document.getElementById('searchMobile');
+
+                if (!clientSearchInput.contains(e.target)
+                    && dd && !dd.contains(e.target)) {
+                    hideClientDropdown();
+                }
+
+                if (sm && box
+                    && !sm.contains(e.target)
+                    && !box.contains(e.target)) {
+                    hideSuggestions();
+                }
+            });
+
+            var searchMobile = document.getElementById('searchMobile');
+
+            searchMobile.addEventListener('input', function () {
+
+                var q = this.value.trim();
+
+                clearTimeout(mobileTimer);
+
+                mobileTimer = setTimeout(function () {
+
+                    var matches = clients.filter(function (c) {
+                        return c.name
+                            && c.name.toLowerCase()
+                                .indexOf(q.toLowerCase()) >= 0;
+                    }).slice(0, 5);
+
+                    renderSuggestions(matches);
+
+                    checkDuplicate(q);
+
+                }, 400);
+            });
+
+            document.getElementById('searchMobileBtn')
+                .addEventListener('click', function () {
+                    var q = searchMobile.value.trim();
+                    if (q) {
+                        checkDuplicate(q);
+                    }
+                });
+
+            // Category -> SubCategory cascade
+            document.getElementById('edit_CategoryId')
+                .addEventListener('change', function () {
+                    loadSubCategories(this.value, false);
+                });
+
+            // Initial
+            loadSubCategories(
+                document.getElementById('edit_CategoryId').value,
+                true);
+
+            // Clear
+            document.getElementById('clearFormBtn')
+                .addEventListener('click', function () {
+
+                    var form =
+                        document.getElementById('ticketCreateForm');
+
+                    form.reset();
+
+                    document.getElementById('clientIdField').value = '';
+                    document.getElementById('clientSearchInput').value = '';
+                    document.getElementById('mobileField').value = '';
+                    document.getElementById('callerNameField').value = '';
+
+                    var chip = document.getElementById('selectedClientChip');
+                    if (chip) {
+                        chip.innerHTML = '';
+                        chip.style.display = 'none';
+                    }
+
+                    loadSubCategories('', false);
+
+                    hideClientDropdown();
+                    hideSuggestions();
+                });
+
+            // Submit validation
+            document.getElementById('ticketCreateForm')
+                .addEventListener('submit', function (event) {
+
+                    event.preventDefault();
+
+                    var clientId =
+                        document.getElementById('clientIdField').value;
+
+                    var subject =
+                        document.getElementById('edit_Subject')
+                            .value.trim();
+
+                    var desc =
+                        document.getElementById('edit_Description')
+                            .value.trim();
+
+                    var priority =
+                        document.getElementById('edit_PriorityId').value;
+
+                    var assigned =
+                        document.getElementById('edit_AssignedTo').value;
+
+                    if (!clientId) {
+                        masterShowToast(
+                            'Please select a client.', 'error');
+                        return;
+                    }
+
+                    if (!priority) {
+                        masterShowToast(
+                            'Please select a priority.', 'error');
+                        return;
+                    }
+
+                    if (!assigned) {
+                        masterShowToast(
+                            'Please select Assign To.', 'error');
+                        return;
+                    }
+
+                    if (!subject) {
+                        masterShowToast(
+                            'Issue (Subject) is required.', 'error');
+                        return;
+                    }
+
+                    if (!desc) {
+                        masterShowToast(
+                            'Description is required.', 'error');
+                        return;
+                    }
+
+                    this.submit();
+                });
+        });
+
+        // ==========================================
+        // VOICE TO TEXT
+        // ==========================================
+
+        var recognition = null;
+        var voiceField = 'Description';
+
+        function speechSupported() {
+            return ('webkitSpeechRecognition' in window
+                || 'SpeechRecognition' in window);
+        }
+
+        function setListening(on) {
+
+            var micBtn =
+                document.getElementById('voiceMicBtn_' + voiceField);
+            var status =
+                document.getElementById('voiceStatus_' + voiceField);
+
+            if (micBtn) {
+                if (on) micBtn.classList.add('is-recording');
+                else micBtn.classList.remove('is-recording');
+            }
+
+            if (status) {
+                if (on) {
+                    status.innerText =
+                        '\u25CF Listening... Stop dabane tak sunta rahega';
+                    status.classList.add('visible');
+                } else {
+                    status.classList.remove('visible');
+                }
+            }
+        }
+
+        var speechBaseText = '';
+        var speechFinal = '';
+
+        function startVoice(fieldName) {
+
+            if (fieldName) voiceField = fieldName;
+
+            var textarea =
+                document.getElementById('edit_' + voiceField);
+
+            if (!speechSupported()) {
+                alert('Speech Recognition is not supported. Use Chrome.');
+                return;
+            }
+
+            var SpeechRecognition =
+                window.SpeechRecognition
+                || window.webkitSpeechRecognition;
+
+            recognition = new SpeechRecognition();
+            recognition.lang = 'en-IN';
+            recognition.interimResults = true;
+            recognition.continuous = true;
+
+            recognition.onstart = function () {
+                speechBaseText = textarea.value.trim();
+                speechFinal = '';
+                setListening(true);
+                textarea.focus();
+            };
+
+            recognition.onresult = function (event) {
+
+                var interim = '';
+
+                for (var i = event.resultIndex;
+                     i < event.results.length; i++) {
+
+                    if (event.results[i].isFinal) {
+                        speechFinal +=
+                            ' ' + event.results[i][0].transcript;
+                    } else {
+                        interim += event.results[i][0].transcript;
+                    }
+                }
+
+                var parts = [];
+
+                if (speechBaseText) parts.push(speechBaseText);
+                if (speechFinal.trim()) parts.push(speechFinal.trim());
+                if (interim.trim()) parts.push(interim.trim());
+
+                textarea.value = parts.join(' ');
+            };
+
+            recognition.onerror = function (event) {
+                if (event.error === 'not-allowed') {
+                    alert('Microphone permission denied.');
+                }
+                setListening(false);
+            };
+
+            recognition.onend = function () {
+                setListening(false);
+            };
+
+            try {
+                recognition.start();
+            } catch (e) {
+                alert('Could not start: ' + e.message);
+            }
+        }
+
+        function stopVoice() {
+            if (recognition) recognition.stop();
+            setListening(false);
+        }
+
+        function resetVoice(fieldName) {
+
+            if (fieldName) voiceField = fieldName;
+
+            if (!confirm('Clear ' + voiceField + '?')) return;
+
+            if (recognition) recognition.stop();
+            setListening(false);
+
+            speechBaseText = '';
+            speechFinal = '';
+
+            document.getElementById('edit_' + voiceField).value = '';
+        }
+
+    </script>
+}
