@@ -150,27 +150,27 @@
     </a>
 
 
-    <a href="@Url.Action("Index", "DailySupport", new { view = "overdue", assignedTo = Model.FilterAssignedTo, priorityId = Model.FilterPriorityId })"
-       class="dashboard-card tkt-kpi-link @(Model.FilterView == "overdue" ? "tkt-kpi-active" : "")">
+    <a href="@Url.Action("Index", "DailySupport", new { view = "onhold", assignedTo = Model.FilterAssignedTo, priorityId = Model.FilterPriorityId })"
+       class="dashboard-card tkt-kpi-link @(Model.FilterView == "onhold" ? "tkt-kpi-active" : "")">
 
         <div class="card-content">
 
             <p>
-                SLA Overdue
+                On Hold
             </p>
 
-            <h2 data-kpi="overdue">
-                @Model.OverdueCount
+            <h2 data-kpi="onhold">
+                @Model.OnHoldCount
             </h2>
 
             <span class="kpi-sub">
-                Time nikal gaya
+                Waiting on client
             </span>
 
         </div>
 
         <div class="card-icon">
-            🔴
+            ⏸️
         </div>
 
     </a>

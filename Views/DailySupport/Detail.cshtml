@@ -326,9 +326,9 @@
 </div>
 
 
-<!-- ================= ACTIVITY TIMELINE (grouped) ================= -->
+<!-- ================= ACTIVITY TIMELINE ================= -->
 
-<div class="state-section">
+<div class="state-section tkt-collapsible collapsed">
 
     <div class="form-section-title">
 
@@ -336,6 +336,9 @@
         <span style="color:#64748b; font-size:12px; font-weight:400;">
             &mdash; @Model.Timeline.Count entries
         </span>
+
+        <button type="button" class="tkt-sec-toggle"
+                title="Show / hide" onclick="toggleSection(this)">+</button>
 
     </div>
 
@@ -355,7 +358,7 @@
                     ? "work"
                     : item.KindKey;
 
-                <div class="tkt-flat-row"
+                <div class="tkt-flat-row collapsed"
                      tabindex="0"
                      title="Click to start work on this ticket"
                      data-body="@(item.Body ?? string.Empty)"
@@ -398,38 +401,51 @@
 
                             </span>
 
+                            <button type="button"
+                                    class="tkt-flat-toggle"
+                                    title="Show / hide details"
+                                    onclick="event.stopPropagation(); toggleTimelineRow(this)">
+
+                                +
+
+                            </button>
+
                         </div>
 
-                        @if (!string.IsNullOrWhiteSpace(item.Body))
-                        {
-                            <div class="tkt-flat-body">
-                                @item.Body
+                        <div class="tkt-flat-detail">
+
+                            @if (!string.IsNullOrWhiteSpace(item.Body))
+                            {
+                                <div class="tkt-flat-body">
+                                    @item.Body
+                                </div>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(item.NextAction))
+                            {
+                                <div class="tkt-tl-next">
+                                    &#10132; Next: @item.NextAction
+                                </div>
+                            }
+
+                            <div class="tkt-flat-meta">
+
+                                @if (!string.IsNullOrWhiteSpace(item.ByName))
+                                {
+                                    <span>&#128100; @item.ByName</span>
+                                }
+
+                                @if (item.KindKey == "work" && item.WorkDate.HasValue)
+                                {
+                                    <span>Work for @item.WorkDate.Value.ToString("dd MMM")</span>
+                                }
+
+                                @if (item.TimeSpent.HasValue && item.TimeSpent.Value > 0)
+                                {
+                                    <span>&#9201; @(item.TimeSpent.Value)m</span>
+                                }
+
                             </div>
-                        }
-
-                        @if (!string.IsNullOrWhiteSpace(item.NextAction))
-                        {
-                            <div class="tkt-tl-next">
-                                &#10132; Next: @item.NextAction
-                            </div>
-                        }
-
-                        <div class="tkt-flat-meta">
-
-                            @if (!string.IsNullOrWhiteSpace(item.ByName))
-                            {
-                                <span>&#128100; @item.ByName</span>
-                            }
-
-                            @if (item.KindKey == "work" && item.WorkDate.HasValue)
-                            {
-                                <span>Work for @item.WorkDate.Value.ToString("dd MMM")</span>
-                            }
-
-                            @if (item.TimeSpent.HasValue && item.TimeSpent.Value > 0)
-                            {
-                                <span>&#9201; @(item.TimeSpent.Value)m</span>
-                            }
 
                         </div>
 
@@ -446,7 +462,7 @@
 
 <!-- ================= CLIENT TICKETS (full table) ================= -->
 
-<div class="state-section" id="clientTickets">
+<div class="state-section tkt-collapsible" id="clientTickets">
 
     <div class="form-section-title">
 
@@ -456,6 +472,9 @@
             Total @Model.ClientTotalTickets
             (@Model.ClientOpenTickets open, @Model.ClientClosedTickets closed)
         </span>
+
+        <button type="button" class="tkt-sec-toggle"
+                title="Show / hide" onclick="toggleSection(this)">−</button>
 
     </div>
 
@@ -764,10 +783,39 @@
         // TIMELINE — CLICK AN ENTRY TO START WORK
         // ==========================================
 
+        // Expand / collapse a whole section (Ticket Info, Issue,
+        // Activity Timeline, Client Tickets...).
+        function toggleSection(btn) {
+
+            var section = btn.closest('.tkt-collapsible');
+
+            if (!section) return;
+
+            section.classList.toggle('collapsed');
+
+            btn.innerText = section.classList.contains('collapsed')
+                ? '+'
+                : '−';
+        }
+
+        // Expand / collapse a timeline entry's details.
+        // A "+" opens it, a "−" closes it.
+        function toggleTimelineRow(btn) {
+
+            var row = btn.closest('.tkt-flat-row');
+
+            if (!row) return;
+
+            row.classList.toggle('collapsed');
+
+            btn.innerText = row.classList.contains('collapsed')
+                ? '+'
+                : '−';
+        }
+
         // Highlights the clicked entry and opens the work modal
         // pre-filled with that entry's note.
         function selectTimelineEntry(row) {
-
             var rows = document.querySelectorAll('.tkt-flat-row');
 
             for (var i = 0; i < rows.length; i++) {

@@ -988,6 +988,8 @@ public class DailySupportController : Controller
                     THEN 1 ELSE 0 END) AS InProgressCount,
                 SUM(CASE WHEN st.[StatusName] = 'Pending Review'
                     THEN 1 ELSE 0 END) AS PendingReviewCount,
+                SUM(CASE WHEN st.[StatusName] = 'On Hold'
+                    THEN 1 ELSE 0 END) AS OnHoldCount,
                 SUM(CASE WHEN d.[SlaDue] < {TicketService.SqlNowIstText}
                     AND ISNULL(st.[IsClosed], 0) = 0
                     THEN 1 ELSE 0 END) AS OverdueCount,
@@ -1020,6 +1022,8 @@ public class DailySupportController : Controller
                     ReadKpiCount(kpiReader, "InProgressCount");
                 model.PendingReviewCount =
                     ReadKpiCount(kpiReader, "PendingReviewCount");
+                model.OnHoldCount =
+                    ReadKpiCount(kpiReader, "OnHoldCount");
                 model.OverdueCount =
                     ReadKpiCount(kpiReader, "OverdueCount");
                 model.ClosedToday =
@@ -1096,6 +1100,9 @@ public class DailySupportController : Controller
                 break;
             case "inprogress":
                 parts.Add("st.[StatusName] = 'In Progress'");
+                break;
+            case "onhold":
+                parts.Add("st.[StatusName] = 'On Hold'");
                 break;
             case "pendingReview":
                 parts.Add("st.[StatusName] = 'Pending Review'");
@@ -1309,6 +1316,9 @@ public class DailySupportController : Controller
                 break;
             case "inprogress":
                 whereParts.Add("stf.[StatusName] = 'In Progress'");
+                break;
+            case "onhold":
+                whereParts.Add("stf.[StatusName] = 'On Hold'");
                 break;
             case "pendingReview":
                 whereParts.Add("stf.[StatusName] = 'Pending Review'");

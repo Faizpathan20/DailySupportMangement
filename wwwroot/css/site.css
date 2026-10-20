@@ -7038,37 +7038,158 @@ body.crm-modal-open {
 }
 
 
-/* ---- Simple flat timeline ---- */
+/* ---- Section collapse (+/-) ---- */
+
+.tkt-collapsible.collapsed > *:not(.form-section-title) {
+    display: none;
+}
+
+.tkt-collapsible.collapsed {
+    padding-bottom: 14px;
+}
+
+.tkt-sec-toggle {
+    margin-left: auto;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #334155;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s ease;
+}
+
+.tkt-sec-toggle:hover {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+}
+
+/* Section titles hold the toggle on the right */
+.form-section-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+
+/* ---- Simple flat timeline (polished) ---- */
 
 .tkt-flat {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 6px;
     margin-top: 6px;
 }
 
 .tkt-flat-row {
+    position: relative;
     display: flex;
     gap: 12px;
-    padding: 12px 10px;
-    border-bottom: 1px solid #f1f5f9;
-    border-radius: 8px;
+    padding: 12px 12px 12px 14px;
+    border: 1px solid #eef2f7;
+    border-left: 3px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
     cursor: pointer;
-    transition: background .15s ease, box-shadow .15s ease;
+    transition: background .15s ease, box-shadow .15s ease,
+        border-color .15s ease;
 }
 
 .tkt-flat-row:hover {
     background: #f8fafc;
+    border-color: #dbe4f0;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, .05);
 }
 
 .tkt-flat-row.selected {
     background: #eff6ff;
-    box-shadow: inset 3px 0 0 #2563eb;
+    border-left-color: #2563eb;
 }
 
 .tkt-flat-row:focus {
     outline: none;
+}
+
+/* Left bar color by entry kind */
+.tkt-flat-row:has(.ic-work)    { border-left-color: #3b82f6; }
+.tkt-flat-row:has(.ic-status)  { border-left-color: #f59e0b; }
+.tkt-flat-row:has(.ic-assign)  { border-left-color: #8b5cf6; }
+.tkt-flat-row:has(.ic-created) { border-left-color: #22c55e; }
+
+/* Latest entry gets a soft ring on its icon */
+.tkt-flat-row:first-child .tkt-flat-icon {
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
+
+.tkt-flat-icon {
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    background: #f1f5f9;
+    border: 2px solid #e2e8f0;
+}
+
+.tkt-flat-main {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tkt-flat-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.tkt-flat-title {
+    font-weight: 700;
+    font-size: 14px;
+    color: #0f172a;
+}
+
+.tkt-flat-time {
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: 600;
+    color: #2563eb;
+    white-space: nowrap;
+}
+
+.tkt-flat-detail {
+    margin-top: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
     background: #f8fafc;
+    border: 1px solid #eef2f7;
+}
+
+.tkt-flat-body {
+    font-size: 14px;
+    color: #334155;
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
+.tkt-flat-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #94a3b8;
 }
 
 /* Small "Work" hint that appears on hover */
@@ -7086,6 +7207,35 @@ body.crm-modal-open {
 .tkt-flat-row:hover .tkt-flat-work,
 .tkt-flat-row.selected .tkt-flat-work {
     display: inline-block;
+}
+
+/* +/- expand toggle (per entry) */
+.tkt-flat-toggle {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #334155;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s ease;
+}
+
+.tkt-flat-toggle:hover {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+}
+
+.tkt-flat-row.collapsed .tkt-flat-detail {
+    display: none;
 }
 
 .tkt-flat-row:last-child {

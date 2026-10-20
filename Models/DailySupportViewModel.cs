@@ -21,6 +21,9 @@ public class DailySupportViewModel
 
     public int OverdueCount { get; set; }
 
+    // On Hold tickets (KPI card)
+    public int OnHoldCount { get; set; }
+
     // ---- List page filters ----
     public int? FilterStatusId { get; set; }
 
