@@ -171,6 +171,7 @@ public class DailySupportController : Controller
                 {
                     Id = Convert.ToInt32(reader["Id"]),
                     Name = ToStr(reader["ClientName"]),
+                    Mobile = ToStr(reader["MobileNo"]),
                     SlaHours = 0,
                     ParentId = 0
                 });
@@ -218,7 +219,8 @@ public class DailySupportController : Controller
                 model.Clients.Select(c => new
                 {
                     id = c.Id,
-                    name = c.Name
+                    name = c.Name,
+                    mobile = c.Mobile
                 }));
 
         return View(model);
@@ -248,6 +250,11 @@ public class DailySupportController : Controller
             errors.Add("Description is required.");
         }
 
+        if (string.IsNullOrWhiteSpace(model.Mobile))
+        {
+            errors.Add("Mobile number is required.");
+        }
+
         if (!model.PriorityId.HasValue)
         {
             errors.Add("Priority is required.");
@@ -256,11 +263,6 @@ public class DailySupportController : Controller
         if (!model.StatusId.HasValue)
         {
             errors.Add("Status is required.");
-        }
-
-        if (!model.AssignedTo.HasValue)
-        {
-            errors.Add("Assign To is required.");
         }
 
         if (errors.Count > 0)
@@ -278,6 +280,13 @@ public class DailySupportController : Controller
 
         int? createdBy =
             int.TryParse(currentId, out int uid) ? uid : null;
+
+        // Assign To is auto-filled with the logged-in user
+        // (reassign later from the ticket Detail page).
+        if (!model.AssignedTo.HasValue || model.AssignedTo <= 0)
+        {
+            model.AssignedTo = createdBy;
+        }
 
         int ticketId = await _ticketService.CreateTicketAsync(
             connection, model, createdBy);
@@ -308,7 +317,7 @@ public class DailySupportController : Controller
                 d.[Subject], d.[Description],
                 d.[ChannelId], d.[CallTypeId], d.[CategoryId],
                 d.[SubCategoryId], d.[PriorityId], d.[StatusId],
-                d.[AssignedTo], d.[ReviewStatus], d.[ReviewedBy],
+                d.[AssignedTo], d.[CreatedBy], d.[ReviewStatus], d.[ReviewedBy],
                 d.[ReviewedAt],
                 ISNULL(c.[ClientName], '') AS ClientName,
                 ISNULL(ch.[ChannelName], '') AS ChannelName,
@@ -320,6 +329,7 @@ public class DailySupportController : Controller
                 ISNULL(pr.[PriorityName], '') AS PriorityName,
                 ISNULL(pr.[SlaHours], 0) AS SlaHours,
                 ISNULL(u.[UserName], '') AS AssignedToName,
+                ISNULL(cu.[UserName], '') AS CreatedByName,
                 ISNULL(ru.[UserName], '') AS ReviewedByName
             FROM [DailySupport] d
             LEFT JOIN [ClientMaster] c ON c.[Id] = d.[ClientId]
@@ -330,6 +340,7 @@ public class DailySupportController : Controller
             LEFT JOIN [Mst_Status] st ON st.[StatusId] = d.[StatusId]
             LEFT JOIN [Mst_Priority] pr ON pr.[PriorityId] = d.[PriorityId]
             LEFT JOIN [LoginUsers] u ON u.[Id] = d.[AssignedTo]
+            LEFT JOIN [LoginUsers] cu ON cu.[Id] = d.[CreatedBy]
             LEFT JOIN [LoginUsers] ru ON ru.[Id] = d.[ReviewedBy]
             WHERE d.[Id] = @Id";
 
@@ -393,6 +404,10 @@ public class DailySupportController : Controller
             model.AssignedTo =
                 TicketService.ToIntOrNull(reader["AssignedTo"]);
             model.AssignedToName = ToStr(reader["AssignedToName"]);
+            model.CreatedBy = TicketService.ToIntOrNull(reader["CreatedBy"]);
+            model.CreatedByName = ToStr(reader["CreatedByName"]);
+            model.CreatedBy = TicketService.ToIntOrNull(reader["CreatedBy"]);
+            model.CreatedByName = ToStr(reader["CreatedByName"]);
 
             model.ReviewStatus = ToStr(reader["ReviewStatus"]);
             model.ReviewedBy =
@@ -407,6 +422,7 @@ public class DailySupportController : Controller
             SELECT
                 up.[UpdateId], up.[WorkDate], up.[WorkDone],
                 up.[TimeSpent], up.[NextAction], up.[EntryOn],
+                up.[WaitingOn], up.[ResolutionNote], up.[FollowUpDate],
                 ISNULL(u.[UserName], '') AS UserName
             FROM [Trn_DailySupport_Updates] up
             LEFT JOIN [LoginUsers] u ON u.[Id] = up.[UpdatedBy]
@@ -429,6 +445,10 @@ public class DailySupportController : Controller
                     TimeSpent =
                         TicketService.ToIntOrNull(reader["TimeSpent"]),
                     NextAction = ToStr(reader["NextAction"]),
+                    WaitingOn = ToStr(reader["WaitingOn"]),
+                    ResolutionNote = ToStr(reader["ResolutionNote"]),
+                    FollowUpDate =
+                        TicketService.ToDateOrNull(reader["FollowUpDate"]),
                     UpdatedByName = ToStr(reader["UserName"]),
                     EntryOn = Convert.ToDateTime(reader["EntryOn"])
                 });
@@ -539,7 +559,8 @@ public class DailySupportController : Controller
                 ISNULL(cat.[CategoryName], '') AS CategoryName,
                 ISNULL(sc.[SubCategoryName], '') AS SubCategoryName,
                 ISNULL(ch.[ChannelName], '') AS ChannelName,
-                ISNULL(u.[UserName], '') AS AssignedToName
+                ISNULL(u.[UserName], '') AS AssignedToName,
+                ISNULL(cu.[UserName], '') AS CreatedByName
             FROM [DailySupport] d
             LEFT JOIN [Mst_Status] st ON st.[StatusId] = d.[StatusId]
             LEFT JOIN [Mst_Priority] pr ON pr.[PriorityId] = d.[PriorityId]
@@ -547,6 +568,7 @@ public class DailySupportController : Controller
             LEFT JOIN [Mst_SubCategory] sc ON sc.[SubCategoryId] = d.[SubCategoryId]
             LEFT JOIN [Mst_Channel] ch ON ch.[ChannelId] = d.[ChannelId]
             LEFT JOIN [LoginUsers] u ON u.[Id] = d.[AssignedTo]
+            LEFT JOIN [LoginUsers] cu ON cu.[Id] = d.[CreatedBy]
             WHERE d.[ClientId] = @ClientId
             ORDER BY d.[Id] DESC", connection))
         {
@@ -572,6 +594,7 @@ public class DailySupportController : Controller
                     SubCategoryName = ToStr(reader["SubCategoryName"]),
                     ChannelName = ToStr(reader["ChannelName"]),
                     AssignedToName = ToStr(reader["AssignedToName"]),
+                    CreatedByName = ToStr(reader["CreatedByName"]),
                     TimeSpentMinutes =
                         TicketService.ToIntOrNull(reader["TimeSpent"]) ?? 0,
                     SlaDue =
@@ -594,12 +617,48 @@ public class DailySupportController : Controller
         // ---- Users (Assign modal) ----
         model.Users = await _ticketService.LoadUsersAsync(connection);
 
+        // Recompute permissions with current user
+        string? currentUserIdStr2 = DynamicTableService.GetLoggedInUserId(User);
+        int? currentUserIdVal2 = int.TryParse(currentUserIdStr2, out int cuidVal2) ? cuidVal2 : null;
+        model.IsReadOnly = model.IsClosedByName;
+        model.CanAssign = !model.IsClosedByName;
+        model.CanAddWork = !model.IsClosedByName &&
+            currentUserIdVal2.HasValue &&
+            model.AssignedTo.HasValue &&
+            model.AssignedTo.Value == currentUserIdVal2.Value;
+
         // ---- Status options (Work form dropdown) ----
         model.StatusOptions = await _ticketService.LoadLookupAsync(
             connection, "Mst_Status", "StatusId", "StatusName");
 
         // ---- Timeline merge (updates + history) ----
         var timeline = new List<TicketTimelineItem>();
+
+        // ---- Permissions ----
+        string? currentUserIdStr = DynamicTableService.GetLoggedInUserId(User);
+        int? currentUserIdVal = int.TryParse(currentUserIdStr, out int cuidVal) ? cuidVal : null;
+
+        model.IsReadOnly = model.IsClosedByName;
+        model.CanAssign = !model.IsClosedByName;
+        model.CanAddWork = !model.IsClosedByName &&
+            currentUserIdVal.HasValue &&
+            model.AssignedTo.HasValue &&
+            model.AssignedTo.Value == currentUserIdVal.Value;
+
+        // ---- Close permission ----
+        // Resolved ticket ko owner (assignee/creator) ya admin close kar sakta hai.
+        // NOTE: Mst_Status.Resolved ka IsClosed flag DB me 1 hai (galat data),
+        // isliye hum flag ko ignore karke status ke *naam* se decide karte hain.
+        bool detailIsAdmin = await IsAdminUserAsync(connection, currentUserIdVal);
+
+        bool detailIsOwner =
+            currentUserIdVal.HasValue
+            && (model.AssignedTo == currentUserIdVal
+                || model.CreatedBy == currentUserIdVal);
+
+        model.CanClose = !model.IsReadOnly
+            && model.IsResolvedByName
+            && (detailIsOwner || detailIsAdmin);
 
         foreach (var up in model.Updates)
         {
@@ -613,6 +672,9 @@ public class DailySupportController : Controller
                 Body = up.WorkDone,
                 TimeSpent = up.TimeSpent,
                 NextAction = up.NextAction,
+                WaitingOn = up.WaitingOn,
+                ResolutionNote = up.ResolutionNote,
+                FollowUpDate = up.FollowUpDate,
                 WorkDate = up.WorkDate,
                 ByName = up.UpdatedByName
             });
@@ -623,6 +685,23 @@ public class DailySupportController : Controller
         model.Timeline = timeline
             .OrderByDescending(t => t.At)
             .ToList();
+
+        model.StatusOptions = await _ticketService.LoadLookupAsync(
+            connection, "Mst_Status", "StatusId", "StatusName");
+
+        // ---- Review history ----
+        model.Reviews = await _ticketService
+            .ReviewsForTicketAsync(connection, model.Id);
+
+        // ---- Is the current user an admin? (review panel ke liye) ----
+        model.IsAdmin = await IsAdminUserAsync(
+            connection,
+            int.TryParse(
+                DynamicTableService.GetLoggedInUserId(User),
+                out int detailUid) ? detailUid : null);
+
+        // Review panel sirf admin ko (accept/reject).
+        model.CanReview = model.IsAdmin;
 
         ViewData["Title"] = "Ticket " + model.TicketNo;
 
@@ -639,7 +718,10 @@ public class DailySupportController : Controller
         string workDone,
         int? timeSpent,
         string? nextAction,
-        int? statusId)
+        int? statusId,
+        string? waitingOn = null,
+        string? resolutionNote = null,
+        DateTime? followUpDate = null)
     {
         if (string.IsNullOrWhiteSpace(workDone))
         {
@@ -712,7 +794,10 @@ public class DailySupportController : Controller
             nextAction,
             oldStatusId,
             newStatusId,
-            updatedBy);
+            updatedBy,
+            waitingOn,
+            resolutionNote,
+            followUpDate);
 
         // ---- Status badla to ticket + history update ----
         string message = "Work update added.";
@@ -733,7 +818,21 @@ public class DailySupportController : Controller
                     updatedBy,
                     null);
 
-                message = $"Work update added. Status \u2192 {newStatus}.";
+                message = "Work update added. Status changed.";
+
+                // Review ke liye bheja? Admin(s) ko notify karo.
+                if (string.Equals(newStatus, "Pending Review",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    await NotifyAdminsAsync(
+                        connection,
+                        ticketId,
+                        "Naya review: "
+                            + await TicketNoAsync(connection, ticketId),
+                        workDone,
+                        "review",
+                        null);
+                }
             }
         }
 
@@ -742,6 +841,256 @@ public class DailySupportController : Controller
             success = true,
             message
         });
+    }
+
+    // ---------- EDIT WORK UPDATE (AJAX) ----------
+    // Work Log me kisi row pe click -> wahi update edit hota hai
+    // (naya row add nahi). Status / WorkDate nahi badalte.
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditUpdate(
+        int updateId,
+        DateTime workDate,
+        string workDone,
+        int? timeSpent,
+        string? nextAction,
+        string? waitingOn = null,
+        string? resolutionNote = null,
+        DateTime? followUpDate = null)
+    {
+        if (string.IsNullOrWhiteSpace(workDone))
+        {
+            return Json(new
+            {
+                success = false,
+                message = "Work done is required."
+            });
+        }
+
+        using SqlConnection connection =
+            await _ticketService.OpenAsync();
+
+        await _ticketService.UpdateWorkUpdateAsync(
+            connection,
+            updateId,
+            workDone,
+            timeSpent,
+            nextAction,
+            waitingOn,
+            resolutionNote,
+            followUpDate);
+
+        return Json(new
+        {
+            success = true,
+            message = "Work update saved."
+        });
+    }
+
+    // ---------- REVIEW DECISION (admin: accept / reject) ----------
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Review(
+        int ticketId,
+        string action,
+        int? rating,
+        string? remarks)
+    {
+        using SqlConnection connection =
+            await _ticketService.OpenAsync();
+
+        string? currentId =
+            DynamicTableService.GetLoggedInUserId(User);
+
+        int? reviewerId =
+            int.TryParse(currentId, out int uid) ? uid : null;
+
+        if (!reviewerId.HasValue)
+        {
+            return Json(new
+            {
+                success = false,
+                message = "Aap logged in nahi hain."
+            });
+        }
+
+        bool approved = string.Equals(
+            action, "accept", StringComparison.OrdinalIgnoreCase);
+
+        if (!approved && !string.Equals(
+                action, "reject", StringComparison.OrdinalIgnoreCase))
+        {
+            return Json(new
+            {
+                success = false,
+                message = "Unknown review action."
+            });
+        }
+
+        // Reject pe message zaruri hai (wajah batao).
+        if (!approved && string.IsNullOrWhiteSpace(remarks))
+        {
+            return Json(new
+            {
+                success = false,
+                message = "Reject karne ke liye message likhna zaruri hai."
+            });
+        }
+
+        // ---- Review row save ----
+        await _ticketService.AddReviewAsync(
+            connection,
+            ticketId,
+            reviewerId.Value,
+            approved ? "Approved" : "Rejected",
+            rating,
+            remarks);
+
+        // ---- Ticket ka status badlo ----
+        string newStatus = approved ? "Resolved" : "In Progress";
+
+        var status = await _ticketService.GetStatusByNameAsync(
+            connection, newStatus);
+
+        if (status != null)
+        {
+            await _ticketService.ChangeStatusAsync(
+                connection,
+                ticketId,
+                status.Value.Id,
+                status.Value.Name,
+                reviewerId,
+                approved
+                    ? "Review approved."
+                    : "Review rejected: " + remarks);
+        }
+
+        // ---- Ticket bananewale (assignee) ko notify karo ----
+        int? ownerId = await TicketOwnerAsync(connection, ticketId);
+
+        if (ownerId.HasValue && ownerId.Value != reviewerId.Value)
+        {
+            string ticketNo = await TicketNoAsync(connection, ticketId);
+
+            await _ticketService.AddNotificationAsync(
+                connection,
+                ownerId.Value,
+                ticketId,
+                approved
+                    ? $"Approved: {ticketNo}"
+                    : $"Rejected: {ticketNo}",
+                remarks,
+                approved ? "approved" : "rejected",
+                rating);
+        }
+
+        return Json(new
+        {
+            success = true,
+            message = approved
+                ? "Review approved."
+                : "Review rejected."
+        });
+    }
+
+
+    // ============================================
+    // NOTIFICATION HELPERS
+    // ============================================
+
+    // Saare admins ko ek notification bhejo.
+    private async Task NotifyAdminsAsync(
+        SqlConnection connection,
+        int ticketId,
+        string title,
+        string? body,
+        string kind,
+        int? rating)
+    {
+        foreach (int adminId in await AdminUserIdsAsync(connection))
+        {
+            await _ticketService.AddNotificationAsync(
+                connection,
+                adminId,
+                ticketId,
+                title,
+                body,
+                kind,
+                rating);
+        }
+    }
+
+    // Admin user ids (UserName match se).
+    private static async Task<List<int>> AdminUserIdsAsync(
+        SqlConnection connection)
+    {
+        var ids = new List<int>();
+
+        const string sql =
+            "SELECT [Id], [UserName] FROM [LoginUsers] WHERE [IsActive] = 1";
+
+        using SqlCommand command = new SqlCommand(sql, connection);
+
+        command.CommandTimeout = 0;
+
+        using SqlDataReader reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            string name = ToStr(reader["UserName"]);
+
+            if (AdminUserNames.Any(
+                    a => string.Equals(a, name.Trim(),
+                        StringComparison.OrdinalIgnoreCase)))
+            {
+                ids.Add(Convert.ToInt32(reader["Id"]));
+            }
+        }
+
+        return ids;
+    }
+
+    // Ticket ka assignee (warna bananewala).
+    private static async Task<int?> TicketOwnerAsync(
+        SqlConnection connection, int ticketId)
+    {
+        const string sql = @"
+            SELECT
+                ISNULL([AssignedTo], [CreatedBy]) AS [OwnerId]
+            FROM [DailySupport]
+            WHERE [Id] = @Id";
+
+        using SqlCommand command = new SqlCommand(sql, connection);
+
+        command.CommandTimeout = 0;
+        command.Parameters.AddWithValue("@Id", ticketId);
+
+        object? result = await command.ExecuteScalarAsync();
+
+        return result == null || result == DBNull.Value
+            ? null
+            : (int?)Convert.ToInt32(result);
+    }
+
+    // Ticket ka number (notification title ke liye).
+    private static async Task<string> TicketNoAsync(
+        SqlConnection connection, int ticketId)
+    {
+        const string sql =
+            "SELECT [TicketNo] FROM [DailySupport] WHERE [Id] = @Id";
+
+        using SqlCommand command = new SqlCommand(sql, connection);
+
+        command.CommandTimeout = 0;
+        command.Parameters.AddWithValue("@Id", ticketId);
+
+        object? result = await command.ExecuteScalarAsync();
+
+        return result == null || result == DBNull.Value
+            ? "ticket"
+            : result.ToString()!;
     }
 
     // ---------- CHANGE STATUS (button se) ----------
@@ -891,6 +1240,86 @@ public class DailySupportController : Controller
         }));
     }
 
+    // ---------- NOTIFICATIONS (AJAX) ----------
+
+    // Unread count — sidebar badge ke liye.
+    [HttpGet]
+    public async Task<IActionResult> NotifCount()
+    {
+        string? currentId =
+            DynamicTableService.GetLoggedInUserId(User);
+
+        if (!int.TryParse(currentId, out int uid))
+        {
+            return Json(new { count = 0 });
+        }
+
+        using SqlConnection connection =
+            await _ticketService.OpenAsync();
+
+        int count = await _ticketService.UnreadCountAsync(
+            connection, uid);
+
+        return Json(new { count });
+    }
+
+    // Recent notifications — bell/list ke liye.
+    // ticketId diya to sirf us ticket ki (Detail page ke liye).
+    [HttpGet]
+    public async Task<IActionResult> NotifList(int? ticketId)
+    {
+        string? currentId =
+            DynamicTableService.GetLoggedInUserId(User);
+
+        if (!int.TryParse(currentId, out int uid))
+        {
+            return Json(new { items = Array.Empty<object>() });
+        }
+
+        using SqlConnection connection =
+            await _ticketService.OpenAsync();
+
+        var items = await _ticketService.RecentNotificationsAsync(
+            connection, uid, 20, ticketId);
+
+        return Json(new
+        {
+            items = items.Select(n => new
+            {
+                id = n.Id,
+                ticketId = n.TicketId,
+                ticketNo = n.TicketNo,
+                title = n.Title,
+                body = n.Body,
+                kind = n.Kind,
+                rating = n.Rating,
+                isRead = n.IsRead,
+                createdAt = n.CreatedAt.ToString("dd MMM, h:mm tt")
+            })
+        });
+    }
+
+    // Sabko read mark karo.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> MarkNotifsRead()
+    {
+        string? currentId =
+            DynamicTableService.GetLoggedInUserId(User);
+
+        if (!int.TryParse(currentId, out int uid))
+        {
+            return Json(new { success = false });
+        }
+
+        using SqlConnection connection =
+            await _ticketService.OpenAsync();
+
+        await _ticketService.MarkAllReadAsync(connection, uid);
+
+        return Json(new { success = true });
+    }
+
     // ============================================
     // SUPPORT LIST
     // Columns, KPI cards and grid columns are all
@@ -962,6 +1391,34 @@ public class DailySupportController : Controller
             connection);
 
         // ========================================
+        // SCOPE: har user sirf apne tickets dekhe;
+        // Admin (UserName = Admin / Ps-0011) ko sab dikhe.
+        // ========================================
+
+        string? loggedInId =
+            DynamicTableService.GetLoggedInUserId(User);
+
+        model.CurrentUserId =
+            int.TryParse(loggedInId, out int loggedUid) ? loggedUid : null;
+
+        model.IsAdmin = await IsAdminUserAsync(
+            connection, model.CurrentUserId);
+
+        // Non-admin ke liye Assigned To forced = apna Id.
+        // Admin ke liye dropdown ka value (ya null = sab).
+        int? effectiveAssignedTo = model.IsAdmin
+            ? assignedTo
+            : model.CurrentUserId;
+
+        model.FilterAssignedTo = effectiveAssignedTo;
+
+        // Dropdown cascade: kaun sa combo real tickets me hai.
+        await LoadFilterCascadeAsync(
+            connection,
+            model.IsAdmin ? null : model.CurrentUserId,
+            model);
+
+        // ========================================
         // LOAD KPI COUNTS
         // Cards (filter-aware): Open / In Progress /
         // Pending Review / SLA Overdue / Resolved Today
@@ -974,7 +1431,7 @@ public class DailySupportController : Controller
         // (User / Priority) — Status card ka apna status hota hai.
         string kpiWhere = BuildFilterWhere(
             statusId: null,
-            assignedTo: assignedTo,
+            assignedTo: effectiveAssignedTo,
             priorityId: priorityId,
             view: null,
             includeStatus: false);
@@ -1007,7 +1464,7 @@ public class DailySupportController : Controller
             kpiCommand.CommandTimeout = 0;
 
             AddFilterParameters(
-                kpiCommand, null, assignedTo, priorityId, null);
+                kpiCommand, null, effectiveAssignedTo, priorityId, null);
 
             using SqlDataReader kpiReader =
                 await kpiCommand.ExecuteReaderAsync();
@@ -1041,9 +1498,20 @@ public class DailySupportController : Controller
                 fields,
                 search,
                 statusId,
-                assignedTo,
+                effectiveAssignedTo,
                 priorityId,
                 view);
+
+        // ---- Review pills (Ticket No ke aage pending/approved/rejected) ----
+        // Har user sirf apne tickets dekhta hai, isliye pills bhi
+        // uske apne tickets ki hi hongi.
+        model.ReviewPills = new Dictionary<int, string>();
+
+        if (model.CurrentUserId.HasValue)
+        {
+            model.ReviewPills = await _ticketService.ReviewPillMapAsync(
+                connection, model.CurrentUserId.Value);
+        }
 
         // ========================================
         // LOAD DROPDOWNS + STATIC OPTIONS
@@ -1065,6 +1533,126 @@ public class DailySupportController : Controller
     // ============================================
     // FILTER HELPERS (Status / User / Priority / view)
     // ============================================
+
+    // Admin detect karta hai (LoginUsers.UserName se).
+    // UserMaster me abhi koi Role/IsAdmin column nahi hai,
+    // isliye username match use karte hain. Naya admin
+    // chahiye to is list me naam add kar do.
+    private static readonly string[] AdminUserNames =
+    {
+        "Admin",
+        "Ps-0011"
+    };
+
+    private static async Task<bool> IsAdminUserAsync(
+        SqlConnection connection,
+        int? userId)
+    {
+        if (!userId.HasValue || userId.Value <= 0)
+        {
+            return false;
+        }
+
+        const string sql =
+            "SELECT [UserName] FROM [LoginUsers] WHERE [Id] = @Id";
+
+        using SqlCommand command = new SqlCommand(sql, connection);
+
+        command.Parameters.AddWithValue("@Id", userId.Value);
+
+        object? result = await command.ExecuteScalarAsync();
+
+        string? name = result?.ToString();
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return false;
+        }
+
+        return AdminUserNames.Any(
+            a => string.Equals(a, name.Trim(),
+                StringComparison.OrdinalIgnoreCase));
+    }
+
+
+    // ============================================
+    // FILTER CASCADE (Status <-> AssignedTo <-> Priority)
+    // ============================================
+    //
+    // Real tickets se kaun sa combo exist karta
+    // hai, wo nikalta hai. View in maps se har
+    // <option> pe data-with-* attributes likhta
+    // hai, aur client-side JS dropdowns ko aapas
+    // me connect kar deta hai.
+    //
+    // assignedTo = scope. Normal user ke liye sirf
+    // uske tickets ka combo dikhta hai; admin (null)
+    // ke liye poore system ka.
+    private static async Task LoadFilterCascadeAsync(
+        SqlConnection connection,
+        int? assignedTo,
+        DailySupportViewModel model)
+    {
+        string where = "";
+
+        if (assignedTo.HasValue && assignedTo.Value > 0)
+        {
+            where = " AND d.[AssignedTo] = @AssignedTo";
+        }
+
+        string sql = $@"
+            SELECT DISTINCT
+                d.[StatusId],
+                d.[AssignedTo],
+                d.[PriorityId]
+            FROM [DailySupport] d
+            WHERE d.[StatusId] IS NOT NULL
+              AND d.[AssignedTo] IS NOT NULL
+              AND d.[PriorityId] IS NOT NULL
+              {where}";
+
+        using SqlCommand command = new SqlCommand(sql, connection);
+
+        command.CommandTimeout = 0;
+
+        if (where.Length > 0)
+        {
+            command.Parameters.AddWithValue("@AssignedTo", assignedTo!.Value);
+        }
+
+        using SqlDataReader reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            int statusId = Convert.ToInt32(reader["StatusId"]);
+            int userId = Convert.ToInt32(reader["AssignedTo"]);
+            int priorityId = Convert.ToInt32(reader["PriorityId"]);
+
+            AddPair(model.UsersByStatus, statusId, userId);
+            AddPair(model.PrioritiesByStatus, statusId, priorityId);
+            AddPair(model.StatusesByUser, userId, statusId);
+            AddPair(model.PrioritiesByUser, userId, priorityId);
+            AddPair(model.StatusesByPriority, priorityId, statusId);
+            AddPair(model.UsersByPriority, priorityId, userId);
+        }
+    }
+
+
+    // Dictionary<int, List<int>> me duplicate ke bina add.
+    private static void AddPair(
+        Dictionary<int, List<int>> map, int key, int value)
+    {
+        if (!map.TryGetValue(key, out List<int>? list))
+        {
+            list = new List<int>();
+            map[key] = list;
+        }
+
+        if (!list.Contains(value))
+        {
+            list.Add(value);
+        }
+    }
 
     // WHERE clause build karta hai. KPI cards + grid dono
     // isi ko use karte hain.

@@ -41,6 +41,35 @@ public class DailySupportViewModel
 
     public List<TicketOption> UserOptions { get; set; } = new();
 
+    // Logged-in user ke permissions.
+    // IsAdmin -> Assigned To dropdown dikhta hai aur saare tickets dikhte hain;
+    // baaki users sirf apne assigned tickets dekhte hain.
+    public bool IsAdmin { get; set; }
+
+    public int? CurrentUserId { get; set; }
+
+    // Ticket id -> review pill ("pending" | "approved" | "rejected").
+    // Index table me Ticket No ke aage dikhta hai.
+    public Dictionary<int, string> ReviewPills { get; set; } = new();
+
+    // ---- Filter cascade maps (real tickets se) ----
+    // Ye batate hain kaun sa combo DailySupport me
+    // actually maujood hai, taake dropdown aapas me
+    // connect ho jaayein. Key = parent id,
+    // Value = uske saath allowed sibling ids.
+
+    public Dictionary<int, List<int>> UsersByStatus { get; set; } = new();
+
+    public Dictionary<int, List<int>> PrioritiesByStatus { get; set; } = new();
+
+    public Dictionary<int, List<int>> StatusesByUser { get; set; } = new();
+
+    public Dictionary<int, List<int>> PrioritiesByUser { get; set; } = new();
+
+    public Dictionary<int, List<int>> StatusesByPriority { get; set; } = new();
+
+    public Dictionary<int, List<int>> UsersByPriority { get; set; } = new();
+
     public bool HasStatusKpi { get; set; }
 
     public List<MasterColumnViewModel> Fields { get; set; }

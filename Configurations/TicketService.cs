@@ -448,19 +448,24 @@ public class TicketService
         string? nextAction,
         int? oldStatusId,
         int? newStatusId,
-        int? updatedBy)
+        int? updatedBy,
+        string? waitingOn = null,
+        string? resolutionNote = null,
+        DateTime? followUpDate = null)
     {
         const string sql = @"
             INSERT INTO [Trn_DailySupport_Updates]
             (
                 [TicketId], [WorkDate], [WorkDone], [TimeSpent],
                 [NextAction], [OldStatusId], [NewStatusId],
+                [WaitingOn], [ResolutionNote], [FollowUpDate],
                 [UpdatedBy], [EntryOn]
             )
             VALUES
             (
                 @TicketId, @WorkDate, @WorkDone, @TimeSpent,
                 @NextAction, @OldStatusId, @NewStatusId,
+                @WaitingOn, @ResolutionNote, @FollowUpDate,
                 @UpdatedBy, @EntryOn
             );
             SELECT CAST(SCOPE_IDENTITY() AS INT);";
@@ -484,6 +489,13 @@ public class TicketService
             command.Parameters.AddWithValue(
                 "@NewStatusId", (object?)newStatusId ?? DBNull.Value);
             command.Parameters.AddWithValue(
+                "@WaitingOn", (object?)waitingOn ?? DBNull.Value);
+            command.Parameters.AddWithValue(
+                "@ResolutionNote", (object?)resolutionNote ?? DBNull.Value);
+            command.Parameters.AddWithValue(
+                "@FollowUpDate",
+                (object?)followUpDate?.Date ?? DBNull.Value);
+            command.Parameters.AddWithValue(
                 "@UpdatedBy", (object?)updatedBy ?? DBNull.Value);
             command.Parameters.AddWithValue("@EntryOn", NowIst);
 
@@ -498,6 +510,76 @@ public class TicketService
         await RecalculateTimeSpentAsync(connection, ticketId);
 
         return updateId;
+    }
+
+    // Ek existing work update ko edit karo (naya row nahi).
+    // Status / WorkDate nahi badalte — sirf work details.
+    public async Task UpdateWorkUpdateAsync(
+        SqlConnection connection,
+        int updateId,
+        string workDone,
+        int? timeSpent,
+        string? nextAction,
+        string? waitingOn,
+        string? resolutionNote,
+        DateTime? followUpDate)
+    {
+        const string sql = @"
+            UPDATE [Trn_DailySupport_Updates] SET
+                [WorkDone] = @WorkDone,
+                [TimeSpent] = @TimeSpent,
+                [NextAction] = @NextAction,
+                [WaitingOn] = @WaitingOn,
+                [ResolutionNote] = @ResolutionNote,
+                [FollowUpDate] = @FollowUpDate
+            WHERE [UpdateId] = @UpdateId";
+
+        int ticketId = 0;
+
+        using (SqlCommand command =
+               new SqlCommand(sql, connection))
+        {
+            command.CommandTimeout = 0;
+
+            command.Parameters.AddWithValue("@WorkDone", workDone ?? "");
+            command.Parameters.AddWithValue(
+                "@TimeSpent", (object?)timeSpent ?? DBNull.Value);
+            command.Parameters.AddWithValue(
+                "@NextAction", (object?)nextAction ?? DBNull.Value);
+            command.Parameters.AddWithValue(
+                "@WaitingOn", (object?)waitingOn ?? DBNull.Value);
+            command.Parameters.AddWithValue(
+                "@ResolutionNote", (object?)resolutionNote ?? DBNull.Value);
+            command.Parameters.AddWithValue(
+                "@FollowUpDate",
+                (object?)followUpDate?.Date ?? DBNull.Value);
+            command.Parameters.AddWithValue("@UpdateId", updateId);
+
+            await command.ExecuteNonQueryAsync();
+        }
+
+        // Ticket ka total TimeSpent recalculate (jo ticket is update ka hai).
+        const string ticketSql =
+            "SELECT [TicketId] FROM [Trn_DailySupport_Updates] WHERE [UpdateId] = @UpdateId";
+
+        using (SqlCommand command =
+               new SqlCommand(ticketSql, connection))
+        {
+            command.CommandTimeout = 0;
+            command.Parameters.AddWithValue("@UpdateId", updateId);
+
+            object? result = await command.ExecuteScalarAsync();
+
+            if (result != null && result != DBNull.Value)
+            {
+                ticketId = Convert.ToInt32(result);
+            }
+        }
+
+        if (ticketId > 0)
+        {
+            await RecalculateTimeSpentAsync(connection, ticketId);
+        }
     }
 
     public async Task RecalculateTimeSpentAsync(
@@ -722,6 +804,261 @@ public class TicketService
         update.Parameters.AddWithValue("@Id", ticketId);
 
         await update.ExecuteNonQueryAsync();
+    }
+
+
+    // ============================================
+    // NOTIFICATIONS (in-app)
+    // ============================================
+
+    // Ek notification insert karta hai.
+    public async Task AddNotificationAsync(
+        SqlConnection connection,
+        int userId,
+        int? ticketId,
+        string title,
+        string? body,
+        string kind,
+        int? rating)
+    {
+        const string sql = @"
+            INSERT INTO [Trn_Notification]
+            (
+                [UserId], [TicketId], [Title], [Body],
+                [Kind], [Rating], [IsRead], [CreatedAt]
+            )
+            VALUES
+            (
+                @UserId, @TicketId, @Title, @Body,
+                @Kind, @Rating, 0, @CreatedAt
+            )";
+
+        using SqlCommand command = new SqlCommand(sql, connection);
+
+        command.CommandTimeout = 0;
+
+        command.Parameters.AddWithValue("@UserId", userId);
+        command.Parameters.AddWithValue(
+            "@TicketId", (object?)ticketId ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Title", title);
+        command.Parameters.AddWithValue(
+            "@Body", (object?)body ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Kind", kind);
+        command.Parameters.AddWithValue(
+            "@Rating", (object?)rating ?? DBNull.Value);
+        command.Parameters.AddWithValue("@CreatedAt", NowIst);
+
+        await command.ExecuteNonQueryAsync();
+    }
+
+    // Ek user ke unread notifications ka count.
+    public async Task<int> UnreadCountAsync(
+        SqlConnection connection, int userId)
+    {
+        const string sql = @"
+            SELECT COUNT(*)
+            FROM [Trn_Notification]
+            WHERE [UserId] = @UserId AND [IsRead] = 0";
+
+        using SqlCommand command = new SqlCommand(sql, connection);
+
+        command.CommandTimeout = 0;
+        command.Parameters.AddWithValue("@UserId", userId);
+
+        object? result = await command.ExecuteScalarAsync();
+
+        return result == null || result == DBNull.Value
+            ? 0
+            : Convert.ToInt32(result);
+    }
+
+    // Ek user ki recent notifications (nayi pehle).
+    // ticketId diya to sirf us ticket ki notifications.
+    public async Task<List<TicketNotification>> RecentNotificationsAsync(
+        SqlConnection connection, int userId, int take = 20,
+        int? ticketId = null)
+    {
+        var list = new List<TicketNotification>();
+
+        string sql = @"
+            SELECT TOP (@Take)
+                n.[Id], n.[UserId], n.[TicketId], n.[Title],
+                n.[Body], n.[Kind], n.[Rating], n.[IsRead],
+                n.[CreatedAt],
+                ISNULL(d.[TicketNo], '') AS [TicketNo]
+            FROM [Trn_Notification] n
+            LEFT JOIN [DailySupport] d ON d.[Id] = n.[TicketId]
+            WHERE n.[UserId] = @UserId";
+
+        if (ticketId.HasValue)
+        {
+            sql += " AND n.[TicketId] = @TicketId";
+        }
+
+        sql += " ORDER BY n.[Id] DESC";
+
+        using SqlCommand command = new SqlCommand(sql, connection);
+
+        command.CommandTimeout = 0;
+        command.Parameters.AddWithValue("@UserId", userId);
+        command.Parameters.AddWithValue("@Take", take);
+
+        if (ticketId.HasValue)
+        {
+            command.Parameters.AddWithValue(
+                "@TicketId", ticketId.Value);
+        }
+
+        using SqlDataReader reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            list.Add(new TicketNotification
+            {
+                Id = Convert.ToInt32(reader["Id"]),
+                UserId = Convert.ToInt32(reader["UserId"]),
+                TicketId = ToIntOrNull(reader["TicketId"]),
+                TicketNo = ToStr(reader["TicketNo"]),
+                Title = ToStr(reader["Title"]),
+                Body = ToStr(reader["Body"]),
+                Kind = ToStr(reader["Kind"]),
+                Rating = ToIntOrNull(reader["Rating"]),
+                IsRead = Convert.ToBoolean(reader["IsRead"]),
+                CreatedAt = Convert.ToDateTime(reader["CreatedAt"])
+            });
+        }
+
+        return list;
+    }
+
+    // Saare notifications ko read mark karo.
+    public async Task MarkAllReadAsync(
+        SqlConnection connection, int userId)
+    {
+        const string sql = @"
+            UPDATE [Trn_Notification]
+            SET [IsRead] = 1
+            WHERE [UserId] = @UserId AND [IsRead] = 0";
+
+        using SqlCommand command = new SqlCommand(sql, connection);
+
+        command.CommandTimeout = 0;
+        command.Parameters.AddWithValue("@UserId", userId);
+
+        await command.ExecuteNonQueryAsync();
+    }
+
+    // Ek ticket ki review history (nayi pehle).
+    public async Task<List<TicketReviewItem>> ReviewsForTicketAsync(
+        SqlConnection connection, int ticketId)
+    {        var list = new List<TicketReviewItem>();
+
+        const string sql = @"
+            SELECT
+                r.[ReviewId], r.[ReviewAction], r.[Rating],
+                r.[Remarks], r.[ReviewedAt],
+                ISNULL(u.[UserName], '') AS [ReviewedByName]
+            FROM [Trn_DailySupport_Review] r
+            LEFT JOIN [LoginUsers] u ON u.[Id] = r.[ReviewedBy]
+            WHERE r.[TicketId] = @TicketId
+            ORDER BY r.[ReviewId] DESC";
+
+        using SqlCommand command = new SqlCommand(sql, connection);
+
+        command.CommandTimeout = 0;
+        command.Parameters.AddWithValue("@TicketId", ticketId);
+
+        using SqlDataReader reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            list.Add(new TicketReviewItem
+            {
+                ReviewId = Convert.ToInt32(reader["ReviewId"]),
+                ReviewedByName = ToStr(reader["ReviewedByName"]),
+                ReviewAction = ToStr(reader["ReviewAction"]),
+                Rating = ToIntOrNull(reader["Rating"]),
+                Remarks = ToStr(reader["Remarks"]),
+                ReviewedAt = Convert.ToDateTime(reader["ReviewedAt"])
+            });
+        }
+
+        return list;
+    }
+
+    // Un tickets ka review pill (pending/approved/rejected) jinke
+    // notifications hain — Index table ke liye.
+    // Outstanding review = Pending Review status waale tickets.
+    public async Task<Dictionary<int, string>> ReviewPillMapAsync(
+        SqlConnection connection, int userId)
+    {
+        var map = new Dictionary<int, string>();
+
+        // 1) Pending Review status waale apne tickets -> "pending"
+        const string pendingSql = @"
+            SELECT d.[Id]
+            FROM [DailySupport] d
+            INNER JOIN [Mst_Status] st ON st.[StatusId] = d.[StatusId]
+            WHERE st.[StatusName] = 'Pending Review'
+              AND (d.[AssignedTo] = @UserId OR d.[CreatedBy] = @UserId)";
+
+        using (SqlCommand command =
+               new SqlCommand(pendingSql, connection))
+        {
+            command.CommandTimeout = 0;
+            command.Parameters.AddWithValue("@UserId", userId);
+
+            using SqlDataReader reader =
+                await command.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                map[Convert.ToInt32(reader["Id"])] = "pending";
+            }
+        }
+
+        // 2) Latest review decision (approved/rejected) per ticket.
+        const string reviewSql = @"
+            SELECT r.[TicketId], r.[ReviewAction]
+            FROM [Trn_DailySupport_Review] r
+            INNER JOIN (
+                SELECT [TicketId], MAX([ReviewId]) AS [MaxId]
+                FROM [Trn_DailySupport_Review]
+                GROUP BY [TicketId]
+            ) m ON m.[MaxId] = r.[ReviewId]
+            INNER JOIN [DailySupport] d ON d.[Id] = r.[TicketId]
+            WHERE d.[AssignedTo] = @UserId OR d.[CreatedBy] = @UserId";
+
+        using (SqlCommand command =
+               new SqlCommand(reviewSql, connection))
+        {
+            command.CommandTimeout = 0;
+            command.Parameters.AddWithValue("@UserId", userId);
+
+            using SqlDataReader reader =
+                await command.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                int ticketId = Convert.ToInt32(reader["TicketId"]);
+
+                // Pending ko decision override na kare.
+                if (map.TryGetValue(ticketId, out string? existing)
+                    && existing == "pending")
+                {
+                    continue;
+                }
+
+                string action = ToStr(reader["ReviewAction"]);
+
+                map[ticketId] = string.Equals(
+                    action, "Approved", StringComparison.OrdinalIgnoreCase)
+                    ? "approved"
+                    : "rejected";
+            }
+        }
+
+        return map;
     }
 
     // ============================================

@@ -37,7 +37,7 @@
         : 0;
 
     bool isStale = staleDays >= 2
-        && !Model.IsClosed
+        && !Model.IsClosedByName
         && Model.Timeline.Count > 0;
 
     // Option A: when the ticket is "Open", hide "Open" from the work
@@ -53,6 +53,66 @@
                 s.Name, "Open", StringComparison.OrdinalIgnoreCase))
             .ToList()
         : Model.StatusOptions;
+
+    // ---- Layout 5: split the timeline into two layers ----
+    // Work Log = the work YOU logged (KindKey "work" / "note").
+    // System Activity = automatic events (created / status / assign / ...).
+    var workLog = Model.Timeline
+        .Where(t => t.KindKey == "work" || t.KindKey == "note")
+        .OrderByDescending(t => t.At)
+        .ToList();
+
+    var systemLog = Model.Timeline
+        .Where(t => t.KindKey != "work" && t.KindKey != "note")
+        .OrderByDescending(t => t.At)
+        .ToList();
+
+    // ---- Layout 5: stage bar stages + current index ----
+    // "On Hold" is a side-branch, not a pipeline step: a ticket can
+    // jump In Progress -> Pending Review without ever being on hold.
+    // Keeping it in the bar makes it show as "done" (✓) on that jump.
+    // So the bar shows only the main pipeline, and On Hold is shown
+    // separately as a chip when the ticket really is on hold.
+    var allStages = Model.StatusOptions.ToList();
+
+    var stages = allStages
+        .Where(s => !string.Equals(
+            s.Name, "On Hold", StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    bool isOnHold = string.Equals(
+        Model.StatusName, "On Hold",
+        StringComparison.OrdinalIgnoreCase);
+
+    int currentStageIndex = stages.FindIndex(s =>
+        string.Equals(s.Name, Model.StatusName,
+            StringComparison.OrdinalIgnoreCase));
+
+    // A stage counts as "done" only when the ticket actually passed
+    // through it (per the status history), not merely because it sits
+    // earlier in the master list.
+    var visitedStatuses = new HashSet<string>(
+        Model.Timeline
+            .Where(t => t.KindKey == "status")
+            .SelectMany(t => new[] { t.OldStatus, t.NewStatus })
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s!)
+            .Concat(new[] { Model.StatusName }),
+        StringComparer.OrdinalIgnoreCase);
+
+    // Days the ticket has been sitting in the current status.
+    var stageSince = Model.Timeline
+        .Where(t => t.KindKey == "status"
+                    && string.Equals(t.NewStatus, Model.StatusName,
+                        StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(t => t.At)
+        .Select(t => (DateTime?)t.At)
+        .FirstOrDefault();
+
+    var stageDays = stageSince.HasValue
+        ? Math.Max(0, (int)(Master.Configurations.TicketService.NowIst
+            - stageSince.Value).TotalDays)
+        : 0;
 }
 
 <div class="page-header">
@@ -64,60 +124,116 @@
 
     </a>
 
-    <!-- ===== Summary header ===== -->
+    <!-- ===== Summary header (compact, split) ===== -->
     <div class="tkt-summary">
 
-        <div class="tkt-summary-top">
+        <div class="tkt-summary-main">
 
-            <h1>
-                @Model.TicketNo
-            </h1>
+            <div class="tkt-summary-top">
 
-            <span class="@Badge(Model.StatusName, "tkt-b")">
-                @Model.StatusName
-            </span>
+                <h1>
+                    @Model.TicketNo
+                </h1>
 
-            @if (!string.IsNullOrWhiteSpace(Model.PriorityName))
-            {
-                <span class="@Badge(Model.PriorityName, "tkt-b")">
-                    @Model.PriorityName
+                <span class="@Badge(Model.StatusName, "tkt-b")">
+                    @Model.StatusName
                 </span>
+
+                @if (!string.IsNullOrWhiteSpace(Model.PriorityName))
+                {
+                    <span class="@Badge(Model.PriorityName, "tkt-b")">
+                        @Model.PriorityName
+                    </span>
+                }
+
+            </div>
+
+            <div class="tkt-summary-meta">
+
+                <span>
+                    <strong>@Model.ClientName</strong>
+                </span>
+
+                @if (!string.IsNullOrWhiteSpace(Model.Mobile))
+                {
+                    <span>&middot; &#128241; @Model.Mobile</span>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Model.CreatedByName))
+                {
+                    <span>&middot; Assigned By: <strong>@Model.CreatedByName</strong></span>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Model.AssignedToName))
+                {
+                    <span>&middot; Assigned To: <strong>@Model.AssignedToName</strong></span>
+                }
+
+                <span>&middot; &#9201; @Model.TimeSpentDisplay</span>
+
+                @if (lastActivity.HasValue)
+                {
+                    <span>&middot; Last activity: @TimeAgo(lastActivity.Value)</span>
+                }
+
+            </div>
+
+            @if (isStale)
+            {
+                <div class="tkt-stale">
+                    &#9888; @((int)staleDays) din se koi activity nahi &mdash;
+                    follow-up karein.
+                </div>
             }
 
         </div>
 
-        <div class="tkt-summary-meta">
+        <!-- ===== Quick actions (compact side panel) ===== -->
+        <div class="tkt-summary-aside">
 
-            <span>
-                <strong>@Model.ClientName</strong>
+            <span class="tkt-aside-title">
+                Quick Actions
             </span>
 
-            @if (!string.IsNullOrWhiteSpace(Model.Mobile))
+            @if (!Model.IsReadOnly && Model.CanAddWork)
             {
-                <span>&middot; &#128241; @Model.Mobile</span>
+                <button type="button"
+                        class="tkt-btn tkt-btn-dark tkt-btn-sm"
+                        onclick="openUpdateModal()">
+
+                    &#10133; Add Today's Work
+
+                </button>
             }
 
-            @if (!string.IsNullOrWhiteSpace(Model.AssignedToName))
+            @if (!Model.IsReadOnly && Model.CanAssign)
             {
-                <span>&middot; &#128100; @Model.AssignedToName</span>
+                <button type="button"
+                        class="tkt-btn tkt-btn-sm"
+                        onclick="openAssignModal()">
+
+                    &#128100; Assign / Reassign
+
+                </button>
             }
 
-            <span>&middot; &#9201; @Model.TimeSpentDisplay</span>
-
-            @if (lastActivity.HasValue)
+            @if (Model.CanClose)
             {
-                <span>&middot; Last activity: @TimeAgo(lastActivity.Value)</span>
+                <button type="button"
+                        class="tkt-btn tkt-btn-close tkt-btn-sm"
+                        onclick="openCloseConfirm()">
+
+                    &#9989; Close Ticket
+
+                </button>
+            }
+
+            @if (Model.IsReadOnly)
+            {
+                <span class="tkt-readonly">Ticket Closed – View Only</span>
             }
 
         </div>
-
-        @if (isStale)
-        {
-            <div class="tkt-stale">
-                &#9888; @((int)staleDays) din se koi activity nahi &mdash;
-                follow-up karein.
-            </div>
-        }
 
     </div>
 
@@ -142,31 +258,12 @@
 @Html.AntiForgeryToken()
 
 
-<!-- ================= ACTIONS (sticky) ================= -->
+<!-- ================= NOTIFICATION STRIP (is ticket ka latest) ================= -->
 
-<div class="state-section tkt-action-bar">
-
-    <div class="tkt-actions">
-
-        <button type="button"
-                class="tkt-btn tkt-btn-dark"
-                onclick="openUpdateModal()">
-
-            &#10133; Add Today's Work
-
-        </button>
-
-        <button type="button"
-                class="tkt-btn"
-                onclick="openAssignModal()">
-
-            &#128100; Assign / Reassign
-
-        </button>
-
-    </div>
-
-</div>
+<div id="detailNotifList"
+     class="tkt-notif-strip-wrap"
+     data-ticket="@Model.Id"
+     style="display:none;"></div>
 
 
 <!-- ================= TICKET INFORMATION ================= -->
@@ -309,7 +406,7 @@
 
 <!-- ================= ISSUE / DESCRIPTION ================= -->
 
-<div class="state-section">
+<div class="state-section tkt-issue-block">
 
     <div class="form-section-title">
         &#128221; ISSUE
@@ -326,55 +423,441 @@
 </div>
 
 
-<!-- ================= ACTIVITY TIMELINE ================= -->
+<!-- ================= STAGE BAR (pipeline: kahan hai) ================= -->
 
-<div class="state-section tkt-collapsible collapsed">
+@if (stages.Count > 0)
+{
+    <div class="state-section tkt-stage-card">
 
-    <div class="form-section-title">
+        <div class="form-section-title">
+            &#128202; PROGRESS
+        </div>
 
-        ACTIVITY TIMELINE
-        <span style="color:#64748b; font-size:12px; font-weight:400;">
-            &mdash; @Model.Timeline.Count entries
+        <div class="tkt-stage-bar">
+
+            @for (int i = 0; i < stages.Count; i++)
+            {
+                var st = stages[i];
+                var isCurrent = currentStageIndex == i;
+
+                // Done = the ticket actually passed through this stage.
+                var isDone = !isCurrent
+                    && visitedStatuses.Contains(st.Name);
+
+                <div class="tkt-stage @(isDone ? "done" : "")
+                            @(isCurrent ? "current" : "")">
+
+                    <div class="tkt-stage-dot">
+                        @(isDone ? "✓" : isCurrent ? "●" : "")
+                    </div>
+
+                    <div class="tkt-stage-label">
+                        @st.Name
+                    </div>
+
+                </div>
+            }
+
+        </div>
+
+        @if (isOnHold)
+        {
+            <div class="tkt-stage-onhold">
+                &#9208; On Hold
+            </div>
+        }
+
+        @if (currentStageIndex >= 0 || isOnHold)
+        {
+            <div class="tkt-stage-caption">
+                Now at <strong>@Model.StatusName</strong>
+                @if (stageDays > 0)
+                {
+                    <span>&middot; @stageDays
+                        @(stageDays == 1 ? "day" : "days")</span>
+                }
+            </div>
+        }
+
+    </div>
+}
+
+
+<!-- ================= WORK LOG (aapka kaam) ================= -->
+
+<div class="state-section tkt-collapsible tkt-worklog">
+
+    <div class="form-section-title"
+         onclick="toggleSection(this)">
+
+        &#128203; WORK LOG
+        <span class="tkt-sec-count">
+            &mdash; @workLog.Count
+            @(workLog.Count == 1 ? "update" : "updates")
         </span>
 
         <button type="button" class="tkt-sec-toggle"
-                title="Show / hide" onclick="toggleSection(this)">+</button>
+                title="Show / hide"
+                onclick="event.stopPropagation(); toggleSection(this)">&minus;</button>
 
     </div>
 
-    @if (Model.Timeline.Count == 0)
+    @if (workLog.Count == 0)
     {
         <p style="color:#64748b; font-size:14px;">
-            No activity yet.
+            Abhi tak koi work update nahi likha.
         </p>
     }
     else
     {
-        <div class="tkt-flat">
+        <div class="tkt-rail">
 
-            @foreach (var item in Model.Timeline.OrderByDescending(t => t.At))
+            @foreach (var item in workLog.OrderBy(t => t.At))
             {
                 var kindKey = string.IsNullOrWhiteSpace(item.KindKey)
                     ? "work"
                     : item.KindKey;
 
-                <div class="tkt-flat-row collapsed"
+                <div class="tkt-rail-item ic-@kindKey"
                      tabindex="0"
                      title="Click to start work on this ticket"
                      data-body="@(item.Body ?? string.Empty)"
                      onclick="selectTimelineEntry(this)">
 
-                    <div class="tkt-flat-icon @("ic-" + kindKey)">
-                        @(string.IsNullOrWhiteSpace(item.Icon)
-                            ? "\U0001F4DD"
-                            : item.Icon)
+                    <div class="tkt-rail-marker">
+                        <span class="tkt-rail-dot"></span>
                     </div>
 
-                    <div class="tkt-flat-main">
+                    <div class="tkt-rail-body">
 
-                        <div class="tkt-flat-head">
+                        <div class="tkt-rail-head">
 
-                            <span class="tkt-flat-title">
+                            <span class="tkt-rail-title">
+                                @item.Title
+                            </span>
+
+                            @if (item.TimeSpent.HasValue
+                                && item.TimeSpent.Value > 0)
+                            {
+                                <span class="tkt-rail-time">
+                                    &#9201; @(item.TimeSpent.Value)m
+                                </span>
+                            }
+
+                            <span class="tkt-rail-date">
+                                @item.At.ToString("dd MMM yyyy")
+                            </span>
+
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(item.Body))
+                        {
+                            <div class="tkt-rail-text">
+                                @item.Body
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(item.NextAction))
+                        {
+                            <div class="tkt-tl-next">
+                                &#10132; Next: @item.NextAction
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(item.WaitingOn))
+                        {
+                            <div class="tkt-tl-wait">
+                                &#9208; Waiting on: @item.WaitingOn
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(item.ResolutionNote))
+                        {
+                            <div class="tkt-tl-resolved">
+                                &#9989; Resolution: @item.ResolutionNote
+                            </div>
+                        }
+
+                        <div class="tkt-rail-meta">
+
+                            @if (!string.IsNullOrWhiteSpace(item.ByName))
+                            {
+                                <span>&#128100; @item.ByName</span>
+                            }
+
+                            @if (item.WorkDate.HasValue)
+                            {
+                                <span>Work for @item.WorkDate.Value.ToString("dd MMM")</span>
+                            }
+
+                            @if (item.FollowUpDate.HasValue)
+                            {
+                                <span>&#128197; Follow-up: @item.FollowUpDate.Value.ToString("dd MMM")</span>
+                            }
+
+                        </div>
+
+                    </div>
+
+                </div>
+            }
+
+        </div>
+    }
+
+</div>
+
+
+<!-- ================= REVIEW (admin ka decision) ================= -->
+
+@if (Model.IsPendingReview || Model.Reviews.Count > 0)
+{
+    <div class="state-section tkt-review-card tkt-collapsible">
+
+        <div class="form-section-title"
+             onclick="toggleSection(this)">
+
+            &#128269; REVIEW
+            @if (Model.IsPendingReview)
+            {
+                <span class="tkt-review-state pending">pending with admin</span>
+            }
+            else if (Model.Reviews.Count > 0)
+            {
+                var last = Model.Reviews[0];
+                bool ok = string.Equals(last.ReviewAction, "Approved",
+                    StringComparison.OrdinalIgnoreCase);
+
+                <span class="tkt-review-state @(ok ? "ok" : "no")">
+                    @(ok ? "approved" : "rejected")
+                </span>
+            }
+
+            <button type="button" class="tkt-sec-toggle"
+                    title="Show / hide"
+                    onclick="event.stopPropagation(); toggleSection(this)">&minus;</button>
+
+        </div>
+
+        @if (Model.IsPendingReview)
+        {
+            if (Model.IsAdmin)
+            {
+                <!-- Admin: accept / reject + rating + message (mic) -->
+                <form id="reviewForm"
+                      class="tkt-review-form"
+                      data-ticket="@Model.Id"
+                      onsubmit="return submitReview(event);">
+
+                    <input type="hidden" name="ticketId" value="@Model.Id" />
+
+                    @Html.AntiForgeryToken()
+
+                    <div class="tkt-review-sent">
+                        Sent for review by
+                        <strong>@(string.IsNullOrWhiteSpace(Model.AssignedToName) ? Model.CreatedByName : Model.AssignedToName)</strong>
+                    </div>
+
+                    <div class="tkt-review-actions">
+
+                        <label class="tkt-review-pick">
+                            <input type="radio" name="action" value="accept" checked />
+                            <span>&#9989; Accept</span>
+                        </label>
+
+                        <label class="tkt-review-pick">
+                            <input type="radio" name="action" value="reject" />
+                            <span>&#10060; Reject</span>
+                        </label>
+
+                    </div>
+
+                    <div class="tkt-review-rate">
+                        <span class="tkt-review-rate-label">Rating</span>
+
+                        <div class="tkt-star-row" id="reviewStars">
+                            @for (int s = 1; s <= 5; s++)
+                            {
+                                <button type="button"
+                                        class="tkt-star"
+                                        data-value="@s">&#9734;</button>
+                            }
+                        </div>
+
+                        <input type="hidden" name="rating" id="reviewRating" value="" />
+                    </div>
+
+                    <div class="tkt-review-msg">
+                        <label>Message</label>
+
+                        <div class="tkt-input-wrap">
+
+                            <div class="tkt-voice-wrap">
+                                <textarea name="remarks"
+                                          id="reviewMessage"
+                                          rows="3"
+                                          maxlength="500"
+                                          placeholder="Kya theek hai / kya dobara chahiye..."></textarea>
+
+                                <button type="button"
+                                        class="tkt-mic-btn tkt-voice-btn"
+                                        id="reviewVoiceBtn"
+                                        title="Voice input"
+                                        onclick="toggleVoice(this, 'reviewMessage')">&#127908;</button>
+                            </div>
+
+                            <span class="tkt-btn-row">
+                                <button type="button"
+                                        class="tkt-clear-btn"
+                                        title="Clear"
+                                        onclick="clearField('reviewMessage')">&#128465;</button>
+                            </span>
+
+                            <span class="tkt-count" id="cnt_reviewMessage">0/500</span>
+
+                            <span class="tkt-voice-status" id="voiceStatus_reviewMessage">
+                                <span class="tkt-voice-dot"></span>
+                                Listening&hellip; speak now
+                            </span>
+
+                        </div>
+                    </div>
+
+                    <div class="tkt-review-buttons">
+                        <button type="submit" class="primary-btn">
+                            Submit review
+                        </button>
+                    </div>
+
+                </form>
+            }
+            else
+            {
+                <div class="tkt-review-wait">
+                    &#9203; Aapka review admin ke paas pending hai.
+                </div>
+            }
+        }
+
+        @if (Model.Reviews.Count > 0)
+        {
+            <div class="tkt-decisions">
+
+                <div class="tkt-decisions-title">
+                    Review Decision
+                </div>
+
+                @for (int ri = 0; ri < Model.Reviews.Count; ri++)
+                {
+                    var rv = Model.Reviews[ri];
+                    bool ok = string.Equals(rv.ReviewAction, "Approved",
+                        StringComparison.OrdinalIgnoreCase);
+
+                    bool isLatest = ri == 0;
+
+                    if (ri > 0)
+                    {
+                        <div class="tkt-decision-sep"></div>
+                    }
+
+                    <div class="tkt-decision @(ok ? "ok" : "no")
+                                @(isLatest ? "latest" : "")">
+
+                        <div class="tkt-decision-head">
+
+                            <span class="tkt-decision-verdict">
+                                @(ok ? "\u2705 Accepted" : "\u274C Rejected")
+                            </span>
+
+                            <span class="tkt-decision-badge">
+                                @(ok ? "Resolved" : "Reopened")
+                            </span>
+
+                            @if (rv.Rating.HasValue)
+                            {
+                                <span class="tkt-decision-stars">
+                                    @for (int s = 1; s <= 5; s++)
+                                    {
+                                        @(s <= rv.Rating.Value ? "\u2605" : "\u2606")
+                                    }
+                                </span>
+                            }
+
+                        </div>
+
+                        <div class="tkt-decision-who">
+                            @(string.IsNullOrWhiteSpace(rv.ReviewedByName)
+                                ? "Admin"
+                                : rv.ReviewedByName)
+                            &middot;
+                            @rv.ReviewedAt.ToString("dd MMM yyyy, h:mm tt")
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(rv.Remarks))
+                        {
+                            <div class="tkt-decision-msg">
+                                @rv.Remarks
+                            </div>
+                        }
+
+                    </div>
+                }
+
+            </div>
+        }
+
+    </div>
+}
+
+
+<!-- ================= SYSTEM ACTIVITY (system ka record) ================= -->
+
+<div class="state-section tkt-collapsible tkt-sysact collapsed">
+
+    <div class="form-section-title"
+         onclick="toggleSection(this)">
+
+        &#9881; SYSTEM ACTIVITY
+        <span class="tkt-sec-count">
+            &mdash; @systemLog.Count
+        </span>
+
+        <button type="button" class="tkt-sec-toggle"
+                title="Show / hide"
+                onclick="event.stopPropagation(); toggleSection(this)">+</button>
+
+    </div>
+
+    @if (systemLog.Count == 0)
+    {
+        <p style="color:#64748b; font-size:14px;">
+            No system activity yet.
+        </p>
+    }
+    else
+    {
+        <div class="tkt-rail tkt-rail-muted">
+
+            @foreach (var item in systemLog)
+            {
+                var kindKey = string.IsNullOrWhiteSpace(item.KindKey)
+                    ? "work"
+                    : item.KindKey;
+
+                <div class="tkt-rail-item ic-@kindKey">
+
+                    <div class="tkt-rail-marker">
+                        <span class="tkt-rail-dot"></span>
+                    </div>
+
+                    <div class="tkt-rail-body">
+
+                        <div class="tkt-rail-head">
+
+                            <span class="tkt-rail-title">
+                                @(string.IsNullOrWhiteSpace(item.Icon)
+                                    ? "\U0001F4DD"
+                                    : item.Icon)
                                 @item.Title
                             </span>
 
@@ -392,62 +875,18 @@
                                 </span>
                             }
 
-                            <span class="tkt-flat-work">&#9889; Work</span>
-
-                            <span class="tkt-flat-time"
-                                  title="@item.At.ToString("dd/MM/yyyy HH:mm")">
-
-                                @TimeAgo(item.At)
-
+                            <span class="tkt-rail-date">
+                                @item.At.ToString("dd MMM yyyy, HH:mm")
                             </span>
 
-                            <button type="button"
-                                    class="tkt-flat-toggle"
-                                    title="Show / hide details"
-                                    onclick="event.stopPropagation(); toggleTimelineRow(this)">
-
-                                +
-
-                            </button>
-
                         </div>
 
-                        <div class="tkt-flat-detail">
-
-                            @if (!string.IsNullOrWhiteSpace(item.Body))
-                            {
-                                <div class="tkt-flat-body">
-                                    @item.Body
-                                </div>
-                            }
-
-                            @if (!string.IsNullOrWhiteSpace(item.NextAction))
-                            {
-                                <div class="tkt-tl-next">
-                                    &#10132; Next: @item.NextAction
-                                </div>
-                            }
-
-                            <div class="tkt-flat-meta">
-
-                                @if (!string.IsNullOrWhiteSpace(item.ByName))
-                                {
-                                    <span>&#128100; @item.ByName</span>
-                                }
-
-                                @if (item.KindKey == "work" && item.WorkDate.HasValue)
-                                {
-                                    <span>Work for @item.WorkDate.Value.ToString("dd MMM")</span>
-                                }
-
-                                @if (item.TimeSpent.HasValue && item.TimeSpent.Value > 0)
-                                {
-                                    <span>&#9201; @(item.TimeSpent.Value)m</span>
-                                }
-
+                        @if (!string.IsNullOrWhiteSpace(item.ByName))
+                        {
+                            <div class="tkt-rail-meta">
+                                <span>&#128100; @item.ByName</span>
                             </div>
-
-                        </div>
+                        }
 
                     </div>
 
@@ -464,7 +903,8 @@
 
 <div class="state-section tkt-collapsible" id="clientTickets">
 
-    <div class="form-section-title">
+    <div class="form-section-title"
+         onclick="toggleSection(this)">
 
         &#128196; @Model.ClientName &mdash; TICKETS
 
@@ -474,7 +914,8 @@
         </span>
 
         <button type="button" class="tkt-sec-toggle"
-                title="Show / hide" onclick="toggleSection(this)">−</button>
+                title="Show / hide"
+                onclick="event.stopPropagation(); toggleSection(this)">−</button>
 
     </div>
 
@@ -597,7 +1038,7 @@
 
         <div class="modal-header">
 
-            <h2>
+            <h2 id="updateModalTitle">
                 Add Today's Work
             </h2>
 
@@ -611,7 +1052,9 @@
 
         </div>
 
-        <div class="form-grid form-grid-single">
+        <div class="form-grid">
+
+            <input type="hidden" id="upd_UpdateId" value="" />
 
             <div class="form-group">
                 <label>
@@ -627,7 +1070,7 @@
                 <label>
                     Status <span style="color:#dc2626;">*</span>
                 </label>
-                <select id="upd_StatusId" required>
+                <select id="upd_StatusId" required onchange="toggleStatusFields()">
                     @foreach (var s in workStatusOptions)
                     {
                         <option value="@s.Id"
@@ -638,34 +1081,134 @@
                 </select>
             </div>
 
-            <div class="form-group">
+            <div class="form-group"></div>
+
+            <!-- Only shown when the status is "On Hold" -->
+            <div class="form-group form-group-full" id="upd_WaitingOnGroup" style="display:none;">
+                <label>
+                    Waiting on <span style="color:#dc2626;">*</span>
+                </label>
+                <div class="tkt-input-wrap">
+                    <input type="text"
+                           id="upd_WaitingOn"
+                           maxlength="200"
+                           placeholder="Kis cheez pe hold hai? (client reply, vendor...)" />
+                    <span class="tkt-count" id="cnt_WaitingOn">0/200</span>
+                    <span class="tkt-btn-row">
+                        <button type="button" class="tkt-clear-btn" title="Clear"
+                                onclick="clearField('upd_WaitingOn')">&#128465;</button>
+                        <button type="button" class="tkt-mic-btn" title="Voice input"
+                                onclick="toggleVoice(this, 'upd_WaitingOn')">&#127908;</button>
+                    </span>
+                </div>
+                <span class="tkt-voice-status" id="voiceStatus_upd_WaitingOn">
+                    <span class="tkt-voice-dot"></span>
+                    Listening&hellip; speak now
+                </span>
+            </div>
+
+            <!-- Only shown when the status is "Resolved" -->
+            <div class="form-group form-group-full" id="upd_ResolutionNoteGroup" style="display:none;">
+                <label>
+                    Resolution Note <span style="color:#dc2626;">*</span>
+                </label>
+                <div class="tkt-input-wrap">
+                    <textarea id="upd_ResolutionNote"
+                              rows="2"
+                              maxlength="500"
+                              placeholder="Kaise solve hua?"></textarea>
+                    <span class="tkt-count" id="cnt_ResolutionNote">0/500</span>
+                    <span class="tkt-btn-row">
+                        <button type="button" class="tkt-clear-btn" title="Clear"
+                                onclick="clearField('upd_ResolutionNote')">&#128465;</button>
+                        <button type="button" class="tkt-mic-btn" title="Voice input"
+                                onclick="toggleVoice(this, 'upd_ResolutionNote')">&#127908;</button>
+                    </span>
+                </div>
+                <span class="tkt-voice-status" id="voiceStatus_upd_ResolutionNote">
+                    <span class="tkt-voice-dot"></span>
+                    Listening&hellip; speak now
+                </span>
+            </div>
+
+            <div class="form-group form-group-full">
                 <label>
                     Work Done <span style="color:#dc2626;">*</span>
                 </label>
-                <textarea id="upd_WorkDone"
-                          rows="3"
-                          placeholder="What did you do today?"
-                          required></textarea>
+                <div class="tkt-input-wrap">
+                    <textarea id="upd_WorkDone"
+                              rows="3"
+                              maxlength="1000"
+                              placeholder="What did you do today?"
+                              required></textarea>
+                    <span class="tkt-count" id="cnt_WorkDone">0/1000</span>
+                    <span class="tkt-btn-row">
+                        <button type="button" class="tkt-clear-btn" title="Clear"
+                                onclick="clearField('upd_WorkDone')">&#128465;</button>
+                        <button type="button" class="tkt-mic-btn" title="Voice input"
+                                onclick="toggleVoice(this, 'upd_WorkDone')">&#127908;</button>
+                    </span>
+                </div>
+                <span class="tkt-voice-status" id="voiceStatus_upd_WorkDone">
+                    <span class="tkt-voice-dot"></span>
+                    Listening&hellip; speak now
+                </span>
+            </div>
+
+            <div class="form-group form-group-full">
+                <label>
+                    Time Spent
+                </label>
+
+                <div class="tkt-time-split">
+                    <div class="tkt-time-box">
+                        <input type="number"
+                               id="upd_TimeHours"
+                               min="0"
+                               max="24"
+                               placeholder="0" />
+                        <span>hours</span>
+                    </div>
+
+                    <div class="tkt-time-box">
+                        <input type="number"
+                               id="upd_TimeMinutes"
+                               min="0"
+                               max="59"
+                               placeholder="0" />
+                        <span>minutes</span>
+                    </div>
+                </div>
             </div>
 
             <div class="form-group">
                 <label>
-                    Time Spent (minutes)
+                    Follow-up Date
                 </label>
-                <input type="number"
-                       id="upd_TimeSpent"
-                       min="0"
-                       placeholder="e.g. 45" />
+                <input type="date" id="upd_FollowUpDate" />
             </div>
 
-            <div class="form-group">
+            <div class="form-group form-group-full">
                 <label>
                     Next Action
                 </label>
-                <input type="text"
-                       id="upd_NextAction"
-                       maxlength="500"
-                       placeholder="What is next?" />
+                <div class="tkt-input-wrap">
+                    <input type="text"
+                           id="upd_NextAction"
+                           maxlength="500"
+                           placeholder="What is next?" />
+                    <span class="tkt-count" id="cnt_NextAction">0/500</span>
+                    <span class="tkt-btn-row">
+                        <button type="button" class="tkt-clear-btn" title="Clear"
+                                onclick="clearField('upd_NextAction')">&#128465;</button>
+                        <button type="button" class="tkt-mic-btn" title="Voice input"
+                                onclick="toggleVoice(this, 'upd_NextAction')">&#127908;</button>
+                    </span>
+                </div>
+                <span class="tkt-voice-status" id="voiceStatus_upd_NextAction">
+                    <span class="tkt-voice-dot"></span>
+                    Listening&hellip; speak now
+                </span>
             </div>
 
         </div>
@@ -768,6 +1311,78 @@
 </div>
 
 
+<!-- ================= EDIT WORK CONFIRM ================= -->
+
+<div id="editWorkConfirm" class="tkt-confirm-backdrop">
+
+    <div class="tkt-confirm-box">
+
+        <div class="tkt-confirm-icon">&#9999;&#65039;</div>
+
+        <h3>Do you want to edit this work?</h3>
+
+        <p>
+            Ye update edit ho jaayega &mdash; naya update add nahi hoga.
+        </p>
+
+        <div class="tkt-confirm-actions">
+
+            <button type="button"
+                    class="tkt-btn"
+                    onclick="closeEditWorkConfirm()">
+                Cancel
+            </button>
+
+            <button type="button"
+                    class="tkt-btn tkt-confirm-yes"
+                    onclick="confirmEditWork()">
+                Yes, Edit
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ================= CLOSE TICKET CONFIRM ================= -->
+
+<div id="closeConfirm" class="tkt-confirm-backdrop">
+
+    <div class="tkt-confirm-box">
+
+        <div class="tkt-confirm-icon">&#9888;&#65039;</div>
+
+        <h3>Do you confirm to close this ticket?</h3>
+
+        <p>
+            If you close this, it will be final &mdash; the ticket
+            becomes read-only and no further work can be added.
+        </p>
+
+        <div class="tkt-confirm-actions">
+
+            <button type="button"
+                    class="tkt-btn"
+                    onclick="closeCloseConfirm()">
+                Cancel
+            </button>
+
+            <button type="button"
+                    class="tkt-btn tkt-confirm-yes"
+                    id="closeConfirmYes"
+                    onclick="confirmCloseTicket()">
+                Yes, Close
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
 @section Scripts
 {
     <script>
@@ -784,39 +1399,37 @@
         // ==========================================
 
         // Expand / collapse a whole section (Ticket Info, Issue,
-        // Activity Timeline, Client Tickets...).
-        function toggleSection(btn) {
+        // Work Log, System Activity, Client Tickets...).
+        // Works whether the click lands on the header row or the +/-
+        // button (the button stops propagation, so no double toggle).
+        function toggleSection(el) {
 
-            var section = btn.closest('.tkt-collapsible');
+            var section = el.closest('.tkt-collapsible')
+                || (el.classList && el.classList.contains('tkt-collapsible')
+                    ? el
+                    : null);
 
             if (!section) return;
 
             section.classList.toggle('collapsed');
 
-            btn.innerText = section.classList.contains('collapsed')
-                ? '+'
-                : '−';
+            var toggle = section.querySelector(
+                '.form-section-title .tkt-sec-toggle');
+
+            if (toggle) {
+                toggle.innerText = section.classList.contains('collapsed')
+                    ? '+'
+                    : '−';
+            }
         }
 
-        // Expand / collapse a timeline entry's details.
-        // A "+" opens it, a "−" closes it.
-        function toggleTimelineRow(btn) {
+        // Work Log me kisi row pe click -> confirm -> edit mode me modal.
+        // Naya update add nahi hota; wahi row update hota hai.
+        var pendingEditRow = null;
 
-            var row = btn.closest('.tkt-flat-row');
-
-            if (!row) return;
-
-            row.classList.toggle('collapsed');
-
-            btn.innerText = row.classList.contains('collapsed')
-                ? '+'
-                : '−';
-        }
-
-        // Highlights the clicked entry and opens the work modal
-        // pre-filled with that entry's note.
         function selectTimelineEntry(row) {
-            var rows = document.querySelectorAll('.tkt-flat-row');
+
+            var rows = document.querySelectorAll('.tkt-rail-item');
 
             for (var i = 0; i < rows.length; i++) {
                 rows[i].classList.remove('selected');
@@ -824,23 +1437,99 @@
 
             row.classList.add('selected');
 
-            var body = row.getAttribute('data-body') || '';
+            pendingEditRow = row;
 
-            openUpdateModal();
+            // Confirm popup -> phir edit modal.
+            var box = document.getElementById('editWorkConfirm');
+
+            if (box) {
+                box.classList.add('open');
+            } else {
+                confirmEditWork();
+            }
+        }
+
+        function closeEditWorkConfirm() {
+
+            var box = document.getElementById('editWorkConfirm');
+
+            if (box) {
+                box.classList.remove('open');
+            }
+        }
+
+        function confirmEditWork() {
+
+            closeEditWorkConfirm();
+
+            var row = pendingEditRow;
+
+            if (!row) {
+                return;
+            }
+
+            openUpdateModal(true);
+
+            // Purani values pre-fill (edit mode).
+            var updateId = row.getAttribute('data-update-id') || '';
+            var body = row.getAttribute('data-body') || '';
+            var timeSpent = parseInt(
+                row.getAttribute('data-time') || '0', 10) || 0;
+            var nextAction = row.getAttribute('data-next') || '';
+            var waitingOn = row.getAttribute('data-waiting') || '';
+            var resolution = row.getAttribute('data-resolution') || '';
+            var followUp = row.getAttribute('data-followup') || '';
+
+            document.getElementById('upd_UpdateId').value = updateId;
 
             if (body) {
-                var done = document.getElementById('upd_WorkDone');
-                if (done && !done.value) {
-                    done.value = body;
-                }
+                document.getElementById('upd_WorkDone').value = body;
             }
+
+            // minutes -> hours + minutes
+            document.getElementById('upd_TimeHours').value =
+                timeSpent > 0 ? Math.floor(timeSpent / 60) : '';
+
+            document.getElementById('upd_TimeMinutes').value =
+                timeSpent > 0 ? (timeSpent % 60) : '';
+
+            document.getElementById('upd_NextAction').value = nextAction;
+
+            var waitField = document.getElementById('upd_WaitingOn');
+            if (waitField) { waitField.value = waitingOn; }
+
+            var resField = document.getElementById('upd_ResolutionNote');
+            if (resField) { resField.value = resolution; }
+
+            if (followUp) {
+                document.getElementById('upd_FollowUpDate').value = followUp;
+            }
+
+            refreshFieldUi('upd_WorkDone');
+            refreshFieldUi('upd_NextAction');
+            refreshFieldUi('upd_WaitingOn');
+            refreshFieldUi('upd_ResolutionNote');
         }
 
         // ==========================================
         // WORK UPDATE
         // ==========================================
 
-        function openUpdateModal() {
+        // isEdit = true -> edit mode (title + hidden UpdateId).
+        // isEdit = false/undefined -> naya work add.
+        function openUpdateModal(isEdit) {
+
+            var editMode = isEdit === true;
+
+            document.getElementById('upd_UpdateId').value = '';
+
+            var title = document.getElementById('updateModalTitle');
+
+            if (title) {
+                title.textContent = editMode
+                    ? 'Edit Work Update'
+                    : "Add Today's Work";
+            }
 
             document.getElementById('upd_WorkDate').value =
                 '@DateTime.Today.ToString("yyyy-MM-dd")';
@@ -856,45 +1545,533 @@
                 statusSel.selectedIndex = 0;
             }
 
-            document.getElementById('upd_WorkDone').value = '';
-            document.getElementById('upd_TimeSpent').value = '';
-            document.getElementById('upd_NextAction').value = '';
+            // Edit mode me confirmEditWork() fields bhar deta hai,
+            // isliye yahan sirf add mode me clear karo.
+            if (!editMode) {
+                document.getElementById('upd_WorkDone').value = '';
+                document.getElementById('upd_TimeHours').value = '';
+                document.getElementById('upd_TimeMinutes').value = '';
+                document.getElementById('upd_NextAction').value = '';
+                document.getElementById('upd_WaitingOn').value = '';
+                document.getElementById('upd_ResolutionNote').value = '';
+                document.getElementById('upd_FollowUpDate').value = '';
+
+                // Reset counters + hide the clear buttons.
+                ['upd_WaitingOn', 'upd_ResolutionNote',
+                    'upd_WorkDone', 'upd_NextAction']
+                    .forEach(refreshFieldUi);
+            }
+
+            // Show only the fields the selected status needs.
+            toggleStatusFields();
 
             document.getElementById('updateModal').style.display = 'flex';
         }
 
+        // Keeps a field's character counter and clear button in sync
+        // with its value.
+        function refreshFieldUi(fieldId) {
+
+            var field = document.getElementById(fieldId);
+            if (!field) return;
+
+            var wrap = field.closest('.tkt-input-wrap');
+
+            var count = document.getElementById(
+                'cnt_' + fieldId.replace('upd_', ''));
+
+            if (count) {
+                count.textContent =
+                    field.value.length + '/' + field.maxLength;
+            }
+
+            if (wrap) {
+                wrap.classList.toggle('has-text', field.value.length > 0);
+            }
+        }
+
+        // Wire live updates for every field that has a counter.
+        document.addEventListener('DOMContentLoaded', function () {
+
+            ['upd_WaitingOn', 'upd_ResolutionNote',
+                'upd_WorkDone', 'upd_NextAction', 'reviewMessage']
+                .forEach(function (id) {
+                    var field = document.getElementById(id);
+                    if (field) {
+                        field.addEventListener('input',
+                            function () { refreshFieldUi(id); });
+                    }
+                });
+        });
+
+        // Shows "Waiting on" only for On Hold and "Resolution Note"
+        // only for Resolved. Both become required while visible.
+        function toggleStatusFields() {
+
+            var sel = document.getElementById('upd_StatusId');
+
+            var text = sel.options[sel.selectedIndex]
+                ? sel.options[sel.selectedIndex].text.trim().toLowerCase()
+                : '';
+
+            var isHold = text === 'on hold';
+            var isResolved = text === 'resolved';
+
+            var holdGroup =
+                document.getElementById('upd_WaitingOnGroup');
+            var resGroup =
+                document.getElementById('upd_ResolutionNoteGroup');
+
+            holdGroup.style.display = isHold ? '' : 'none';
+            resGroup.style.display = isResolved ? '' : 'none';
+
+            document.getElementById('upd_WaitingOn').required = isHold;
+            document.getElementById('upd_ResolutionNote').required =
+                isResolved;
+        }
+
+        // ---- Voice input (Web Speech API) ----
+        // Only works on https:// or localhost; the mic button is
+        // hidden automatically when the browser/site cannot use it.
+        var voiceRec = null;
+        var voiceTarget = null;
+        var voiceBase = '';
+        var voiceFinal = '';
+        var voiceSupported =
+            ('webkitSpeechRecognition' in window)
+            || ('SpeechRecognition' in window);
+
+        // Drops Devanagari (Hindi) characters so only English / Hinglish
+        // (Roman) text is kept. Anything Hindi gets removed word-level.
+        function stripDevanagari(text) {
+            return (text || '')
+                .replace(/[\u0900-\u097F]+/g, '')
+                .replace(/\s{2,}/g, ' ')
+                .trim();
+        }
+
+        // Shows / hides the little "Recording..." chip tied to a field.
+        function setVoiceStatus(fieldId, on) {
+
+            var chip = document.getElementById('voiceStatus_' + fieldId);
+
+            if (!chip) return;
+
+            if (on) chip.classList.add('visible');
+            else chip.classList.remove('visible');
+        }
+
+        function toggleVoice(btn, fieldId) {
+
+            if (!voiceSupported) {
+                masterShowToast(
+                    'Voice input is not supported in this browser.',
+                    'error');
+                return;
+            }
+
+            // Same button pressed again -> stop.
+            if (voiceRec && voiceTarget === fieldId) {
+                stopVoice();
+                return;
+            }
+
+            stopVoice();
+
+            var SR = window.SpeechRecognition
+                || window.webkitSpeechRecognition;
+
+            voiceRec = new SR();
+            voiceRec.lang = 'en-IN';
+            voiceRec.continuous = true;
+            voiceRec.interimResults = true;
+
+            voiceTarget = fieldId;
+
+            var field = document.getElementById(fieldId);
+
+            voiceBase = (field.value || '').trim();
+            voiceFinal = '';
+
+            voiceRec.onstart = function () {
+                setVoiceStatus(fieldId, true);
+            };
+
+            // Rebuilds the field from base + final + live interim text,
+            // so the user can see words appearing as they speak.
+            function paint(interim) {
+
+                var parts = [];
+
+                if (voiceBase) parts.push(voiceBase);
+                if (voiceFinal) parts.push(voiceFinal);
+                if (interim) parts.push(interim);
+
+                field.value = parts.join(' ');
+                refreshFieldUi(fieldId);
+            }
+
+            voiceRec.onresult = function (e) {
+
+                var interim = '';
+
+                for (var i = e.resultIndex; i < e.results.length; i++) {
+
+                    var raw = e.results[i][0].transcript;
+
+                    if (e.results[i].isFinal) {
+
+                        var clean = stripDevanagari(raw);
+
+                        // Skip empty (all-Hindi) and duplicate results.
+                        if (!clean) continue;
+                        if (voiceFinal
+                            && voiceFinal.indexOf(clean) !== -1) continue;
+
+                        voiceFinal = voiceFinal
+                            ? (voiceFinal + ' ' + clean)
+                            : clean;
+
+                    } else {
+                        interim += stripDevanagari(raw) + ' ';
+                    }
+                }
+
+                paint(interim.trim());
+            };
+
+            voiceRec.onerror = function () {
+                stopVoice();
+                masterShowToast('Could not capture voice.', 'error');
+            };
+
+            voiceRec.onend = function () {
+                if (voiceRec) stopVoice();
+            };
+
+            voiceRec.start();
+
+            btn.classList.add('recording');
+            btn.innerHTML = '&#9899;'; // stop square
+            setVoiceStatus(fieldId, true);
+        }
+
+        function stopVoice() {
+
+            var btn = document.querySelector('.tkt-mic-btn.recording');
+
+            if (btn) {
+                btn.classList.remove('recording');
+                btn.innerHTML = '&#127908;';
+            }
+
+            if (voiceTarget) {
+                setVoiceStatus(voiceTarget, false);
+            }
+
+            if (voiceRec) {
+                try { voiceRec.stop(); } catch (e) { }
+            }
+
+            voiceRec = null;
+            voiceTarget = null;
+            voiceBase = '';
+            voiceFinal = '';
+        }
+
+        // Clears a text field (with a confirm so it is not lost by
+        // accident).
+        function clearField(fieldId) {            var field = document.getElementById(fieldId);
+            if (!field || !field.value) return;
+            if (confirm('Clear this field?')) {
+                field.value = '';
+                refreshFieldUi(fieldId);
+            }
+        }
+
+        // Hide mic buttons where voice input cannot work (e.g. plain
+        // http on a non-localhost host) so nothing looks broken.
+        document.addEventListener('DOMContentLoaded', function () {
+            var canUse =
+                window.isSecureContext || voiceSupported === false;
+
+            if (!window.isSecureContext) {
+                document.querySelectorAll('.tkt-mic-btn')
+                    .forEach(function (b) { b.style.display = 'none'; });
+            }
+        });
+
+        // ==========================================
+        // REVIEW (admin: accept / reject + rating + message)
+        // ==========================================
+
+        (function () {
+
+            var stars = document.getElementById('reviewStars');
+
+            if (!stars) {
+                return;
+            }
+
+            var ratingInput = document.getElementById('reviewRating');
+
+            function paint(value) {
+
+                var btns = stars.querySelectorAll('.tkt-star');
+
+                for (var i = 0; i < btns.length; i++) {
+
+                    var on = (i + 1) <= value;
+
+                    btns[i].textContent = on ? '\u2605' : '\u2606';
+
+                    btns[i].classList.toggle('on', on);
+                }
+            }
+
+            stars.addEventListener('click', function (e) {
+
+                var btn = e.target.closest('.tkt-star');
+
+                if (!btn) {
+                    return;
+                }
+
+                // Same star clicked twice -> clear rating.
+                var value = parseInt(btn.getAttribute('data-value'), 10);
+
+                if (ratingInput.value === String(value)) {
+                    ratingInput.value = '';
+                    paint(0);
+                    return;
+                }
+
+                ratingInput.value = String(value);
+                paint(value);
+            });
+
+        })();
+
+        function submitReview(e) {
+
+            e.preventDefault();
+
+            var form = document.getElementById('reviewForm');
+
+            if (!form) return false;
+
+            var ticketId = form.getAttribute('data-ticket');
+
+            var action = form.querySelector(
+                'input[name="action"]:checked');
+
+            var remarks =
+                document.getElementById('reviewMessage').value.trim();
+
+            var rating = document.getElementById('reviewRating').value;
+
+            if (!action) {
+                masterShowToast('Choose Accept or Reject.', 'error');
+                return false;
+            }
+
+            if (action.value === 'reject' && !remarks) {
+                masterShowToast(
+                    'Reject ke liye message likhna zaruri hai.', 'error');
+                return false;
+            }
+
+            stopVoice();
+
+            var body = new URLSearchParams();
+            body.append('ticketId', ticketId);
+            body.append('action', action.value);
+            body.append('rating', rating || '');
+            body.append('remarks', remarks);
+            body.append(
+                '__RequestVerificationToken',
+                getAntiForgeryToken());
+
+            fetch('@Url.Action("Review", "DailySupport")', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: body.toString()
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+
+                    if (!res.success) {
+                        masterShowToast(res.message || 'Review failed.', 'error');
+                        return;
+                    }
+
+                    masterShowToast(res.message || 'Review saved.', 'success');
+
+                    if (typeof refreshSupportBadge === 'function') {
+                        refreshSupportBadge();
+                    }
+
+                    setTimeout(function () { location.reload(); }, 700);
+                })
+                .catch(function () {
+                    masterShowToast('Could not save review.', 'error');
+                });
+
+            return false;
+        }
+
+        // ==========================================
+        // CLOSE TICKET (Resolved -> Closed, owner/admin)
+        // ==========================================
+
+        function openCloseConfirm() {
+            document.getElementById('closeConfirm').classList.add('open');
+        }
+
+        function closeCloseConfirm() {
+            document.getElementById('closeConfirm').classList.remove('open');
+        }
+
+        function confirmCloseTicket() {
+
+            var btn = document.getElementById('closeConfirmYes');
+
+            if (btn) { btn.disabled = true; }
+
+            var body = new URLSearchParams();
+            body.append('ticketId', '@Model.Id');
+            body.append('action', 'close');
+            body.append(
+                '__RequestVerificationToken', getAntiForgeryToken());
+
+            fetch('@Url.Action("ChangeStatus", "DailySupport")', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: body.toString()
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+
+                    if (!res.success) {
+                        masterShowToast(res.message || 'Close failed.', 'error');
+                        if (btn) { btn.disabled = false; }
+                        return;
+                    }
+
+                    masterShowToast('Ticket closed.', 'success');
+
+                    if (typeof refreshSupportBadge === 'function') {
+                        refreshSupportBadge();
+                    }
+
+                    setTimeout(function () { location.reload(); }, 700);
+                })
+                .catch(function () {
+                    masterShowToast('Could not close ticket.', 'error');
+                    if (btn) { btn.disabled = false; }
+                });
+        }
+
+        // Anti-forgery token (page ke kisi form se).
+        function getAntiForgeryToken() {
+
+            var el = document.querySelector('input[name="__RequestVerificationToken"]');
+
+            return el ? el.value : '';
+        }
+
         function closeUpdateModal() {
+            stopVoice();
             document.getElementById('updateModal').style.display = 'none';
         }
 
         function saveUpdate() {
 
+            stopVoice();
+
+            var updateId = document.getElementById('upd_UpdateId').value;
+            var isEdit = !!updateId;
+
             var workDate = document.getElementById('upd_WorkDate').value;
             var statusId = document.getElementById('upd_StatusId').value;
             var workDone = document.getElementById('upd_WorkDone')
                 .value.trim();
-            var timeSpent = document.getElementById('upd_TimeSpent').value;
+
+            // Hours + minutes -> total minutes.
+            var hours = parseInt(
+                document.getElementById('upd_TimeHours').value || '0', 10) || 0;
+            var mins = parseInt(
+                document.getElementById('upd_TimeMinutes').value || '0', 10) || 0;
+            var timeSpent = (hours * 60) + mins;
+
             var nextAction = document.getElementById('upd_NextAction')
                 .value.trim();
+            var waitingOn = document.getElementById('upd_WaitingOn')
+                .value.trim();
+            var resolutionNote = document.getElementById('upd_ResolutionNote')
+                .value.trim();
+            var followUpDate = document.getElementById('upd_FollowUpDate')
+                .value;
 
             if (!workDone) {
                 masterShowToast('Please write the work done.', 'error');
                 return;
             }
 
-            var url = '@Url.Action("AddUpdate","DailySupport")';
+            var sel = document.getElementById('upd_StatusId');
+            var statusText = sel.options[sel.selectedIndex]
+                ? sel.options[sel.selectedIndex].text.trim().toLowerCase()
+                : '';
+
+            if (statusText === 'on hold' && !waitingOn) {
+                masterShowToast('Please say what you are waiting on.',
+                    'error');
+                return;
+            }
+
+            if (statusText === 'resolved' && !resolutionNote) {
+                masterShowToast('Please add a resolution note.', 'error');
+                return;
+            }
+
+            var url = isEdit
+                ? '@Url.Action("EditUpdate","DailySupport")'
+                : '@Url.Action("AddUpdate","DailySupport")';
 
             var headers = { 'X-Requested-With': 'XMLHttpRequest' };
             headers['RequestVerificationToken'] = token;
 
             var body = new URLSearchParams();
             body.append('__RequestVerificationToken', token);
-            body.append('ticketId', ticketId);
-            body.append('workDate', workDate);
-            body.append('statusId', statusId);
-            body.append('workDone', workDone);
-            body.append('timeSpent', timeSpent || '');
-            body.append('nextAction', nextAction);
+
+            if (isEdit) {
+                body.append('updateId', updateId);
+                body.append('workDate', workDate);
+                body.append('workDone', workDone);
+                body.append('timeSpent', timeSpent || '');
+                body.append('nextAction', nextAction);
+                body.append('waitingOn', waitingOn);
+                body.append('resolutionNote', resolutionNote);
+                body.append('followUpDate', followUpDate);
+            } else {
+                body.append('ticketId', ticketId);
+                body.append('workDate', workDate);
+                body.append('statusId', statusId);
+                body.append('workDone', workDone);
+                body.append('timeSpent', timeSpent || '');
+                body.append('nextAction', nextAction);
+                body.append('waitingOn', waitingOn);
+                body.append('resolutionNote', resolutionNote);
+                body.append('followUpDate', followUpDate);
+            }
 
             fetch(url, { method: 'POST', headers: headers, body: body })
                 .then(r => r.json())

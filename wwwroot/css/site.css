@@ -2829,7 +2829,9 @@ tr.tkt-row-link:hover {
 
 
 .voice-status.visible {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 
@@ -2975,7 +2977,18 @@ tr.tkt-row-link:hover {
 
     min-width: 160px;
 
-    max-width: 260px;
+    max-width: 320px;
+}
+
+/* Long text cells (Description / Remarks): clamp to 2 lines so a big
+   value cannot stretch the column and unbalance the table. Full text
+   stays available via the native tooltip (title attribute). */
+.support-table .col-wrap .cell-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 
@@ -3036,6 +3049,26 @@ tr.tkt-row-link:hover {
     width: 400px;
 
     padding: 22px;
+}
+
+/* Add Work modal: wider so the whole form fits without scrolling. */
+#updateModal .modal-content {
+    width: 560px;
+    max-width: 94vw;
+}
+
+#updateModal .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 16px;
+}
+
+#updateModal .form-group-full {
+    grid-column: 1 / -1;
+}
+
+#updateModal .form-group {
+    margin-bottom: 0;
 }
 
 
@@ -3124,6 +3157,21 @@ tr.tkt-row-link:hover {
 .select-dropdown { position:absolute; top:100%; left:0; right:0; z-index:1040; background:#fff; border:1px solid #e2e8f0; border-radius:8px; max-height:250px; overflow-y:auto; display:none; box-shadow:0 10px 30px rgba(0,0,0,.12); margin-top:4px; }
 .select-option { padding:9px 12px; cursor:pointer; font-size:13px; }
 .select-option:hover { background:#f1f5f9; }
+
+/* "Load more" row pinned to the bottom of the client dropdown */
+.select-more {
+    position: sticky;
+    bottom: 0;
+    padding: 9px 12px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #2563eb;
+    background: #eff6ff;
+    border-top: 1px solid #dbeafe;
+    cursor: pointer;
+}
+.select-more:hover { background: #dbeafe; }
 
 
 .form-group {
@@ -6050,6 +6098,14 @@ body.crm-modal-open {
         max-width: none !important;
     }
 
+    /* Stacked cards: show the full value, no line clamping. */
+    .support-table .col-wrap .cell-clamp {
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
+        display: block;
+        overflow: visible;
+    }
+
     .support-table td:last-child {
         border-bottom: none;
     }
@@ -6313,6 +6369,13 @@ body.crm-modal-open {
 
 .tkt-btn:hover { filter: brightness(.95); }
 
+/* Compact button (used in the ticket summary quick-actions) */
+.tkt-btn-sm {
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 7px;
+}
+
 .tkt-btn-primary { background: #2563eb; color: #fff; }
 .tkt-btn-warn    { background: #d97706; color: #fff; }
 .tkt-btn-info    { background: #6366f1; color: #fff; }
@@ -6452,6 +6515,120 @@ body.crm-modal-open {
     margin-top: 6px;
     font-size: 13px;
     color: #6366f1;
+}
+
+.tkt-tl-wait {
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #b45309;
+}
+
+.tkt-tl-resolved {
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #15803d;
+}
+
+/* ---- Input with mic / clear buttons (inside, bottom-right) ---- */
+
+.tkt-input-wrap {
+    position: relative;
+    display: block;
+}
+
+.tkt-input-wrap input,
+.tkt-input-wrap textarea {
+    width: 100%;
+    /* leave room at the bottom for the button row + counter */
+    padding-bottom: 38px;
+}
+
+/* Buttons sit in a flex row pinned to the bottom-right, so they can
+   never overlap each other regardless of box width. */
+.tkt-btn-row {
+    position: absolute;
+    right: 7px;
+    bottom: 6px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tkt-mic-btn,
+.tkt-clear-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #475569;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s ease;
+    padding: 0;
+}
+
+/* Clear button only appears once the field has text. */
+.tkt-clear-btn { display: none; }
+.tkt-input-wrap.has-text .tkt-clear-btn { display: inline-flex; }
+
+.tkt-mic-btn:hover,
+.tkt-clear-btn:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+}
+
+.tkt-mic-btn.recording {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #fff;
+    animation: tkt-pulse 1s infinite;
+}
+
+/* Live "Recording..." chip shown while voice input is active */
+.tkt-voice-status {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #b91c1c;
+}
+
+.tkt-voice-status.visible { display: inline-flex; }
+
+.tkt-voice-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #dc2626;
+    display: inline-block;
+    animation: tkt-pulse 1s infinite;
+}
+
+/* Live character counter (bottom-left inside the box) */
+.tkt-count {
+    position: absolute;
+    left: 10px;
+    bottom: 11px;
+    z-index: 2;
+    font-size: 11px;
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+@keyframes tkt-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(220, 38, 38, .55); }
+    70%  { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
 }
 
 /* Filter chips */
@@ -6605,28 +6782,36 @@ body.crm-modal-open {
    grouped timeline, client tickets table
    ============================================================ */
 
-/* ---- Summary header ---- */
+/* ---- Summary header (compact, split) ---- */
 
 .tkt-summary {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: start;
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-left: 4px solid #2563eb;
     border-radius: 12px;
-    padding: 16px 18px;
-    margin-top: 10px;
+    padding: 10px 12px;
+    margin-top: 6px;
     box-shadow: 0 1px 3px rgba(15, 23, 42, .05);
+}
+
+.tkt-summary-main {
+    min-width: 0;
 }
 
 .tkt-summary-top {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .tkt-summary-top h1 {
     margin: 0;
-    font-size: 22px;
+    font-size: 17px;
     letter-spacing: .3px;
     color: #0f172a;
 }
@@ -6635,22 +6820,56 @@ body.crm-modal-open {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
-    margin-top: 10px;
-    font-size: 13px;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 12px;
     color: #475569;
+}
+
+/* ---- Quick actions side panel (compact) ---- */
+
+.tkt-summary-aside {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px solid #eef2f7;
+}
+
+.tkt-aside-title {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-right: 2px;
+}
+
+.tkt-summary-aside .tkt-btn {
+    width: auto;
+    justify-content: center;
+}
+
+.tkt-readonly {
+    font-size: 11px;
+    color: #dc2626;
+    font-weight: 600;
 }
 
 /* ---- Stale warning ---- */
 
 .tkt-stale {
-    margin-top: 12px;
-    padding: 8px 12px;
+    margin-top: 8px;
+    padding: 5px 9px;
     border-radius: 8px;
     background: #fffbeb;
     border: 1px solid #fcd34d;
     color: #92400e;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
 }
 
@@ -6671,6 +6890,13 @@ body.crm-modal-open {
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 16px;
     align-items: start;
+}
+
+/* Cards sit inside a grid: kill the "stacked section" top margin so
+   all three tops line up on the same line. */
+.tkt-info-wrap > .state-section,
+.tkt-info-wrap > .state-section + .state-section {
+    margin-top: 0;
 }
 
 .tkt-info-card {
@@ -6712,20 +6938,30 @@ body.crm-modal-open {
     text-align: right;
 }
 
-/* ---- Issue block ---- */
+/* ---- Issue block (compact) ---- */
+
+.tkt-issue-block {
+    padding: 14px 16px;
+}
 
 .tkt-issue-subject {
-    font-size: 16px;
+    font-size: 14.5px;
     font-weight: 700;
     color: #0f172a;
     margin-bottom: 6px;
 }
 
 .tkt-issue-body {
-    font-size: 14px;
+    font-size: 13px;
     color: #334155;
-    line-height: 1.6;
+    line-height: 1.5;
     white-space: pre-wrap;
+    background: #f8fafc;
+    border: 1px solid #eef2f7;
+    border-radius: 8px;
+    padding: 10px 12px;
+    max-height: 220px;
+    overflow-y: auto;
 }
 
 /* ---- Grouped timeline ---- */
@@ -6870,8 +7106,15 @@ body.crm-modal-open {
 
 @media (max-width: 700px) {
 
-    .tkt-summary { padding: 12px 14px; }
-    .tkt-summary-top h1 { font-size: 18px; }
+    .tkt-summary {
+        grid-template-columns: 1fr;
+        padding: 10px 12px;
+    }
+    .tkt-summary-top h1 { font-size: 16px; }
+
+    /* On small screens the two buttons stack full-width */
+    .tkt-summary-aside .tkt-btn { flex: 1 1 100%; }
+
     .tkt-info-wrap { grid-template-columns: 1fr; }
     .tkt-action-bar { position: static; }
 }
@@ -6958,8 +7201,8 @@ body.crm-modal-open {
     flex-wrap: wrap;
     align-items: center;
     gap: 12px;
-    margin-bottom: 16px;
-    padding-bottom: 14px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
     border-bottom: 1px solid #eef2f7;
 }
 
@@ -6967,7 +7210,7 @@ body.crm-modal-open {
     margin: 0;
 }
 
-/* Quick selection pills in the same row as Apply/Reset */
+/* Quick selection pills in the same row as the toggle */
 .tkt-quick-pills {
     display: flex;
     flex-wrap: wrap;
@@ -6975,18 +7218,29 @@ body.crm-modal-open {
     flex: 1 1 auto;
 }
 
-.tkt-filter-actions {
+/* Apply / Reset in the same row, right of Priority */
+.tkt-filter-footer {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-left: auto;
+    justify-content: flex-end;
+    gap: 10px;
 }
 
 .tkt-filter-row {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.6fr);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
     gap: 14px;
-    align-items: end;
+}
+
+/* Filter fields grow equally; Apply/Reset stays content-sized. */
+.tkt-filter-row > .tkt-filter-field {
+    flex: 1 1 200px;
+    min-width: 180px;
+}
+
+.tkt-filter-row > .tkt-filter-footer {
+    flex: 0 0 auto;
 }
 
 .tkt-filter-field label {
@@ -7025,27 +7279,80 @@ body.crm-modal-open {
 
 @media (max-width: 900px) {
 
-    .tkt-filter-row {
-        grid-template-columns: 1fr 1fr;
+    .tkt-filter-row > .tkt-filter-field {
+        flex: 1 1 calc(50% - 7px);
+    }
+
+    .tkt-filter-footer {
+        flex: 1 1 100%;
+        justify-content: flex-end;
     }
 }
 
 @media (max-width: 560px) {
 
-    .tkt-filter-row {
-        grid-template-columns: 1fr;
+    .tkt-filter-row > .tkt-filter-field {
+        flex: 1 1 100%;
+    }
+
+    .tkt-filter-footer {
+        flex: 1 1 100%;
+        justify-content: flex-end;
     }
 }
 
 
 /* ---- Section collapse (+/-) ---- */
 
+.tkt-collapsible.collapsed {
+    padding-bottom: 14px;
+}
+
+/* Generic collapse: hide everything in the section except its title row.
+   This is what actually hides content for Detail page sections
+   (Activity Timeline, Client Tickets, ...). */
 .tkt-collapsible.collapsed > *:not(.form-section-title) {
     display: none;
 }
 
-.tkt-collapsible.collapsed {
-    padding-bottom: 14px;
+/* ---- Filter bar collapse: keep the FILTERS title + toggle visible,
+        hide the pills, dropdown row and Apply/Reset ---- */
+
+/* The filter bar's only child is the <form>, which must stay visible,
+   and so must the header row (it holds the FILTERS title + toggle). */
+.tkt-filter-bar.tkt-collapsible > form,
+.tkt-filter-bar.tkt-collapsible.collapsed > form {
+    display: block;
+}
+
+.tkt-filter-bar.tkt-collapsible.collapsed .tkt-filter-head {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+/* When minimized, hide everything in the form except the header row. */
+.tkt-filter-bar.tkt-collapsible.collapsed > form > *:not(.tkt-filter-head) {
+    display: none;
+}
+
+.tkt-filter-bar.tkt-collapsible.collapsed .tkt-quick-pills,
+.tkt-filter-bar.tkt-collapsible.collapsed .tkt-filter-row,
+.tkt-filter-bar.tkt-collapsible.collapsed .tkt-filter-footer {
+    display: none;
+}
+
+/* Minimized filter bar: a single clean header row */
+.tkt-filter-bar.tkt-collapsible.collapsed {
+    padding: 14px 16px;
+}
+
+/* Compact action buttons in the table toolbar (Add Ticket / Add Customer) */
+.toolbar-right > .primary-btn {
+    padding: 7px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+    margin-right: 0;
 }
 
 .tkt-sec-toggle {
@@ -7070,6 +7377,20 @@ body.crm-modal-open {
     background: #2563eb;
     border-color: #2563eb;
     color: #fff;
+}
+
+/* Whole header row is clickable to expand / collapse */
+.tkt-collapsible > .form-section-title,
+.tkt-filter-bar .tkt-filter-head {
+    cursor: pointer;
+    user-select: none;
+    border-radius: 8px;
+    transition: background .12s ease;
+}
+
+.tkt-collapsible > .form-section-title:hover,
+.tkt-filter-bar .tkt-filter-head:hover {
+    background: #f8fafc;
 }
 
 /* Section titles hold the toggle on the right */
@@ -7305,6 +7626,478 @@ body.crm-modal-open {
 
 
 /* ============================================================
+   DETAIL — Layout 5: stage bar + Work Log / System Activity
+   ============================================================ */
+
+/* ---- Stage bar (pipeline: kahan hai) ---- */
+
+.tkt-stage-card .form-section-title {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eef2f7;
+}
+
+.tkt-stage-bar {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    padding: 4px 0 2px;
+    overflow-x: auto;
+}
+
+.tkt-stage {
+    flex: 1;
+    min-width: 92px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    padding: 0 4px;
+}
+
+/* Connector line between stages */
+.tkt-stage::before {
+    content: "";
+    position: absolute;
+    top: 13px;
+    left: 50%;
+    right: -50%;
+    height: 2px;
+    background: #e2e8f0;
+    z-index: 0;
+}
+
+.tkt-stage:last-child::before { display: none; }
+
+.tkt-stage.done::before { background: #22c55e; }
+
+.tkt-stage-dot {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid #cbd5e1;
+    background: #fff;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+}
+
+.tkt-stage.done .tkt-stage-dot {
+    border-color: #22c55e;
+    background: #22c55e;
+}
+
+.tkt-stage.current .tkt-stage-dot {
+    border-color: #3b82f6;
+    background: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, .18);
+}
+
+.tkt-stage-label {
+    margin-top: 7px;
+    font-size: 12px;
+    color: #64748b;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.tkt-stage.current .tkt-stage-label {
+    color: #1d4ed8;
+    font-weight: 600;
+}
+
+.tkt-stage.done .tkt-stage-label {
+    color: #15803d;
+}
+
+.tkt-stage-caption {
+    font-size: 12px;
+    color: #94a3b8;
+    margin: 12px 0 0 2px;
+}
+
+.tkt-stage-caption strong { color: #334155; }
+
+/* On Hold is a side-branch, not a pipeline step — shown as a chip. */
+.tkt-stage-onhold {
+    display: inline-block;
+    margin: 12px 0 0 2px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #92400e;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+}
+
+/* =========================================
+   REVIEW CARD (admin decision + history)
+   ========================================= */
+
+.tkt-review-card .form-section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.tkt-review-state {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+}
+
+.tkt-review-state.pending {
+    color: #92400e;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+}
+
+.tkt-review-state.ok {
+    color: #15803d;
+    background: #dcfce7;
+    border: 1px solid #bbf7d0;
+}
+
+.tkt-review-state.no {
+    color: #b91c1c;
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+}
+
+.tkt-review-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 620px;
+}
+
+.tkt-review-sent {
+    font-size: 13px;
+    color: #64748b;
+}
+
+.tkt-review-sent strong {
+    color: #334155;
+}
+
+.tkt-review-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.tkt-review-pick {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: #475569;
+    background: #fff;
+    transition: border-color .15s ease, background .15s ease;
+}
+
+.tkt-review-pick:has(input:checked) {
+    border-color: #2563eb;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.tkt-review-pick input {
+    accent-color: #2563eb;
+}
+
+.tkt-review-rate {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.tkt-review-rate-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #64748b;
+}
+
+.tkt-star-row {
+    display: inline-flex;
+    gap: 2px;
+}
+
+.tkt-star {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 24px;
+    line-height: 1;
+    color: #cbd5e1;
+    padding: 0 2px;
+    transition: color .1s ease, transform .1s ease;
+}
+
+.tkt-star.on {
+    color: #f59e0b;
+}
+
+.tkt-star:hover {
+    transform: scale(1.15);
+}
+
+.tkt-stars-display {
+    color: #f59e0b;
+    letter-spacing: 1px;
+}
+
+.tkt-review-msg label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+
+.tkt-voice-wrap {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.tkt-voice-wrap textarea {
+    flex: 1 1 auto;
+    resize: vertical;
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #0f172a;
+}
+
+.tkt-voice-wrap textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
+
+.tkt-review-buttons {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.tkt-review-wait {
+    font-size: 14px;
+    color: #92400e;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    padding: 12px 16px;
+}
+
+.tkt-review-history {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #eef2f7;
+}
+
+.tkt-review-history-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #94a3b8;
+    margin-bottom: 14px;
+}
+
+.tkt-review-tag {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+}
+
+.tkt-review-tag.ok {
+    color: #15803d;
+    background: #dcfce7;
+}
+
+.tkt-review-tag.no {
+    color: #b91c1c;
+    background: #fee2e2;
+}
+
+
+/* ---- Work Log rail (dot + line, content always visible) ---- */
+
+.tkt-sec-count {
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 400;
+}
+
+.tkt-rail {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.tkt-rail-item {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 12px;
+    padding-bottom: 18px;
+    cursor: pointer;
+    border-radius: 8px;
+}
+
+.tkt-rail-item:last-child { padding-bottom: 0; }
+
+.tkt-rail-item:hover .tkt-rail-body {
+    background: #f8fafc;
+}
+
+.tkt-rail-item.selected .tkt-rail-body {
+    background: #eff6ff;
+}
+
+.tkt-rail-item:focus {
+    outline: 2px solid #bfdbfe;
+    outline-offset: 2px;
+}
+
+/* Marker column: dot + connecting rail line */
+.tkt-rail-marker {
+    position: relative;
+    display: flex;
+    justify-content: center;
+}
+
+.tkt-rail-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 3px solid #cbd5e1;
+    background: #fff;
+    margin-top: 4px;
+    z-index: 1;
+}
+
+/* The rail line runs from below this dot to the next one */
+.tkt-rail-item:not(:last-child) .tkt-rail-marker::after {
+    content: "";
+    position: absolute;
+    top: 14px;
+    bottom: -18px;
+    left: 50%;
+    width: 2px;
+    transform: translateX(-50%);
+    background: #e2e8f0;
+}
+
+/* Dot colour per event type */
+.tkt-rail-item.ic-work    .tkt-rail-dot { border-color: #3b82f6; }
+.tkt-rail-item.ic-note    .tkt-rail-dot { border-color: #0ea5e9; }
+.tkt-rail-item.ic-status  .tkt-rail-dot { border-color: #f59e0b; }
+.tkt-rail-item.ic-assign  .tkt-rail-dot { border-color: #8b5cf6; }
+.tkt-rail-item.ic-created .tkt-rail-dot { border-color: #22c55e; }
+
+.tkt-rail-item.selected .tkt-rail-dot {
+    border-color: #2563eb;
+    background: #2563eb;
+}
+
+.tkt-rail-body {
+    min-width: 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: background .12s ease;
+}
+
+.tkt-rail-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.tkt-rail-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #0f172a;
+}
+
+.tkt-rail-time {
+    font-size: 12px;
+    color: #64748b;
+    white-space: nowrap;
+}
+
+.tkt-rail-date {
+    margin-left: auto;
+    font-size: 12px;
+    color: #94a3b8;
+    white-space: nowrap;
+}
+
+.tkt-rail-text {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #334155;
+    line-height: 1.5;
+}
+
+.tkt-rail-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+/* ---- System Activity: quiet audit trail, same rail look ---- */
+
+.tkt-rail-muted { opacity: .92; }
+
+.tkt-rail-muted .tkt-rail-title {
+    font-weight: 500;
+    color: #475569;
+}
+
+@media (max-width: 640px) {
+
+    .tkt-rail-item {
+        grid-template-columns: 22px minmax(0, 1fr);
+        gap: 8px;
+    }
+
+    .tkt-rail-date { margin-left: 0; }
+
+    .tkt-stage-bar { padding-left: 2px; }
+
+    .tkt-stage { min-width: 76px; }
+
+    .tkt-stage-label { font-size: 11px; }
+}
+
+/* ============================================================
    NEW TICKET — clean sectioned form
    ============================================================ */
 
@@ -7312,12 +8105,22 @@ body.crm-modal-open {
     padding: 6px 0 0;
 }
 
+/* Compact form rhythm (scoped to the New Ticket page only) */
+.nt-wrap .form-group {
+    margin-bottom: 12px;
+}
+
+.nt-wrap .form-group label {
+    margin-bottom: 5px;
+    font-size: 13px;
+}
+
 .nt-section {
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 12px;
-    padding: 18px;
-    margin-bottom: 16px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
     box-shadow: 0 1px 3px rgba(15, 23, 42, .04);
 }
 
@@ -7325,9 +8128,53 @@ body.crm-modal-open {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-bottom: 14px;
-    padding-bottom: 10px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
     border-bottom: 1px solid #eef2f7;
+}
+
+/* TICKET INFO: 3 fields in a single row */
+.nt-section .form-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 14px;
+}
+
+/* Clear (x) button for the selected client */
+.nt-clear-wrap {
+    position: relative;
+    display: block;
+}
+
+.nt-clear-client {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #475569;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+
+.nt-clear-client:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: #b91c1c;
+}
+
+/* Keep the client input clear of the x button */
+.nt-clear-wrap #clientSearchInput {
+    padding-right: 38px;
 }
 
 .nt-hint {
@@ -7410,6 +8257,18 @@ body.crm-modal-open {
     padding: 14px 16px;
 }
 
+/* One consistent 18px gap between cards -> filter -> table.
+   The filter Toggle script now lives at the bottom of the view, so the
+   section cards are proper adjacent siblings and the shared
+   ".state-section + .state-section" rule supplies the vertical rhythm. */
+.dashboard-cards:has(+ .tkt-filter-bar) {
+    margin-bottom: 0;
+}
+
+.dashboard-cards + .tkt-filter-bar {
+    margin-top: 18px;
+}
+
 .tkt-pills {
     display: flex;
     flex-wrap: wrap;
@@ -7472,4 +8331,606 @@ a.tkt-kpi-active {
     .tkt-filter-bar {
         padding: 12px;
     }
+}
+
+
+/* =========================================
+   NOTIFICATIONS (review workflow)
+   Index  -> compact rows
+   Detail -> slim alert strip
+   Table  -> pending/approved/rejected pill
+   ========================================= */
+
+.tkt-notif-wrap {
+    margin: 0 0 18px 0;
+}
+
+.tkt-notif-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.tkt-notif-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: #64748b;
+}
+
+.tkt-notif-mark {
+    margin-left: auto;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: #2563eb;
+    padding: 0;
+}
+
+.tkt-notif-mark:hover {
+    text-decoration: underline;
+}
+
+/* ---- Compact rows (Index page) ---- */
+
+.tkt-notif-rows {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid #e8edf3;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.tkt-notif-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    text-decoration: none;
+    color: inherit;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background .12s ease;
+}
+
+.tkt-notif-row:last-child {
+    border-bottom: none;
+}
+
+.tkt-notif-row:hover {
+    background: #f8fafc;
+}
+
+.tkt-notif-row.read {
+    opacity: .7;
+}
+
+.tkt-notif-row-icon {
+    font-size: 14px;
+    line-height: 1;
+    flex: 0 0 auto;
+}
+
+.tkt-notif-row-ticket {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+    flex: 0 0 auto;
+}
+
+.tkt-notif-row-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    flex: 0 0 auto;
+}
+
+.tkt-notif-row-label.pending {
+    color: #92400e;
+    background: #fef3c7;
+}
+
+.tkt-notif-row-label.approved {
+    color: #15803d;
+    background: #dcfce7;
+}
+
+.tkt-notif-row-label.rejected {
+    color: #b91c1c;
+    background: #fee2e2;
+}
+
+.tkt-notif-row-msg {
+    font-size: 12.5px;
+    color: #64748b;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tkt-notif-row-stars {
+    color: #f59e0b;
+    letter-spacing: 1px;
+    font-size: 12px;
+    flex: 0 0 auto;
+}
+
+.tkt-notif-row-time {
+    margin-left: auto;
+    font-size: 11px;
+    color: #b6c0cc;
+    flex: 0 0 auto;
+}
+
+/* ---- Slim alert strip (Detail page) ---- */
+
+.tkt-notif-strip-wrap {
+    margin: 0 0 16px 0;
+}
+
+.tkt-strip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 16px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #94a3b8;
+    background: #fff;
+    font-size: 13px;
+    color: #334155;
+}
+
+.tkt-strip.kind-approved {
+    border-left-color: #16a34a;
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+.tkt-strip.kind-rejected {
+    border-left-color: #dc2626;
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+.tkt-strip.kind-review {
+    border-left-color: #f59e0b;
+    background: #fffbeb;
+    border-color: #fde68a;
+}
+
+.tkt-strip-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.tkt-strip-ticket {
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.tkt-strip-label {
+    color: #475569;
+    font-weight: 600;
+}
+
+.tkt-strip-stars {
+    color: #f59e0b;
+    letter-spacing: 1px;
+}
+
+.tkt-strip-time {
+    margin-left: auto;
+    font-size: 11.5px;
+    color: #94a3b8;
+}
+
+/* ---- Review pill in the ticket table ---- */
+
+.tkt-no-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.tkt-review-pill {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+    line-height: 1.6;
+}
+
+.tkt-review-pill.pending {
+    color: #92400e;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+}
+
+.tkt-review-pill.approved {
+    color: #15803d;
+    background: #dcfce7;
+    border: 1px solid #bbf7d0;
+}
+
+.tkt-review-pill.rejected {
+    color: #b91c1c;
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+}
+
+.tkt-notif-empty {
+    padding: 18px 16px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+/* ---- Close ticket button ---- */
+
+.tkt-btn-close {
+    background: #16a34a;
+    color: #fff;
+    border: none;
+}
+
+.tkt-btn-close:hover {
+    background: #15803d;
+}
+
+/* ---- Confirm dialog ---- */
+
+.tkt-confirm-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, .45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 6000;
+    padding: 16px;
+}
+
+.tkt-confirm-backdrop.open {
+    display: flex;
+}
+
+.tkt-confirm-box {
+    background: #fff;
+    border-radius: 14px;
+    padding: 26px 28px;
+    max-width: 440px;
+    width: 100%;
+    box-shadow: 0 20px 48px rgba(15, 23, 42, .28);
+    text-align: center;
+}
+
+.tkt-confirm-icon {
+    font-size: 34px;
+    line-height: 1;
+    margin-bottom: 12px;
+}
+
+.tkt-confirm-box h3 {
+    font-size: 17px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 8px;
+}
+
+.tkt-confirm-box p {
+    font-size: 13.5px;
+    color: #64748b;
+    line-height: 1.55;
+    margin-bottom: 22px;
+}
+
+.tkt-confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.tkt-confirm-actions .tkt-btn {
+    min-width: 120px;
+    justify-content: center;
+}
+
+.tkt-confirm-yes {
+    background: #16a34a;
+    color: #fff;
+    border: none;
+}
+
+.tkt-confirm-yes:hover {
+    background: #15803d;
+}
+
+/* ---- Review decision (professional, no "Round") ---- */
+
+.tkt-decisions {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #eef2f7;
+}
+
+.tkt-decisions-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: #94a3b8;
+    margin-bottom: 14px;
+}
+
+.tkt-decision {
+    padding: 14px 16px;
+    border: 1px solid #e8edf3;
+    border-left: 4px solid #94a3b8;
+    border-radius: 10px;
+    background: #fbfcfd;
+}
+
+.tkt-decision.latest {
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
+}
+
+.tkt-decision.ok { border-left-color: #16a34a; }
+.tkt-decision.no { border-left-color: #dc2626; }
+
+.tkt-decision-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.tkt-decision-verdict {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.tkt-decision.ok .tkt-decision-verdict { color: #15803d; }
+.tkt-decision.no .tkt-decision-verdict { color: #b91c1c; }
+
+.tkt-decision-badge {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #dbeafe;
+}
+
+.tkt-decision-stars {
+    margin-left: auto;
+    color: #f59e0b;
+    font-size: 14px;
+    letter-spacing: 1.5px;
+}
+
+.tkt-decision-who {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.tkt-decision-msg {
+    margin-top: 8px;
+    font-size: 13.5px;
+    color: #334155;
+    line-height: 1.5;
+    background: #f8fafc;
+    border: 1px solid #eef2f7;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.tkt-decision-sep {
+    height: 1px;
+    margin: 14px 0;
+    background: repeating-linear-gradient(
+        to right, #dbe4ee 0 6px, transparent 6px 12px);
+}
+
+/* ---- Review form ---- */
+
+.tkt-review-card .form-section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.tkt-review-state {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+}
+
+.tkt-review-state.pending {
+    color: #92400e;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+}
+
+.tkt-review-state.ok {
+    color: #15803d;
+    background: #dcfce7;
+    border: 1px solid #bbf7d0;
+}
+
+.tkt-review-state.no {
+    color: #b91c1c;
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+}
+
+.tkt-review-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 620px;
+}
+
+.tkt-review-sent {
+    font-size: 13px;
+    color: #64748b;
+}
+
+.tkt-review-sent strong {
+    color: #334155;
+}
+
+.tkt-review-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.tkt-review-pick {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: #475569;
+    background: #fff;
+}
+
+.tkt-review-pick:has(input:checked) {
+    border-color: #2563eb;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.tkt-review-pick input {
+    accent-color: #2563eb;
+}
+
+.tkt-review-rate {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.tkt-review-rate-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #64748b;
+}
+
+.tkt-star-row {
+    display: inline-flex;
+    gap: 2px;
+}
+
+.tkt-star {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 24px;
+    line-height: 1;
+    color: #cbd5e1;
+    padding: 0 2px;
+}
+
+.tkt-star.on {
+    color: #f59e0b;
+}
+
+.tkt-star:hover {
+    transform: scale(1.15);
+}
+
+.tkt-review-msg label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+
+.tkt-voice-wrap {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.tkt-voice-wrap textarea {
+    flex: 1 1 auto;
+    resize: vertical;
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #0f172a;
+}
+
+.tkt-voice-wrap textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
+
+.tkt-review-msg .tkt-input-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tkt-review-msg .tkt-btn-row {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    margin-top: 6px;
+}
+
+.tkt-review-msg .tkt-count {
+    align-self: flex-end;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.tkt-review-buttons {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.tkt-review-wait {
+    font-size: 14px;
+    color: #92400e;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    padding: 12px 16px;
 }

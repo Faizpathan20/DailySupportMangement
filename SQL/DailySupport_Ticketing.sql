@@ -439,6 +439,25 @@ BEGIN
 END
 GO
 
+-- ---- New optional columns (added later; safe to re-run) ----
+-- WaitingOn      : filled only when the status becomes "On Hold"
+-- ResolutionNote : filled only when the status becomes "Resolved"
+-- FollowUpDate   : optional next follow-up date
+IF COL_LENGTH('dbo.Trn_DailySupport_Updates', 'WaitingOn') IS NULL
+    ALTER TABLE dbo.Trn_DailySupport_Updates
+        ADD WaitingOn NVARCHAR(200) NULL;
+GO
+
+IF COL_LENGTH('dbo.Trn_DailySupport_Updates', 'ResolutionNote') IS NULL
+    ALTER TABLE dbo.Trn_DailySupport_Updates
+        ADD ResolutionNote NVARCHAR(500) NULL;
+GO
+
+IF COL_LENGTH('dbo.Trn_DailySupport_Updates', 'FollowUpDate') IS NULL
+    ALTER TABLE dbo.Trn_DailySupport_Updates
+        ADD FollowUpDate DATE NULL;
+GO
+
 
 -- ============================================================
 -- 5) Trn_DailySupport_History  (audit trail)

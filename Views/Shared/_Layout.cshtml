@@ -17,7 +17,7 @@
     </title>
 
     <link rel="stylesheet"
-          href="~/css/site.css?v=43" />
+          href="~/css/site.css?v=51" />
 
     <link rel="stylesheet"
           href="~/css/dashboard.css?v=4" />
@@ -152,6 +152,11 @@
                             <span class="menu-text">
                                 Daily Support
                             </span>
+
+                            <span class="menu-badge"
+                                  id="navSupportBadge"
+                                  title="Unread notifications"
+                                  hidden></span>
 
                         </a>
 
@@ -604,6 +609,10 @@
     </div>
 
 
+    <script src="~/js/site.js?v=14">
+    </script>
+
+
     @RenderSection(
         "Scripts",
         required: false)
@@ -626,9 +635,6 @@
 
     </div>
 
-
-    <script src="~/js/site.js?v=14">
-    </script>
 
 </body>
 

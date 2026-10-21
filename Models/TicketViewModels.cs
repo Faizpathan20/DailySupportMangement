@@ -19,6 +19,9 @@ public class TicketOption
 
     // Sirf Priority ke liye: SLA hours.
     public int SlaHours { get; set; }
+
+    // Sirf Clients ke liye: mobile number.
+    public string Mobile { get; set; } = string.Empty;
 }
 
 // --------------------------------------------
@@ -110,12 +113,25 @@ public class TicketDetailViewModel
     // ---- Assignment ----
     public int? AssignedTo { get; set; }
     public string AssignedToName { get; set; } = string.Empty;
+    public int? CreatedBy { get; set; }
+    public string CreatedByName { get; set; } = string.Empty;
+
+    // ---- Permissions (computed) ----
+    public bool CanAddWork { get; set; }
+    public bool CanAssign { get; set; }
+    public bool IsReadOnly { get; set; }
+
+    // Resolved ticket ko owner (ya admin) close kar sakta hai.
+    public bool CanClose { get; set; }
 
     // ---- Review ----
     public string ReviewStatus { get; set; } = string.Empty;
     public int? ReviewedBy { get; set; }
     public string ReviewedByName { get; set; } = string.Empty;
     public DateTime? ReviewedAt { get; set; }
+
+    // Admin? -> review panel (accept/reject) dikhta hai.
+    public bool IsAdmin { get; set; }
 
     // ---- Timeline (updates + history merged) ----
     public List<TicketTimelineItem> Timeline { get; set; } = new();
@@ -147,6 +163,21 @@ public class TicketDetailViewModel
     // ---- Derived helpers ----
     public bool IsClosed => StatusIsClosed;
 
+    // NOTE: Mst_Status me "Resolved" ka IsClosed flag DB me 1 hai
+    // (galat data). Isliye read-only / close jaise rules ke liye hum
+    // flag ko chhod kar status ke *naam* se decide karte hain.
+    public bool IsClosedByName =>
+        string.Equals(
+            StatusName,
+            "Closed",
+            StringComparison.OrdinalIgnoreCase);
+
+    public bool IsResolvedByName =>
+        string.Equals(
+            StatusName,
+            "Resolved",
+            StringComparison.OrdinalIgnoreCase);
+
     public bool IsPendingReview =>
         string.Equals(
             StatusName,
@@ -155,7 +186,7 @@ public class TicketDetailViewModel
 
     public bool IsOverdue =>
         SlaDue.HasValue
-        && !StatusIsClosed
+        && !IsClosedByName
         && SlaDue.Value < DateTime.UtcNow.AddMinutes(330);
 
     public string TimeSpentDisplay
@@ -206,6 +237,15 @@ public class TicketTimelineItem
     // Next action (Update ke liye).
     public string NextAction { get; set; } = string.Empty;
 
+    // "Waiting on" reason (jab status On Hold ho).
+    public string WaitingOn { get; set; } = string.Empty;
+
+    // Resolution note (jab status Resolved ho).
+    public string ResolutionNote { get; set; } = string.Empty;
+
+    // Agla follow-up date (optional).
+    public DateTime? FollowUpDate { get; set; }
+
     // Kis din ka kaam tha (Update ke liye).
     public DateTime? WorkDate { get; set; }
 
@@ -231,6 +271,9 @@ public class TicketUpdateItem
     public string WorkDone { get; set; } = string.Empty;
     public int? TimeSpent { get; set; }
     public string NextAction { get; set; } = string.Empty;
+    public string WaitingOn { get; set; } = string.Empty;
+    public string ResolutionNote { get; set; } = string.Empty;
+    public DateTime? FollowUpDate { get; set; }
     public string UpdatedByName { get; set; } = string.Empty;
     public DateTime EntryOn { get; set; }
 }
@@ -249,6 +292,26 @@ public class TicketReviewItem
 }
 
 // --------------------------------------------
+// Ek in-app notification (review aaya / approve / reject).
+// --------------------------------------------
+public class TicketNotification
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public int? TicketId { get; set; }
+    public string TicketNo { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Body { get; set; } = string.Empty;
+
+    // review | approved | rejected
+    public string Kind { get; set; } = string.Empty;
+
+    public int? Rating { get; set; }
+    public bool IsRead { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+// --------------------------------------------
 // List page ke ek row (client history me bhi use).
 // --------------------------------------------
 public class TicketListItem
@@ -261,6 +324,7 @@ public class TicketListItem
     public string StatusName { get; set; } = string.Empty;
     public string PriorityName { get; set; } = string.Empty;
     public string AssignedToName { get; set; } = string.Empty;
+    public string CreatedByName { get; set; } = string.Empty;
 
     // Classification (client tickets table ke liye).
     public string CategoryName { get; set; } = string.Empty;
@@ -272,6 +336,9 @@ public class TicketListItem
 
     public DateTime? SlaDue { get; set; }
     public bool IsClosed { get; set; }
+
+    // Review pill ke liye: "pending" | "approved" | "rejected" | "".
+    public string ReviewPill { get; set; } = string.Empty;
 
     public bool IsOverdue =>
         SlaDue.HasValue

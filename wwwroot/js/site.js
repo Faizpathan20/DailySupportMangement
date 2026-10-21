@@ -2315,3 +2315,333 @@ function refreshTimeLogBadge() {
 window.refreshTimeLogBadge = refreshTimeLogBadge;
 
 refreshTimeLogBadge();
+
+
+// ==========================================
+// SIDEBAR SUPPORT BADGE (Daily Support notifications)
+// Unread review notifications ka count dikhata hai
+// (admin ko "review aaya", user ko "approve/reject").
+// ==========================================
+
+function refreshSupportBadge() {
+
+    var badge =
+        document.getElementById("navSupportBadge");
+
+    if (!badge) {
+        return;
+    }
+
+    fetch("/DailySupport/NotifCount", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+            "X-Requested-With": "XMLHttpRequest"
+        }
+    })
+        .then(function (response) {
+            return response.ok ? response.json() : null;
+        })
+        .then(function (data) {
+
+            if (!data) {
+                return;
+            }
+
+            var count = data.count || 0;
+
+            badge.hidden = count <= 0;
+
+            badge.textContent = count > 99 ? "99+" : String(count);
+
+        })
+        .catch(function () {
+            // Cosmetic only - never break the page.
+        });
+
+}
+
+window.refreshSupportBadge = refreshSupportBadge;
+
+refreshSupportBadge();
+
+
+// ==========================================
+// NOTIFICATIONS
+// Index page  -> compact rows list
+// Detail page -> ek slim alert strip (latest)
+// Sidebar     -> sirf count badge
+// ==========================================
+
+// Ek notification ki compact row (Index page ke liye).
+function notifRowHtml(n) {
+
+    var kind = (n.kind || "").toLowerCase();
+
+    var icon = kind === "approved" ? "\u2705"
+        : kind === "rejected" ? "\u274C"
+        : "\uD83D\uDD0D";
+
+    var label = kind === "approved" ? "approved"
+        : kind === "rejected" ? "rejected"
+        : "pending";
+
+    var stars = "";
+
+    if (n.rating) {
+
+        var s = "";
+
+        for (var i = 1; i <= 5; i++) {
+            s += (i <= n.rating) ? "\u2605" : "\u2606";
+        }
+
+        stars = '<span class="tkt-notif-row-stars">' + s + '</span>';
+    }
+
+    var ticket = n.ticketNo ? n.ticketNo : "Ticket";
+
+    var msg = n.body
+        ? '<span class="tkt-notif-row-msg">'
+            + escapeHtml(n.body) + '</span>'
+        : '';
+
+    var href = n.ticketId
+        ? "/DailySupport/Detail/" + n.ticketId
+        : "#";
+
+    return '<a class="tkt-notif-row kind-' + kind
+        + (n.isRead ? ' read' : '')
+        + '" href="' + href + '">'
+        + '<span class="tkt-notif-row-icon">' + icon + '</span>'
+        + '<span class="tkt-notif-row-ticket">' + ticket + '</span>'
+        + '<span class="tkt-notif-row-label ' + label + '">'
+        + label + '</span>'
+        + msg
+        + stars
+        + '<span class="tkt-notif-row-time">'
+        + (n.createdAt || '') + '</span>'
+        + '</a>';
+}
+
+// Ek slim alert strip (Detail page ke liye, latest notification).
+function notifStripHtml(n) {
+
+    if (!n) {
+        return '';
+    }
+
+    var kind = (n.kind || "").toLowerCase();
+
+    var icon = kind === "approved" ? "\u2705"
+        : kind === "rejected" ? "\u274C"
+        : "\uD83D\uDD0D";
+
+    var label = kind === "approved" ? "Review accepted"
+        : kind === "rejected" ? "Review rejected"
+        : "Review pending with admin";
+
+    var stars = "";
+
+    if (n.rating) {
+
+        var s = "";
+
+        for (var i = 1; i <= 5; i++) {
+            s += (i <= n.rating) ? "\u2605" : "\u2606";
+        }
+
+        stars = '<span class="tkt-strip-stars">' + s + '</span>';
+    }
+
+    var ticket = n.ticketNo ? n.ticketNo : "Ticket";
+
+    return '<div class="tkt-strip kind-' + kind + '">'
+        + '<span class="tkt-strip-icon">' + icon + '</span>'
+        + '<span class="tkt-strip-ticket">' + ticket + '</span>'
+        + '<span class="tkt-strip-label">' + label + '</span>'
+        + stars
+        + '<span class="tkt-strip-time">'
+        + (n.createdAt || '') + '</span>'
+        + '</div>';
+}
+
+// Chhota HTML escape (body me user text aata hai).
+function escapeHtml(text) {
+
+    var div = document.createElement("div");
+
+    div.textContent = text == null ? "" : String(text);
+
+    return div.innerHTML;
+}
+
+// Ek container me notification rows bharo (Index page).
+function renderNotifRows(containerId, items, emptyText) {
+
+    var box = document.getElementById(containerId);
+
+    if (!box) {
+        return;
+    }
+
+    if (!items || items.length === 0) {
+        box.innerHTML = '<div class="tkt-notif-empty">'
+            + (emptyText || "No notifications yet.") + '</div>';
+        return;
+    }
+
+    var html = "";
+
+    for (var i = 0; i < items.length; i++) {
+        html += notifRowHtml(items[i]);
+    }
+
+    box.innerHTML = html;
+}
+
+// Detail page ka strip (latest notification).
+function renderNotifStrip(containerId, items) {
+
+    var box = document.getElementById(containerId);
+
+    if (!box) {
+        return;
+    }
+
+    if (!items || items.length === 0) {
+        box.style.display = "none";
+        return;
+    }
+
+    box.innerHTML = notifStripHtml(items[0]);
+}
+
+// Index page: rows.
+function loadPageNotifs(containerId, take) {
+
+    fetch("/DailySupport/NotifList", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+    })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+
+            if (!data) {
+                return;
+            }
+
+            renderNotifRows(
+                containerId,
+                (data.items || []).slice(0, take || 6),
+                "Koi notification nahi hai.");
+
+        })
+        .catch(function () { });
+}
+
+window.loadPageNotifs = loadPageNotifs;
+
+// Detail page: is ticket ka latest strip.
+function loadDetailNotifs() {
+
+    var wrap = document.getElementById("detailNotifList");
+
+    if (!wrap) {
+        return;
+    }
+
+    var ticketId = wrap.getAttribute("data-ticket");
+
+    if (!ticketId) {
+        return;
+    }
+
+    fetch("/DailySupport/NotifList?ticketId=" + ticketId, {
+        method: "GET",
+        credentials: "same-origin",
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+    })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+
+            if (!data) {
+                return;
+            }
+
+            renderNotifStrip("detailNotifList", data.items || []);
+
+        })
+        .catch(function () { });
+}
+
+window.loadDetailNotifs = loadDetailNotifs;
+
+// Sabko read mark karo.
+function markAllNotifsRead(e) {
+
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    fetch("/DailySupport/MarkNotifsRead", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            "RequestVerificationToken": getNotifToken()
+        }
+    })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function () {
+
+            refreshSupportBadge();
+
+            var cards = document.querySelectorAll(
+                ".tkt-notif-row, .tkt-strip");
+
+            for (var i = 0; i < cards.length; i++) {
+                cards[i].classList.add("read");
+            }
+
+        })
+        .catch(function () { });
+}
+
+window.markAllNotifsRead = markAllNotifsRead;
+
+// Anti-forgery token (page me kahin bhi ho).
+function getNotifToken() {
+
+    var el = document.querySelector(
+        'input[name="__RequestVerificationToken"]');
+
+    return el ? el.value : "";
+}
+
+// ---- Page ke notification rows load (Index + Detail) ----
+
+(function () {
+
+    function boot() {
+
+        if (document.getElementById("pageNotifGrid")) {
+            loadPageNotifs("pageNotifGrid", 6);
+        }
+
+        if (document.getElementById("detailNotifList")) {
+            loadDetailNotifs();
+        }
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", boot);
+    } else {
+        boot();
+    }
+
+    document.addEventListener("DOMContentLoaded", boot);
+
+})();

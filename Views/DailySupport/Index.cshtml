@@ -93,6 +93,29 @@
 </div>
 
 
+<!-- ================= MY NOTIFICATIONS ================= -->
+
+<div class="tkt-notif-wrap">
+
+    <div class="tkt-notif-title-row">
+        <span class="tkt-notif-title">
+            &#128276; My Notifications
+        </span>
+
+        <button type="button"
+                class="tkt-notif-mark"
+                onclick="markAllNotifsRead(event)">
+            Mark all read
+        </button>
+    </div>
+
+    <div id="pageNotifGrid" class="tkt-notif-rows">
+        <div class="tkt-notif-empty">Loading&hellip;</div>
+    </div>
+
+</div>
+
+
 <!-- ================= KPI CARDS (clickable, top) ================= -->
 
 <div class="dashboard-cards">
@@ -207,7 +230,8 @@
 
 <!-- ================= FILTER BAR ================= -->
 
-<div class="state-section tkt-filter-bar">
+<div class="state-section tkt-filter-bar tkt-collapsible"
+     id="tktFilterCard">
 
     <form method="get"
           id="ticketFilterForm"
@@ -216,7 +240,8 @@
         <input type="hidden" name="view" id="filterView"
                value="@Model.FilterView" />
 
-        <div class="tkt-filter-head">
+        <div class="tkt-filter-head"
+             id="tktFilterHead">
 
             <div class="form-section-title">
                 FILTERS
@@ -246,7 +271,118 @@
 
             </div>
 
-            <div class="tkt-filter-actions">
+            <!-- Maximize / minimize the whole filter bar (top-right) -->
+            <button type="button"
+                    class="tkt-sec-toggle"
+                    id="tktFilterToggle"
+                    title="Maximize / minimize filters"
+                    aria-expanded="true"
+                    aria-controls="ticketFilterForm">
+
+                +
+
+            </button>
+
+        </div>
+
+        <!-- Filter dropdowns (Assigned To sirf admin ko) -->
+        <div class="tkt-filter-row">
+
+            <div class="tkt-filter-field">
+
+                <label>
+                    Status
+                </label>
+
+                <select name="statusId"
+                        id="filterStatusId"
+                        data-ds-cascade="1">
+
+                    <option value="">
+                        All Statuses
+                    </option>
+
+                    @foreach (var s in Model.StatusOptions)
+                    {
+                        <option value="@s.Id"
+                                data-with-user="@string.Join(",", Model.UsersByStatus.TryGetValue(s.Id, out var ubs) ? ubs : new List<int>())"
+                                data-with-priority="@string.Join(",", Model.PrioritiesByStatus.TryGetValue(s.Id, out var pbs) ? pbs : new List<int>())"
+                                selected="@(Model.FilterStatusId == s.Id)">
+
+                            @s.Name
+
+                        </option>
+                    }
+
+                </select>
+
+            </div>
+
+            @if (Model.IsAdmin)
+            {
+                <div class="tkt-filter-field">
+
+                    <label>
+                        Assigned To
+                    </label>
+
+                    <select name="assignedTo"
+                            id="filterAssignedTo"
+                            data-ds-cascade="1">
+
+                        <option value="">
+                            All Users
+                        </option>
+
+                        @foreach (var u in Model.UserOptions)
+                        {
+                            <option value="@u.Id"
+                                    data-with-status="@string.Join(",", Model.StatusesByUser.TryGetValue(u.Id, out var sbu) ? sbu : new List<int>())"
+                                    data-with-priority="@string.Join(",", Model.PrioritiesByUser.TryGetValue(u.Id, out var pbu) ? pbu : new List<int>())"
+                                    selected="@(Model.FilterAssignedTo == u.Id)">
+
+                                @u.Name
+
+                            </option>
+                        }
+
+                    </select>
+
+                </div>
+            }
+
+            <div class="tkt-filter-field">
+
+                <label>
+                    Priority
+                </label>
+
+                <select name="priorityId"
+                        id="filterPriorityId"
+                        data-ds-cascade="1">
+
+                    <option value="">
+                        All Priorities
+                    </option>
+
+                    @foreach (var p in Model.PriorityOptions)
+                    {
+                        <option value="@p.Id"
+                                data-with-status="@string.Join(",", Model.StatusesByPriority.TryGetValue(p.Id, out var sbp) ? sbp : new List<int>())"
+                                data-with-user="@string.Join(",", Model.UsersByPriority.TryGetValue(p.Id, out var ubp) ? ubp : new List<int>())"
+                                selected="@(Model.FilterPriorityId == p.Id)">
+
+                            @p.Name
+
+                        </option>
+                    }
+
+                </select>
+
+            </div>
+
+            <!-- Apply / Reset sit in the same row, right of the fields -->
+            <div class="tkt-filter-footer">
 
                 <button type="submit"
                         class="primary-btn">
@@ -267,109 +403,9 @@
 
         </div>
 
-        <!-- Three dropdowns in one row -->
-        <div class="tkt-filter-row">
-
-            <div class="tkt-filter-field">
-
-                <label>
-                    Status
-                </label>
-
-                <select name="statusId"
-                        onchange="document.getElementById('ticketFilterForm').submit()">
-
-                    <option value="">
-                        All Statuses
-                    </option>
-
-                    @foreach (var s in Model.StatusOptions)
-                    {
-                        <option value="@s.Id"
-                                selected="@(Model.FilterStatusId == s.Id)">
-
-                            @s.Name
-
-                        </option>
-                    }
-
-                </select>
-
-            </div>
-
-            <div class="tkt-filter-field">
-
-                <label>
-                    Assigned To
-                </label>
-
-                <select name="assignedTo"
-                        onchange="document.getElementById('ticketFilterForm').submit()">
-
-                    <option value="">
-                        All Users
-                    </option>
-
-                    @foreach (var u in Model.UserOptions)
-                    {
-                        <option value="@u.Id"
-                                selected="@(Model.FilterAssignedTo == u.Id)">
-
-                            @u.Name
-
-                        </option>
-                    }
-
-                </select>
-
-            </div>
-
-            <div class="tkt-filter-field">
-
-                <label>
-                    Priority
-                </label>
-
-                <select name="priorityId"
-                        onchange="document.getElementById('ticketFilterForm').submit()">
-
-                    <option value="">
-                        All Priorities
-                    </option>
-
-                    @foreach (var p in Model.PriorityOptions)
-                    {
-                        <option value="@p.Id"
-                                selected="@(Model.FilterPriorityId == p.Id)">
-
-                            @p.Name
-
-                        </option>
-                    }
-
-                </select>
-
-            </div>
-
-            <div class="tkt-filter-field tkt-filter-search">
-
-                <label>
-                    Search
-                </label>
-
-                <input type="text"
-                       name="search"
-                       value="@Model.Search"
-                       placeholder="Ticket No / Client / Issue..." />
-
-            </div>
-
-        </div>
-
     </form>
 
 </div>
-
 
 
 <!-- ================= MESSAGES ================= -->
@@ -479,9 +515,9 @@
                    placeholder="Search..."
                    oninput="filterTable()" />
 
-            <a href="@Url.Action("NewTicket", "DailySupport")" class="primary-btn" style="margin-right:8px; text-decoration:none; display:inline-block;">+ New Ticket</a>
+            <a href="@Url.Action("NewTicket", "DailySupport")" class="primary-btn">+ Add Ticket</a>
 
-            <a href="@Url.Action("Create", "Clients", new { returnUrl = Url.Action("Index", "DailySupport") })" class="primary-btn" style="margin-right:8px; text-decoration:none; display:inline-block;">+ New Customer</a>
+            <a href="@Url.Action("Create", "Clients", new { returnUrl = Url.Action("Index", "DailySupport") })" class="primary-btn">+ Add Customer</a>
 
         </div>
 
@@ -612,9 +648,60 @@
                                             @support.Get(col.Name)
                                         </span>
                                     }
+                                    else if (col.Name == "TicketNo")
+                                    {
+                                        var cellText = support.Get(col.Name);
+
+                                        <span class="tkt-no-wrap">
+
+                                            <span class="cell-clamp"
+                                                  title="@cellText">@cellText</span>
+
+                                            @{
+                                                string pill = "";
+
+                                                if (int.TryParse(
+                                                        support.Get("Id"),
+                                                        out int pillId))
+                                                {
+                                                    Model.ReviewPills
+                                                        .TryGetValue(
+                                                            pillId,
+                                                            out string? foundPill);
+
+                                                    pill = foundPill ?? "";
+                                                }
+                                            }
+
+                                            @if (!string.IsNullOrWhiteSpace(pill))
+                                            {
+                                                var pillTitle = pill switch
+                                                {
+                                                    "pending" => "Review pending with admin",
+                                                    "approved" => "Review approved",
+                                                    "rejected" => "Review rejected",
+                                                    _ => pill
+                                                };
+
+                                                <span class="tkt-review-pill @pill"
+                                                      title="@pillTitle">
+                                                    @pill
+                                                </span>
+                                            }
+
+                                        </span>
+                                    }
                                     else
                                     {
-                                        @support.Get(col.Name)
+                                        var cellText = support.Get(col.Name);
+
+                                        if (!string.IsNullOrWhiteSpace(cellText))
+                                        {
+                                            <span class="cell-clamp"
+                                                  title="@cellText">
+                                                @cellText
+                                            </span>
+                                        }
                                     }
 
                                 </td>
@@ -2594,10 +2681,285 @@
         };
 
 
-        masterBindModalSubmit(
-            "supportForm",
-            closeModal
-        );
+        document.addEventListener('DOMContentLoaded', function () {
+
+            masterBindModalSubmit(
+                "supportForm",
+                closeModal
+            );
+
+        });
+
+
+        // ---- Filter bar maximize / minimize ----
+        // Whole header row is clickable (pills + toggle button excluded).
+        document.addEventListener('DOMContentLoaded', function () {
+
+            var card = document.getElementById('tktFilterCard');
+            var head = document.getElementById('tktFilterHead');
+            var toggle = document.getElementById('tktFilterToggle');
+
+            if (!card || !toggle) {
+                return;
+            }
+
+            if (card.dataset.toggleBound === '1') {
+                return;
+            }
+
+            card.dataset.toggleBound = '1';
+
+            function sync() {
+
+                var collapsed = card.classList.contains('collapsed');
+
+                toggle.textContent = collapsed ? '+' : '\u2212';
+
+                toggle.setAttribute(
+                    'aria-expanded',
+                    collapsed ? 'false' : 'true');
+            }
+
+            function flip() {
+
+                card.classList.toggle('collapsed');
+
+                sync();
+            }
+
+            toggle.addEventListener('click', function (e) {
+
+                e.preventDefault();
+                e.stopPropagation();
+
+                flip();
+            });
+
+            if (head) {
+                head.addEventListener('click', function (e) {
+
+                    // Let the quick-filter pills do their job.
+                    if (e.target.closest('.tkt-quick-pills')) {
+                        return;
+                    }
+
+                    flip();
+                });
+            }
+
+            sync();
+
+        });
+
+
+        // ==========================================================
+        // FILTER CASCADE — Status <-> Assigned To <-> Priority
+        //
+        // Teeno dropdown aapas me connected hain:
+        //   • User chuno      -> Status/Priority sirf us user ke
+        //   • Priority chuno  -> User/Status sirf us priority ke
+        //   • Status chuno    -> User/Priority sirf us status ke
+        //
+        // Data server se aata hai (real tickets ke combos,
+        // data-with-* attributes me). "All" (value="") hamesha
+        // available rehta hai. Options delete nahi hote, sirf
+        // hide hote hain — taake filter hataane par poora list
+        // wapas aa jaaye.
+        //
+        // Design: ek hi delegated 'change' listener (document pe),
+        // jo har baar live DOM se selects re-query karta hai.
+        // Isse soft-navigation ke baad bhi kaam karta hai aur
+        // purane elements ka stale closure nahi rehta.
+        // ==========================================================
+
+        (function () {
+
+            var RULES = {
+                filterStatusId: [
+                    ['filterAssignedTo', 'withUser'],
+                    ['filterPriorityId', 'withPriority']
+                ],
+                filterAssignedTo: [
+                    ['filterStatusId', 'withStatus'],
+                    ['filterPriorityId', 'withPriority']
+                ],
+                filterPriorityId: [
+                    ['filterStatusId', 'withStatus'],
+                    ['filterAssignedTo', 'withUser']
+                ]
+            };
+
+            function liveSelects() {
+
+                return Array.prototype.slice.call(
+                    document.querySelectorAll('select[data-ds-cascade]'));
+            }
+
+            // "1,5,6" me value hai ya nahi.
+            // Khaali attr = us relation me kuch nahi -> match nahi.
+            // (Parent khali ho to isAllowed rule skip karta hai.)
+            function inList(csv, value) {
+
+                if (!csv) {
+                    return false;
+                }
+
+                return csv.split(',').indexOf(value) !== -1;
+            }
+
+            // Original list snapshot — element pe cache.
+            function snapshotOf(sel) {
+
+                if (!sel.__dsSnapshot) {
+
+                    sel.__dsSnapshot =
+                        Array.prototype.slice.call(
+                            sel.querySelectorAll('option')).map(
+                                function (opt) {
+
+                                    return {
+                                        value: opt.value,
+                                        text: opt.textContent,
+                                        withUser: opt.getAttribute('data-with-user') || '',
+                                        withStatus: opt.getAttribute('data-with-status') || '',
+                                        withPriority: opt.getAttribute('data-with-priority') || ''
+                                    };
+                                });
+                }
+
+                return sel.__dsSnapshot;
+            }
+
+            function isAllowed(opt, rules, current) {
+
+                // "All ..." hamesha allowed.
+                if (opt.value === '') {
+                    return true;
+                }
+
+                for (var i = 0; i < rules.length; i++) {
+
+                    var parentValue = current[rules[i][0]];
+
+                    // Parent khali = koi constraint nahi.
+                    if (!parentValue) {
+                        continue;
+                    }
+
+                    if (!inList(opt[rules[i][1]], parentValue)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            function currentSelection(selects) {
+
+                var out = {};
+
+                selects.forEach(function (sel) {
+
+                    if (sel.value) {
+                        out[sel.id] = sel.value;
+                    }
+                });
+
+                return out;
+            }
+
+            function prune() {
+
+                var selects = liveSelects();
+
+                if (selects.length === 0) {
+                    return;
+                }
+
+                var current = currentSelection(selects);
+
+                selects.forEach(function (sel) {
+
+                    var items = snapshotOf(sel);
+
+                    var rules = RULES[sel.id] || [];
+
+                    var previous = sel.value;
+
+                    sel.innerHTML = '';
+
+                    items.forEach(function (item) {
+
+                        var opt = document.createElement('option');
+
+                        opt.value = item.value;
+                        opt.textContent = item.text;
+
+                        if (item.withUser) {
+                            opt.setAttribute('data-with-user', item.withUser);
+                        }
+
+                        if (item.withStatus) {
+                            opt.setAttribute('data-with-status', item.withStatus);
+                        }
+
+                        if (item.withPriority) {
+                            opt.setAttribute('data-with-priority', item.withPriority);
+                        }
+
+                        if (!isAllowed(item, rules, current)) {
+                            opt.hidden = true;
+                            opt.disabled = true;
+                        }
+
+                        sel.appendChild(opt);
+                    });
+
+                    // Purani selection ab allowed nahi to "All" pe reset.
+                    if (previous !== '') {
+
+                        var found = false;
+
+                        for (var i = 0; i < sel.options.length; i++) {
+
+                            if (sel.options[i].value === previous &&
+                                !sel.options[i].hidden) {
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        sel.value = found ? previous : '';
+                    }
+                });
+            }
+
+            // Delegated listener — ek hi baar. Soft-nav safe.
+            if (!window.__dsCascadeBound) {
+
+                window.__dsCascadeBound = true;
+
+                document.addEventListener('change', function (e) {
+
+                    var sel = e.target.closest(
+                        'select[data-ds-cascade]');
+
+                    if (!sel) {
+                        return;
+                    }
+
+                    prune();
+                });
+            }
+
+            document.addEventListener(
+                'DOMContentLoaded',
+                prune);
+
+            // Pehla pass (agar DOM pehle se ready ho).
+            prune();
+
+        })();
 
     </script>
 }

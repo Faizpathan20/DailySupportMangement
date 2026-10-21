@@ -59,25 +59,7 @@
                 &#127915; TICKET INFO
             </div>
 
-            <div class="form-grid">
-
-                <div class="form-group">
-
-                    <label>
-                        Ticket No
-                    </label>
-
-                    <input type="text"
-                           class="ticket-input"
-                           value="@Model.TicketNo"
-                           readonly />
-
-                    <small class="nt-hint">
-                        Auto-generated
-                    </small>
-
-                </div>
-
+            <div class="form-grid form-grid-3">
 
                 <div class="form-group">
 
@@ -161,35 +143,6 @@
                 &#128100; CUSTOMER
             </div>
 
-            <div class="nt-search-block">
-
-                <label>
-                    Search Existing Client
-                </label>
-
-                <div class="nt-search-row">
-
-                    <input type="text"
-                           id="searchMobile"
-                           placeholder="Search by name or mobile number" />
-
-                    <button type="button"
-                            class="mobile-search-btn"
-                            id="searchMobileBtn">
-
-                        Search
-
-                    </button>
-
-                </div>
-
-                <div class="suggestion-box"
-                     id="mobileSuggestions">
-
-                </div>
-
-            </div>
-
             <div class="form-grid">
 
                 <div class="form-group client-select-wrapper">
@@ -203,10 +156,24 @@
                            id="clientIdField"
                            value="@Model.ClientId" />
 
-                    <input type="text"
-                           id="clientSearchInput"
-                           placeholder="Type to search client"
-                           autocomplete="off" />
+                    <div class="nt-clear-wrap">
+
+                        <input type="text"
+                               id="clientSearchInput"
+                               placeholder="Search client by name or mobile"
+                               autocomplete="off" />
+
+                        <button type="button"
+                                class="nt-clear-client"
+                                id="clientClearBtn"
+                                title="Clear selected client"
+                                style="display:none;">
+
+                            &times;
+
+                        </button>
+
+                    </div>
 
                     <div class="select-dropdown"
                          id="clientDropdown">
@@ -225,7 +192,7 @@
                 <div class="form-group">
 
                     <label>
-                        Mobile
+                        Mobile <span class="nt-req">*</span>
                     </label>
 
                     <input type="text"
@@ -233,7 +200,8 @@
                            id="mobileField"
                            maxlength="20"
                            value="@Model.Mobile"
-                           placeholder="Mobile No." />
+                           placeholder="Mobile No."
+                           required />
 
                 </div>
 
@@ -367,33 +335,6 @@
                     <small class="nt-hint">
                         Changes after selecting a category
                     </small>
-
-                </div>
-
-
-                <div class="form-group">
-
-                    <label>
-                        Assign To <span class="nt-req">*</span>
-                    </label>
-
-                    <select name="AssignedTo" id="edit_AssignedTo" required>
-
-                        <option value="">
-                            -- Select Assign To --
-                        </option>
-
-                        @foreach (var u in Model.Users)
-                        {
-                            <option value="@u.Id"
-                                    selected="@(Model.AssignedTo == u.Id)">
-
-                                @u.Name
-
-                            </option>
-                        }
-
-                    </select>
 
                 </div>
 
@@ -533,14 +474,10 @@
             document.getElementById('clientSearchInput').value =
                 name || '';
 
-            if (mobile) {
-                document.getElementById('mobileField').value = mobile;
-            }
+            // Always refresh mobile + caller name for the newly chosen client.
+            document.getElementById('mobileField').value = mobile || '';
 
-            if (name
-                && !document.getElementById('callerNameField').value) {
-                document.getElementById('callerNameField').value = name;
-            }
+            document.getElementById('callerNameField').value = name || '';
 
             // Show a small confirmation chip with the selected client.
             var chip = document.getElementById('selectedClientChip');
@@ -551,8 +488,49 @@
                 chip.style.display = 'inline-block';
             }
 
+            var clearBtn = document.getElementById('clientClearBtn');
+            if (clearBtn) {
+                clearBtn.style.display = name ? 'inline-flex' : 'none';
+            }
+
+            // Heads-up if this mobile already has an open ticket.
+            if (mobile) {
+                checkDuplicate(mobile);
+            }
+
             hideClientDropdown();
-            hideSuggestions();
+        }
+
+        // Clears the selected client and the fields it auto-filled.
+        function clearClient() {
+
+            document.getElementById('clientIdField').value = '';
+            document.getElementById('clientSearchInput').value = '';
+            document.getElementById('mobileField').value = '';
+            document.getElementById('callerNameField').value = '';
+
+            var chip = document.getElementById('selectedClientChip');
+            if (chip) {
+                chip.innerHTML = '';
+                chip.style.display = 'none';
+            }
+
+            var clearBtn = document.getElementById('clientClearBtn');
+            if (clearBtn) {
+                clearBtn.style.display = 'none';
+            }
+
+            hideClientDropdown();
+        }
+
+        // ---- Searchable client dropdown (name OR mobile, paged) ----
+
+        var CLIENT_PAGE_SIZE = 20;
+        var clientMatches = [];
+        var clientShown = 0;
+
+        function clientLabel(c) {
+            return c.text || c.name || '';
         }
 
         function renderClientDropdown(matches) {
@@ -565,26 +543,84 @@
                 return;
             }
 
-            var html = '';
+            clientMatches = matches;
+            clientShown = 0;
 
-            for (var i = 0; i < matches.length; i++) {
-                html += '<div class="select-option" '
-                    + 'data-id="' + matches[i].id + '" '
-                    + 'data-name="' + matches[i].name + '">'
-                    + matches[i].name + '</div>';
+            dd.innerHTML = '';
+            appendClientPage();
+        }
+
+        // Renders the next page of matches + a "Load more" row.
+        function appendClientPage() {
+
+            var dd = document.getElementById('clientDropdown');
+
+            // Remove an existing "load more" row before appending.
+            var old = dd.querySelector('.select-more');
+            if (old) {
+                old.remove();
             }
 
-            dd.innerHTML = html;
-            dd.style.display = 'block';
+            var end = Math.min(
+                clientShown + CLIENT_PAGE_SIZE, clientMatches.length);
 
+            var html = '';
+
+            for (var i = clientShown; i < end; i++) {
+
+                var c = clientMatches[i];
+
+                html += '<div class="select-option" '
+                    + 'data-id="' + c.id + '" '
+                    + 'data-name="' + (c.name || '') + '" '
+                    + 'data-mobile="' + (c.mobile || '') + '">'
+                    + clientLabel(c)
+                    + '</div>';
+            }
+
+            dd.insertAdjacentHTML('beforeend', html);
+
+            clientShown = end;
+
+            if (clientShown < clientMatches.length) {
+
+                var remaining = clientMatches.length - clientShown;
+
+                dd.insertAdjacentHTML(
+                    'beforeend',
+                    '<div class="select-more" id="clientLoadMore">'
+                    + 'Load more (' + remaining + ' left)'
+                    + '</div>');
+
+                document.getElementById('clientLoadMore')
+                    .addEventListener('click', function (e) {
+                        e.stopPropagation();
+                        appendClientPage();
+                    });
+            }
+
+            bindClientOptions();
+            dd.style.display = 'block';
+        }
+
+        function bindClientOptions() {
+
+            var dd = document.getElementById('clientDropdown');
             var opts = dd.querySelectorAll('.select-option');
 
             for (var j = 0; j < opts.length; j++) {
+
+                if (opts[j].getAttribute('data-bound') === '1') {
+                    continue;
+                }
+
+                opts[j].setAttribute('data-bound', '1');
+
                 opts[j].addEventListener('click', function () {
                     setClient(
                         this.getAttribute('data-id'),
                         this.getAttribute('data-name'),
-                        '');
+                        this.getAttribute('data-mobile'));
                 });
             }
         }
@@ -599,74 +635,36 @@
             }
         }
 
+        // Matches against name AND mobile number.
         function filterClients(term) {
 
-            if (!term) {
-                return clients.slice(0, 20);
+            var t = (term || '').trim().toLowerCase();
+
+            if (!t) {
+                return clients.slice(0, CLIENT_PAGE_SIZE);
             }
 
-            var t = term.toLowerCase();
             var res = [];
 
             for (var i = 0; i < clients.length; i++) {
-                if (clients[i].name
-                    && clients[i].name.toLowerCase().indexOf(t) >= 0) {
-                    res.push(clients[i]);
-                }
-                if (res.length > 50) {
-                    break;
+
+                var c = clients[i];
+
+                var name = (c.name || '').toLowerCase();
+                var mob = (c.mobile || '').toLowerCase();
+
+                if (name.indexOf(t) >= 0 || mob.indexOf(t) >= 0) {
+
+                    res.push({
+                        id: c.id,
+                        name: c.name,
+                        mobile: c.mobile,
+                        text: c.mobile ? (c.name + ' \u00B7 ' + c.mobile) : c.name
+                    });
                 }
             }
 
             return res;
-        }
-
-        // ==========================================
-        // MOBILE SUGGESTIONS
-        // ==========================================
-
-        function renderSuggestions(list) {
-
-            var box = document.getElementById('mobileSuggestions');
-
-            if (!list || list.length === 0) {
-                box.style.display = 'none';
-                box.innerHTML = '';
-                return;
-            }
-
-            var html = '';
-
-            for (var i = 0; i < list.length; i++) {
-                html += '<div class="suggestion-item" '
-                    + 'data-id="' + list[i].id + '" '
-                    + 'data-name="' + list[i].name + '">'
-                    + list[i].name + '</div>';
-            }
-
-            box.innerHTML = html;
-            box.style.display = 'block';
-
-            var items = box.querySelectorAll('.suggestion-item');
-
-            for (var j = 0; j < items.length; j++) {
-                items[j].addEventListener('click', function () {
-                    setClient(
-                        this.getAttribute('data-id'),
-                        this.getAttribute('data-name'),
-                        '');
-                });
-            }
-        }
-
-        function hideSuggestions() {
-
-            var box = document.getElementById('mobileSuggestions');
-
-            if (box) {
-                box.style.display = 'none';
-                box.innerHTML = '';
-            }
         }
 
         // ==========================================
@@ -752,51 +750,29 @@
             document.addEventListener('click', function (e) {
 
                 var dd = document.getElementById('clientDropdown');
-                var box = document.getElementById('mobileSuggestions');
-                var sm = document.getElementById('searchMobile');
 
                 if (!clientSearchInput.contains(e.target)
                     && dd && !dd.contains(e.target)) {
                     hideClientDropdown();
                 }
-
-                if (sm && box
-                    && !sm.contains(e.target)
-                    && !box.contains(e.target)) {
-                    hideSuggestions();
-                }
             });
 
-            var searchMobile = document.getElementById('searchMobile');
+            // Duplicate check when a mobile number is typed manually.
+            var mobileField = document.getElementById('mobileField');
 
-            searchMobile.addEventListener('input', function () {
-
-                var q = this.value.trim();
-
-                clearTimeout(mobileTimer);
-
-                mobileTimer = setTimeout(function () {
-
-                    var matches = clients.filter(function (c) {
-                        return c.name
-                            && c.name.toLowerCase()
-                                .indexOf(q.toLowerCase()) >= 0;
-                    }).slice(0, 5);
-
-                    renderSuggestions(matches);
-
-                    checkDuplicate(q);
-
-                }, 400);
+            mobileField.addEventListener('blur', function () {
+                checkDuplicate(this.value.trim());
             });
 
-            document.getElementById('searchMobileBtn')
-                .addEventListener('click', function () {
-                    var q = searchMobile.value.trim();
-                    if (q) {
-                        checkDuplicate(q);
-                    }
+            // Clear the selected client + auto-filled fields.
+            var clearClientBtn = document.getElementById('clientClearBtn');
+
+            if (clearClientBtn) {
+                clearClientBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    clearClient();
                 });
+            }
 
             // Category -> SubCategory cascade
             document.getElementById('edit_CategoryId')
@@ -818,21 +794,9 @@
 
                     form.reset();
 
-                    document.getElementById('clientIdField').value = '';
-                    document.getElementById('clientSearchInput').value = '';
-                    document.getElementById('mobileField').value = '';
-                    document.getElementById('callerNameField').value = '';
-
-                    var chip = document.getElementById('selectedClientChip');
-                    if (chip) {
-                        chip.innerHTML = '';
-                        chip.style.display = 'none';
-                    }
+                    clearClient();
 
                     loadSubCategories('', false);
-
-                    hideClientDropdown();
-                    hideSuggestions();
                 });
 
             // Submit validation
@@ -855,8 +819,9 @@
                     var priority =
                         document.getElementById('edit_PriorityId').value;
 
-                    var assigned =
-                        document.getElementById('edit_AssignedTo').value;
+                    var mobile =
+                        document.getElementById('mobileField')
+                            .value.trim();
 
                     if (!clientId) {
                         masterShowToast(
@@ -864,15 +829,15 @@
                         return;
                     }
 
-                    if (!priority) {
+                    if (!mobile) {
                         masterShowToast(
-                            'Please select a priority.', 'error');
+                            'Mobile number is required.', 'error');
                         return;
                     }
 
-                    if (!assigned) {
+                    if (!priority) {
                         masterShowToast(
-                            'Please select Assign To.', 'error');
+                            'Please select a priority.', 'error');
                         return;
                     }
 
@@ -918,13 +883,23 @@
 
             if (status) {
                 if (on) {
-                    status.innerText =
-                        '\u25CF Listening... Stop dabane tak sunta rahega';
+                    status.innerHTML =
+                        '<span class="tkt-voice-dot"></span>'
+                        + 'Listening\u2026 speak now';
                     status.classList.add('visible');
                 } else {
                     status.classList.remove('visible');
                 }
             }
+        }
+
+        // Drops Devanagari (Hindi) characters so only English / Hinglish
+        // (Roman) text is kept. Hindi words get removed word-level.
+        function stripDevanagari(text) {
+            return (text || '')
+                .replace(/[\u0900-\u097F]+/g, '')
+                .replace(/\s{2,}/g, ' ')
+                .trim();
         }
 
         var speechBaseText = '';
@@ -965,11 +940,21 @@
                 for (var i = event.resultIndex;
                      i < event.results.length; i++) {
 
+                    var raw = event.results[i][0].transcript;
+
                     if (event.results[i].isFinal) {
-                        speechFinal +=
-                            ' ' + event.results[i][0].transcript;
+
+                        var clean = stripDevanagari(raw);
+
+                        // Skip all-Hindi and duplicate results.
+                        if (!clean) continue;
+                        if (speechFinal
+                            && speechFinal.indexOf(clean) !== -1) continue;
+
+                        speechFinal += ' ' + clean;
+
                     } else {
-                        interim += event.results[i][0].transcript;
+                        interim += stripDevanagari(raw) + ' ';
                     }
                 }
 
