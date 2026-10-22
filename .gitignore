@@ -6,3 +6,6 @@ cookies.txt
 .vs/
 .vscode/
 
+# npm (Tailwind build)
+node_modules/
+

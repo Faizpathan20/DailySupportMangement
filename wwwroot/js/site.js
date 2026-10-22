@@ -1,5 +1,5 @@
 // ==========================================
-// SIDEBAR COLLAPSE + ACTIVE MENU
+// SIDEBAR COLLAPSE + MOBILE DRAWER + ACTIVE MENU
 // ==========================================
 
 (function () {
@@ -10,11 +10,85 @@
     var toggle =
         document.getElementById("sidebarToggle");
 
+    var mobileBtn = document.getElementById("mobileMenuBtn");
+    var backdrop = document.getElementById("sidebarBackdrop");
+
+    var STORAGE_KEY = "sidebarCollapsed";
+    var mobileQuery = window.matchMedia ? window.matchMedia("(max-width: 700px)") : null;
+
+    function isMobile() {
+        return mobileQuery ? mobileQuery.matches : window.innerWidth <= 700;
+    }
+
+    function openMobileSidebar() {
+        document.body.classList.add("sidebar-open");
+        if (mobileBtn) {
+            mobileBtn.setAttribute("aria-expanded", "true");
+        }
+        document.body.style.overflow = "hidden";
+    }
+
+    function closeMobileSidebar() {
+        document.body.classList.remove("sidebar-open");
+        if (mobileBtn) {
+            mobileBtn.setAttribute("aria-expanded", "false");
+        }
+        document.body.style.overflow = "";
+    }
+
+    function toggleMobileSidebar() {
+        if (document.body.classList.contains("sidebar-open")) {
+            closeMobileSidebar();
+        } else {
+            openMobileSidebar();
+        }
+    }
+
+    if (mobileBtn) {
+        mobileBtn.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleMobileSidebar();
+        });
+    }
+
+    if (backdrop) {
+        backdrop.addEventListener("click", closeMobileSidebar);
+    }
+
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+            closeMobileSidebar();
+        }
+    });
+
+    if (sidebar) {
+        sidebar.addEventListener("click", function (e) {
+            if (!isMobile()) return;
+            var target = e.target.closest("a.menu-item[href], button.menu-item");
+            if (target) {
+                closeMobileSidebar();
+            }
+        });
+    }
+
+    if (mobileQuery && mobileQuery.addEventListener) {
+        mobileQuery.addEventListener("change", function () {
+            if (!isMobile()) {
+                closeMobileSidebar();
+            }
+        });
+    } else if (mobileQuery && mobileQuery.addListener) {
+        mobileQuery.addListener(function () {
+            if (!isMobile()) {
+                closeMobileSidebar();
+            }
+        });
+    }
+
     if (!sidebar || !toggle) {
         return;
     }
-
-    var STORAGE_KEY = "sidebarCollapsed";
 
 
     function applyCollapsed(collapsed) {
@@ -39,6 +113,11 @@
 
 
     toggle.addEventListener("click", function () {
+
+        if (isMobile()) {
+            toggleMobileSidebar();
+            return;
+        }
 
         var collapsed =
             document.body.classList.contains(
@@ -224,8 +303,102 @@
 
         document.title = doc.title;
 
+        // Body ke class attributes innerHTML replace
+        // ke saath copy nahi hote. Page-specific body
+        // class (e.g. gray canvas) soft navigation ke
+        // baad bhi chahiye, isliye class bhi copy karo.
+        // Sidebar ke state classes ko nahi chhedna.
+        var stateClasses = [
+            "sidebar-collapsed",
+            "sidebar-open"
+        ];
+
+        var nextClasses =
+            (doc.body.className || "")
+                .split(/\s+/)
+                .filter(function (c) {
+                    return c.length > 0;
+                });
+
+        stateClasses.forEach(function (c) {
+
+            if (document.body.classList.contains(c) &&
+                nextClasses.indexOf(c) === -1) {
+
+                nextClasses.push(c);
+
+            }
+
+        });
+
+        document.body.className =
+            nextClasses.join(" ");
+
         document.body.innerHTML =
             doc.body.innerHTML;
+
+        // Page-specific stylesheets (@section Styles se aate
+        // hain - jaise tailwind.css / dailysupport.css) head
+        // me rehte hain. Soft navigation me head replace nahi
+        // hota, isliye unhe yahan sync karte hain: naye page
+        // ki CSS add, purani page ki CSS hata.
+        var currentLinks =
+            Array.prototype.slice.call(
+                document.head.querySelectorAll(
+                    'link[rel="stylesheet"]'
+                )
+            );
+
+        var nextLinks =
+            Array.prototype.slice.call(
+                doc.head.querySelectorAll(
+                    'link[rel="stylesheet"]'
+                )
+            );
+
+        var nextHrefs = nextLinks.map(function (l) {
+            return l.getAttribute("href");
+        });
+
+        currentLinks.forEach(function (link) {
+
+            var href = link.getAttribute("href");
+
+            // Sirf humne add kiye hue links hataye jaate
+            // hain (site.css / dashboard.css safe rahenge).
+            if (link.getAttribute("data-softnav") === "1" &&
+                nextHrefs.indexOf(href) === -1) {
+
+                link.remove();
+
+            }
+
+        });
+
+        nextLinks.forEach(function (link) {
+
+            var href = link.getAttribute("href");
+
+            var exists = currentLinks.some(
+                function (l) {
+                    return l.getAttribute("href") === href;
+                }
+            );
+
+            if (!exists) {
+
+                var fresh =
+                    document.createElement("link");
+
+                fresh.rel = "stylesheet";
+                fresh.setAttribute("href", href);
+                fresh.setAttribute("data-softnav", "1");
+
+                document.head.appendChild(fresh);
+
+            }
+
+        });
 
         if (push) {
             history.pushState({}, "", url);
@@ -2257,6 +2430,36 @@ refreshFollowUpBadge();
 
         toggle.addEventListener("click", function () {
 
+            // Collapsed rail (icon-only sidebar): pehle sidebar
+            // kholo, phir group toggle karo. Warna click se kuch
+            // nahi dikhta, kyunke submenu collapsed state me
+            // hidden rehta hai.
+            if (document.body.classList.contains(
+                    "sidebar-collapsed")) {
+
+                document.body.classList.remove(
+                    "sidebar-collapsed"
+                );
+
+                localStorage.setItem(
+                    "sidebarCollapsed",
+                    "0"
+                );
+
+                var sidebarToggle =
+                    document.getElementById(
+                        "sidebarToggle"
+                    );
+
+                if (sidebarToggle) {
+                    sidebarToggle.setAttribute(
+                        "aria-expanded",
+                        "true"
+                    );
+                }
+
+            }
+
             open = !open;
 
             localStorage.setItem(
@@ -2374,6 +2577,7 @@ refreshSupportBadge();
 // ==========================================
 
 // Ek notification ki compact row (Index page ke liye).
+// Row click -> notification hat jati hai + ticket ka review page khulta hai.
 function notifRowHtml(n) {
 
     var kind = (n.kind || "").toLowerCase();
@@ -2406,22 +2610,29 @@ function notifRowHtml(n) {
             + escapeHtml(n.body) + '</span>'
         : '';
 
-    var href = n.ticketId
-        ? "/DailySupport/Detail/" + n.ticketId
-        : "#";
+    // Chhota "open" button -> ticket ka Detail page.
+    var openBtn = n.ticketId
+        ? '<a class="tkt-notif-row-open"'
+            + ' href="/DailySupport/Detail/' + n.ticketId + '"'
+            + ' title="Open ticket">\uD83D\uDC41</a>'
+        : '';
 
-    return '<a class="tkt-notif-row kind-' + kind
+    return '<div class="tkt-notif-row kind-' + kind
         + (n.isRead ? ' read' : '')
-        + '" href="' + href + '">'
+        + '" data-id="' + (n.id || '')
+        + '" data-ticketid="' + (n.ticketId || '')
+        + '" data-read="' + (n.isRead ? "1" : "0")
+        + '" title="Click to open this ticket">'
         + '<span class="tkt-notif-row-icon">' + icon + '</span>'
-        + '<span class="tkt-notif-row-ticket">' + ticket + '</span>'
+        + '<span class="tkt-notif-row-ticket">' + escapeHtml(ticket) + '</span>'
         + '<span class="tkt-notif-row-label ' + label + '">'
         + label + '</span>'
         + msg
         + stars
         + '<span class="tkt-notif-row-time">'
         + (n.createdAt || '') + '</span>'
-        + '</a>';
+        + openBtn
+        + '</div>';
 }
 
 // Ek slim alert strip (Detail page ke liye, latest notification).
@@ -2500,6 +2711,44 @@ function renderNotifRows(containerId, items, emptyText) {
     box.innerHTML = html;
 }
 
+// Header badge me unread count set karo.
+function setNotifCount(count) {
+
+    var badge = document.getElementById("notifCountBadge");
+
+    if (!badge) {
+        return;
+    }
+
+    var n = count || 0;
+
+    badge.textContent = n > 99 ? "99+" : String(n);
+
+    badge.hidden = n <= 0;
+}
+
+// Badge count me +/- karo (optimistic UI ke liye).
+function bumpNotifCount(delta) {
+
+    var badge = document.getElementById("notifCountBadge");
+
+    if (!badge) {
+        return;
+    }
+
+    var cur = parseInt(badge.textContent, 10);
+
+    if (isNaN(cur)) {
+        cur = 0;
+    }
+
+    var next = Math.max(0, cur + delta);
+
+    badge.textContent = next > 99 ? "99+" : String(next);
+
+    badge.hidden = next <= 0;
+}
+
 // Detail page ka strip (latest notification).
 function renderNotifStrip(containerId, items) {
 
@@ -2517,10 +2766,45 @@ function renderNotifStrip(containerId, items) {
     box.innerHTML = notifStripHtml(items[0]);
 }
 
-// Index page: rows.
+// Index page: rows (sirf unread).
 function loadPageNotifs(containerId, take) {
 
-    fetch("/DailySupport/NotifList", {
+    fetch("/DailySupport/NotifList?mode=unread&take=50", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+    })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+
+            if (!data) {
+                return;
+            }
+
+            setNotifCount(data.unreadCount);
+
+            var tabCount =
+                document.getElementById("notifTabUnreadCount");
+
+            if (tabCount) {
+                tabCount.textContent = data.unreadCount || 0;
+            }
+
+            renderNotifRows(
+                containerId,
+                (data.items || []).slice(0, take || 50),
+                "Koi unread notification nahi hai.");
+
+        })
+        .catch(function () { });
+}
+
+window.loadPageNotifs = loadPageNotifs;
+
+// Index page: HISTORY tab (padhi hui notifications).
+function loadNotifHistory(containerId, take) {
+
+    fetch("/DailySupport/NotifList?mode=read&take=50", {
         method: "GET",
         credentials: "same-origin",
         headers: { "X-Requested-With": "XMLHttpRequest" }
@@ -2534,14 +2818,55 @@ function loadPageNotifs(containerId, take) {
 
             renderNotifRows(
                 containerId,
-                (data.items || []).slice(0, take || 6),
-                "Koi notification nahi hai.");
+                (data.items || []).slice(0, take || 50),
+                "Abhi tak koi purani notification nahi hai.");
 
         })
         .catch(function () { });
 }
 
-window.loadPageNotifs = loadPageNotifs;
+window.loadNotifHistory = loadNotifHistory;
+
+// Unread / History tab switch.
+function switchNotifTab(tab) {
+
+    var isHistory = tab === "history";
+
+    var tabUnread = document.getElementById("notifTabUnread");
+
+    var tabHistory = document.getElementById("notifTabHistory");
+
+    if (tabUnread) {
+        tabUnread.classList.toggle("active", !isHistory);
+    }
+
+    if (tabHistory) {
+        tabHistory.classList.toggle("active", isHistory);
+    }
+
+    var gridUnread = document.getElementById("pageNotifGrid");
+
+    var gridHistory = document.getElementById("pageNotifHistory");
+
+    if (gridUnread) {
+        gridUnread.hidden = isHistory;
+    }
+
+    if (gridHistory) {
+        gridHistory.hidden = !isHistory;
+    }
+
+    // History tab pehli baar khulte hi load karo.
+    if (isHistory && gridHistory && !gridHistory.dataset.loaded) {
+
+        gridHistory.dataset.loaded = "1";
+
+        loadNotifHistory("pageNotifHistory", 50);
+
+    }
+}
+
+window.switchNotifTab = switchNotifTab;
 
 // Detail page: is ticket ka latest strip.
 function loadDetailNotifs() {
@@ -2599,6 +2924,40 @@ function markAllNotifsRead(e) {
 
             refreshSupportBadge();
 
+            var grid = document.getElementById("pageNotifGrid");
+
+            if (grid) {
+                grid.innerHTML =
+                    '<div class="tkt-notif-empty">'
+                    + 'Koi unread notification nahi hai.'
+                    + '</div>';
+            }
+
+            setNotifCount(0);
+
+            var tabCount =
+                document.getElementById("notifTabUnreadCount");
+
+            if (tabCount) {
+                tabCount.textContent = "0";
+            }
+
+            // Ab sab read ho gaye -> history dobara load hogi.
+            var gridHistory = document.getElementById("pageNotifHistory");
+
+            if (gridHistory) {
+
+                gridHistory.dataset.loaded = "";
+
+                var historyTab =
+                    document.getElementById("notifTabHistory");
+
+                if (historyTab
+                    && historyTab.classList.contains("active")) {
+                    loadNotifHistory("pageNotifHistory", 50);
+                }
+            }
+
             var cards = document.querySelectorAll(
                 ".tkt-notif-row, .tkt-strip");
 
@@ -2611,6 +2970,85 @@ function markAllNotifsRead(e) {
 }
 
 window.markAllNotifsRead = markAllNotifsRead;
+
+// Ek notification read mark karo (sirf usi user ki).
+function markNotifRead(notifId) {
+
+    if (!notifId) {
+        return Promise.resolve(null);
+    }
+
+    return fetch(
+        "/DailySupport/MarkNotifRead?id=" + encodeURIComponent(notifId),
+        {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+                "X-Requested-With": "XMLHttpRequest",
+                "RequestVerificationToken": getNotifToken()
+            }
+        })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; });
+}
+
+window.markNotifRead = markNotifRead;
+
+// Notification ke ticket ka review page kholo.
+// focus=review -> Detail page par REVIEW section khud expand +
+// highlight + scroll ho jata hai.
+function openTicketFromNotif(ticketId) {
+
+    if (!ticketId) {
+        return;
+    }
+
+    window.location.href =
+        "/DailySupport/Detail/" + encodeURIComponent(ticketId)
+        + "?focus=review";
+}
+
+window.openTicketFromNotif = openTicketFromNotif;
+
+// Notification card ko expand / collapse karo.
+function toggleNotifCard(e) {
+
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    var card = document.getElementById("tktNotifCard");
+
+    if (!card) {
+        return;
+    }
+
+    var collapsed = card.classList.toggle("collapsed");
+
+    var open = !collapsed;
+
+    var toggle = document.getElementById("tktNotifToggle");
+
+    if (toggle) {
+        toggle.textContent = collapsed ? "+" : "\u2212";
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+
+    var head = document.getElementById("tktNotifHead");
+
+    if (head) {
+        head.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+
+    try {
+        localStorage.setItem("dsNotifCardOpen", open ? "1" : "0");
+    } catch (err) {
+        // localStorage blocked ho to bhi chalega.
+    }
+}
+
+window.toggleNotifCard = toggleNotifCard;
 
 // Anti-forgery token (page me kahin bhi ho).
 function getNotifToken() {
@@ -2625,10 +3063,159 @@ function getNotifToken() {
 
 (function () {
 
+    // Collapsed / expanded state yaad rakho.
+    function restoreCardState() {
+
+        var card = document.getElementById("tktNotifCard");
+
+        if (!card) {
+            return;
+        }
+
+        var saved = null;
+
+        try {
+            saved = localStorage.getItem("dsNotifCardOpen");
+        } catch (err) {
+            saved = null;
+        }
+
+        if (saved !== "1") {
+            return;
+        }
+
+        card.classList.remove("collapsed");
+
+        var toggle = document.getElementById("tktNotifToggle");
+
+        if (toggle) {
+            toggle.textContent = "\u2212";
+            toggle.setAttribute("aria-expanded", "true");
+        }
+
+        var head = document.getElementById("tktNotifHead");
+
+        if (head) {
+            head.setAttribute("aria-expanded", "true");
+        }
+    }
+
+    // Card ka header poori row clickable hai (buttons ke alawa).
+    function bindCardHeader() {
+
+        var head = document.getElementById("tktNotifHead");
+
+        if (!head) {
+            return;
+        }
+
+        head.addEventListener("click", function (e) {
+
+            if (e.target.closest("button, a")) {
+                return;
+            }
+
+            toggleNotifCard(e);
+
+        });
+
+        head.addEventListener("keydown", function (e) {
+
+            if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                toggleNotifCard(e);
+            }
+
+        });
+    }
+
+    // Notification row click -> hat jaye + ticket ka review page khule.
+    // (Unread grid aur History grid dono me chalta hai)
+    function bindRowClick() {
+
+        var card = document.getElementById("tktNotifCard");
+
+        if (!card) {
+            return;
+        }
+
+        card.addEventListener("click", function (e) {
+
+            // "open" button -> normal Detail page navigation.
+            if (e.target.closest(".tkt-notif-row-open")) {
+                return;
+            }
+
+            var row = e.target.closest(".tkt-notif-row");
+
+            if (!row || !card.contains(row)) {
+                return;
+            }
+
+            var id = row.getAttribute("data-id");
+
+            var ticketId = row.getAttribute("data-ticketid");
+
+            var isRead = row.getAttribute("data-read") === "1";
+
+            // ---- HISTORY row: already read, seedha ticket khule ----
+
+            if (isRead) {
+
+                openTicketFromNotif(ticketId);
+
+                return;
+            }
+
+            // ---- UNREAD row: turant hatao + mark read + khule ----
+
+            var grid = row.parentNode;
+
+            if (row.parentNode) {
+                row.parentNode.removeChild(row);
+            }
+
+            // List khaali ho gayi -> empty state dikhao.
+            if (grid && grid.children.length === 0) {
+                grid.innerHTML =
+                    '<div class="tkt-notif-empty">'
+                    + 'Koi unread notification nahi hai.'
+                    + '</div>';
+            }
+
+            bumpNotifCount(-1);
+
+            markNotifRead(id).then(function () {
+
+                refreshSupportBadge();
+
+                openTicketFromNotif(ticketId);
+
+            });
+
+        });
+    }
+
+    var booted = false;
+
     function boot() {
 
+        // DOMContentLoaded + readyState dono se call ho sakta hai;
+        // listeners double bind na ho -> ek hi baar chalao.
+        if (booted) {
+            return;
+        }
+
+        booted = true;
+
+        restoreCardState();
+
+        bindCardHeader();
+
+        bindRowClick();
+
         if (document.getElementById("pageNotifGrid")) {
-            loadPageNotifs("pageNotifGrid", 6);
+            loadPageNotifs("pageNotifGrid", 50);
         }
 
         if (document.getElementById("detailNotifList")) {

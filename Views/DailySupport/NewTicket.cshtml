@@ -4,23 +4,26 @@
 @{
     ViewData["Title"] = "New Ticket";
 
+    // Premium page look: gray canvas + floating white cards.
+    ViewData["BodyClass"] = "nt-page-body";
+
     var clientsJson = ViewData["ClientsJson"] as string ?? "[]";
 }
 
-<div class="page-header">
+<div class="page-header nt-head">
 
     <a href="@Url.Action("Index", "DailySupport")"
-       class="back-link">
+       class="nt-back-btn"
+       title="Back to Daily Support"
+       aria-label="Back to Daily Support">
 
-        &larr; Back to Daily Support
+        &larr;
 
     </a>
 
     <div>
 
-        <h1>
-            New Support Ticket
-        </h1>
+        <h1>New Support Ticket</h1>
 
         <p>
             Fill the details below &mdash; Ticket No is generated automatically
@@ -41,7 +44,7 @@
 }
 
 
-<div class="state-section nt-wrap">
+<div class="state-section nt-wrap w-full">
 
     <form method="post"
           id="ticketCreateForm"
@@ -51,101 +54,109 @@
         @Html.AntiForgeryToken()
 
 
-        <!-- ================= TICKET INFO ================= -->
+        <!-- ================= INFO CHIPS ================= -->
 
-        <div class="call-form-section nt-section">
+        <div class="nt-chips">
 
-            <div class="form-section-title">
-                &#127915; TICKET INFO
+            <div class="nt-chip">
+
+                <span class="nt-chip-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" aria-hidden="true">
+                        <path d="M2 9a3 3 0 0 1 0 6v3a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3a3 3 0 0 1 0-6V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+                        <path d="M13 5v2M13 17v2M13 11v2" />
+                    </svg>
+                </span>
+
+                <span class="nt-chip-text">
+
+                    <span class="nt-chip-label">Auto Ticket No</span>
+
+                    <span class="nt-chip-value">@Model.TicketNo</span>
+
+                </span>
+
             </div>
 
-            <div class="form-grid form-grid-3">
+            <div class="nt-chip">
 
-                <div class="form-group">
+                <span class="nt-chip-icon amber">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" aria-hidden="true">
+                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                        <path d="M16 2v4M8 2v4M3 10h18" />
+                    </svg>
+                </span>
 
-                    <label>
-                        Priority <span class="nt-req">*</span>
-                    </label>
+                <span class="nt-chip-text">
 
-                    <select name="PriorityId"
-                            id="edit_PriorityId"
-                            required>
+                    <span class="nt-chip-label">Today</span>
 
-                        <option value="">
-                            -- Select Priority --
-                        </option>
+                    <span class="nt-chip-value">
+                        @Model.SupportDate.ToString("dd/MM/yyyy")
+                    </span>
 
-                        @foreach (var p in Model.Priorities)
-                        {
-                            <option value="@p.Id"
-                                    selected="@(Model.PriorityId == p.Id)">
+                </span>
 
-                                @p.Name
+            </div>
 
-                            </option>
-                        }
+            <div class="nt-chip">
 
-                    </select>
+                <span class="nt-chip-icon green">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9" />
+                        <circle cx="12" cy="12" r="2.5" />
+                    </svg>
+                </span>
 
-                </div>
+                <span class="nt-chip-text">
 
+                    <span class="nt-chip-label">Status</span>
 
-                <div class="form-group">
+                    <span class="nt-chip-value">
+                        <span class="nt-chip-dot"></span>Open
+                    </span>
 
-                    <label>
-                        Call Date
-                    </label>
-
-                    <input type="text"
-                           class="call-date-input"
-                           value="@DateTime.Today.ToString("dd/MM/yyyy")"
-                           readonly />
-
-                    <input type="hidden"
-                           name="SupportDate"
-                           value="@DateTime.Today.ToString("yyyy-MM-dd")" />
-
-                </div>
-
-
-                <div class="form-group">
-
-                    <label>
-                        Status
-                    </label>
-
-                    <select name="StatusId" id="edit_StatusId">
-
-                        @foreach (var s in Model.Statuses)
-                        {
-                            <option value="@s.Id"
-                                    selected="@(Model.StatusId == s.Id)">
-
-                                @s.Name
-
-                            </option>
-                        }
-
-                    </select>
-
-                </div>
+                </span>
 
             </div>
 
         </div>
 
+        <!-- Hidden: Call Date (aaj) + Status (Open) -->
+        <input type="hidden"
+               name="SupportDate"
+               value="@Model.SupportDate.ToString("yyyy-MM-dd")" />
+
+        <input type="hidden"
+               name="StatusId"
+               id="edit_StatusId"
+               value="@Model.StatusId" />
+
 
         <!-- ================= CUSTOMER ================= -->
 
-        <div class="call-form-section nt-section">
+        <div class="call-form-section nt-section accent-blue">
 
             <div class="form-section-title">
-                &#128100; CUSTOMER
+                <span class="nt-sec-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" aria-hidden="true">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                    </svg>
+                </span>
+                CUSTOMER
             </div>
 
             <div class="form-grid">
 
-                <div class="form-group client-select-wrapper">
+                <div class="form-group form-group-full client-select-wrapper">
 
                     <label>
                         Select Client <span class="nt-req">*</span>
@@ -157,6 +168,15 @@
                            value="@Model.ClientId" />
 
                     <div class="nt-clear-wrap">
+
+                        <span class="nt-search-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                 stroke-width="2" stroke-linecap="round"
+                                 stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="11" cy="11" r="8" />
+                                <path d="m21 21-4.3-4.3" />
+                            </svg>
+                        </span>
 
                         <input type="text"
                                id="clientSearchInput"
@@ -212,129 +232,20 @@
                         Caller Name
                     </label>
 
-                    <input type="text"
-                           name="CallerName"
-                           id="callerNameField"
-                           maxlength="150"
-                           value="@Model.CallerName"
-                           placeholder="Caller Name" />
+                    <div class="nt-input-with-badge">
 
-                </div>
+                        <input type="text"
+                               name="CallerName"
+                               id="callerNameField"
+                               maxlength="150"
+                               value="@Model.CallerName"
+                               placeholder="Caller Name" />
 
-            </div>
+                        <span class="nt-field-id"
+                              id="clientIdBadge"
+                              @(Model.ClientId.HasValue && Model.ClientId.Value > 0 ? "" : "hidden")>[ID: @(Model.ClientId.HasValue ? Model.ClientId.Value.ToString() : "—")]</span>
 
-        </div>
-
-
-        <!-- ================= CLASSIFICATION ================= -->
-
-        <div class="call-form-section nt-section">
-
-            <div class="form-section-title">
-                &#128193; CLASSIFICATION
-            </div>
-
-            <div class="form-grid">
-
-                <div class="form-group">
-
-                    <label>
-                        Channel
-                    </label>
-
-                    <select name="ChannelId" id="edit_ChannelId">
-
-                        <option value="">
-                            -- Select Channel --
-                        </option>
-
-                        @foreach (var c in Model.Channels)
-                        {
-                            <option value="@c.Id"
-                                    selected="@(Model.ChannelId == c.Id)">
-
-                                @c.Name
-
-                            </option>
-                        }
-
-                    </select>
-
-                </div>
-
-
-                <div class="form-group">
-
-                    <label>
-                        Call Type
-                    </label>
-
-                    <select name="CallTypeId" id="edit_CallTypeId">
-
-                        <option value="">
-                            -- Select Call Type --
-                        </option>
-
-                        @foreach (var c in Model.CallTypes)
-                        {
-                            <option value="@c.Id"
-                                    selected="@(Model.CallTypeId == c.Id)">
-
-                                @c.Name
-
-                            </option>
-                        }
-
-                    </select>
-
-                </div>
-
-
-                <div class="form-group">
-
-                    <label>
-                        Category
-                    </label>
-
-                    <select name="CategoryId" id="edit_CategoryId">
-
-                        <option value="">
-                            -- Select Category --
-                        </option>
-
-                        @foreach (var c in Model.Categories)
-                        {
-                            <option value="@c.Id"
-                                    selected="@(Model.CategoryId == c.Id)">
-
-                                @c.Name
-
-                            </option>
-                        }
-
-                    </select>
-
-                </div>
-
-
-                <div class="form-group">
-
-                    <label>
-                        Sub Category
-                    </label>
-
-                    <select name="SubCategoryId"
-                            id="edit_SubCategoryId">
-
-                        <option value="">
-                            -- Select Sub Category --
-                        </option>
-
-                    </select>
-
-                    <small class="nt-hint">
-                        Changes after selecting a category
-                    </small>
+                    </div>
 
                 </div>
 
@@ -345,10 +256,17 @@
 
         <!-- ================= PROBLEM ================= -->
 
-        <div class="call-form-section nt-section">
+        <div class="call-form-section nt-section accent-purple">
 
             <div class="form-section-title">
-                &#128221; PROBLEM
+                <span class="nt-sec-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                </span>
+                PROBLEM
             </div>
 
             <div class="form-grid">
@@ -376,44 +294,251 @@
                         Description <span class="nt-req">*</span>
                     </label>
 
-                    <textarea name="Description"
-                              id="edit_Description"
-                              rows="4"
-                              placeholder="Describe the client's problem / request"
-                              required>@Model.Description</textarea>
+                    <div class="tkt-input-wrap nt-desc-wrap">
 
+                        <textarea name="Description"
+                                  id="edit_Description"
+                                  rows="3"
+                                  maxlength="1000"
+                                  placeholder="Describe the client's problem / request"
+                                  required>@Model.Description</textarea>
 
-                    <div class="voice-controls">
+                        <span class="tkt-btn-row">
 
-                        <button type="button"
-                                class="voice-btn mic-btn"
-                                id="voiceMicBtn_Description"
-                                onclick="startVoice('Description')">
+                            <button type="button"
+                                    class="tkt-mic-btn"
+                                    id="descMicBtn"
+                                    title="Voice input"
+                                    onclick="toggleVoice(this, 'edit_Description')">&#127908;</button>
 
-                            Mic
+                            <button type="button"
+                                    class="tkt-clear-btn"
+                                    id="descClearBtn"
+                                    title="Clear description"
+                                    onclick="clearDescription()">&#128465;</button>
 
-                        </button>
+                        </span>
 
-                        <button type="button"
-                                class="voice-btn voice-stop"
-                                onclick="stopVoice()">
+                        <span class="tkt-count" id="cnt_Description">0/1000</span>
 
-                            Stop
+                        <span class="tkt-voice-status"
+                              id="voiceStatus_Description">
 
-                        </button>
+                            <span class="tkt-voice-dot"></span>
+                            Listening&hellip; speak now
 
-                        <button type="button"
-                                class="voice-btn voice-reset"
-                                onclick="resetVoice('Description')">
-
-                            Reset
-
-                        </button>
+                        </span>
 
                     </div>
 
-                    <span class="voice-status"
-                          id="voiceStatus_Description"></span>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ================= CLASSIFICATION ================= -->
+
+        <div class="call-form-section nt-section accent-teal">
+
+            <div class="form-section-title">
+                <span class="nt-sec-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" aria-hidden="true">
+                        <path d="m12 2 9 5-9 5-9-5 9-5Z" />
+                        <path d="m3 12 9 5 9-5" />
+                        <path d="m3 17 9 5 9-5" />
+                    </svg>
+                </span>
+                CLASSIFICATION
+            </div>
+
+            <div class="form-grid">
+
+                <div class="form-group">
+
+                    <label>
+                        Channel <span class="nt-req">*</span>
+                    </label>
+
+                    <select name="ChannelId"
+                            id="edit_ChannelId"
+                            required>
+
+                        <option value="">
+                            -- Select Channel --
+                        </option>
+
+                        @foreach (var c in Model.Channels)
+                        {
+                            <option value="@c.Id"
+                                    selected="@(Model.ChannelId == c.Id)">
+
+                                @c.Name
+
+                            </option>
+                        }
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Call Type <span class="nt-req">*</span>
+                    </label>
+
+                    <select name="CallTypeId"
+                            id="edit_CallTypeId"
+                            required>
+
+                        <option value="">
+                            -- Select Call Type --
+                        </option>
+
+                        @foreach (var c in Model.CallTypes)
+                        {
+                            <option value="@c.Id"
+                                    selected="@(Model.CallTypeId == c.Id)">
+
+                                @c.Name
+
+                            </option>
+                        }
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Category <span class="nt-req">*</span>
+                    </label>
+
+                    <select name="CategoryId"
+                            id="edit_CategoryId"
+                            required>
+
+                        <option value="">
+                            -- Select Category --
+                        </option>
+
+                        @foreach (var c in Model.Categories)
+                        {
+                            <option value="@c.Id"
+                                    selected="@(Model.CategoryId == c.Id)">
+
+                                @c.Name
+
+                            </option>
+                        }
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Sub Category <span class="nt-req">*</span>
+                    </label>
+
+                    <select name="SubCategoryId"
+                            id="edit_SubCategoryId"
+                            required>
+
+                        <option value="">
+                            -- Select Sub Category --
+                        </option>
+
+                    </select>
+
+                    <small class="nt-hint">
+                        Changes after selecting a category
+                    </small>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Priority <span class="nt-req">*</span>
+                    </label>
+
+                    <select name="PriorityId"
+                            id="edit_PriorityId"
+                            required>
+
+                        <option value="">
+                            -- Select Priority --
+                        </option>
+
+                        @foreach (var p in Model.Priorities)
+                        {
+                            <option value="@p.Id"
+                                    selected="@(Model.PriorityId == p.Id)">
+
+                                @p.Name
+
+                            </option>
+                        }
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Assigned To <span class="nt-req">*</span>
+                    </label>
+
+                    <div class="nt-assign-row">
+
+                        <select name="AssignedTo"
+                                id="edit_AssignedTo"
+                                required>
+
+                            <option value="">
+                                -- Select User --
+                            </option>
+
+                            @foreach (var u in Model.Users)
+                            {
+                                <option value="@u.Id"
+                                        selected="@(Model.AssignedTo == u.Id)">
+
+                                    @u.Name
+
+                                </option>
+                            }
+
+                        </select>
+
+                        <label class="nt-check" id="assignToMeChip">
+
+                            <input type="checkbox"
+                                   id="assignToMe"
+                                   checked />
+
+                            Assign to me
+
+                        </label>
+
+                    </div>
+
+                    <small class="nt-hint" id="assignToMeHint">
+                        Assigned to you (logged in)
+                    </small>
 
                 </div>
 
@@ -484,8 +609,24 @@
 
             if (chip && name) {
                 var extra = mobile ? ' &middot; ' + mobile : '';
-                chip.innerHTML = '&#10003; ' + name + extra;
+                var idExtra = id
+                    ? ' <span class="chip-id">&middot; [ID: ' + id + ']</span>'
+                    : '';
+                chip.innerHTML = '&#10003; ' + name + extra + idExtra;
                 chip.style.display = 'inline-block';
+            }
+
+            // Caller Name field ke paas client ID badge.
+            var idBadge = document.getElementById('clientIdBadge');
+
+            if (idBadge) {
+                if (id) {
+                    idBadge.innerText = '[ID: ' + id + ']';
+                    idBadge.hidden = false;
+                } else {
+                    idBadge.innerText = '[ID: —]';
+                    idBadge.hidden = true;
+                }
             }
 
             var clearBtn = document.getElementById('clientClearBtn');
@@ -513,6 +654,13 @@
             if (chip) {
                 chip.innerHTML = '';
                 chip.style.display = 'none';
+            }
+
+            // Caller Name field wala ID badge bhi hatao.
+            var idBadge = document.getElementById('clientIdBadge');
+            if (idBadge) {
+                idBadge.innerText = '[ID: —]';
+                idBadge.hidden = true;
             }
 
             var clearBtn = document.getElementById('clientClearBtn');
@@ -574,7 +722,12 @@
                     + 'data-id="' + c.id + '" '
                     + 'data-name="' + (c.name || '') + '" '
                     + 'data-mobile="' + (c.mobile || '') + '">'
+                    + '<span class="select-option-main">'
                     + clientLabel(c)
+                    + '</span>'
+                    + '<span class="select-option-id">[ID: '
+                    + (c.id || '')
+                    + ']</span>'
                     + '</div>';
             }
 
@@ -785,6 +938,52 @@
                 document.getElementById('edit_CategoryId').value,
                 true);
 
+            // Description: live counter + clear button.
+            var descField = document.getElementById('edit_Description');
+
+            if (descField) {
+                descField.addEventListener('input', refreshDescUi);
+                refreshDescUi();
+            }
+
+            // "Assign to me" -> dropdown lock / unlock.
+            var assignToMe = document.getElementById('assignToMe');
+
+            var assignee = document.getElementById('edit_AssignedTo');
+
+            if (assignToMe) {
+                assignToMe.addEventListener('change', syncAssignToMe);
+            }
+
+            if (assignee) {
+
+                // Locked hone par bhi value current user hi rahe.
+                assignee.addEventListener('change', function () {
+
+                    if (assignToMe && assignToMe.checked
+                        && currentUserId) {
+
+                        var meOption = this.querySelector(
+                            'option[value="' + currentUserId + '"]');
+
+                        if (meOption) {
+                            this.value = currentUserId;
+                        }
+                    }
+                });
+            }
+
+            syncAssignToMe();
+
+            // Mic tabhide hota hai jahan voice input kaam nahi karta
+            // (plain http, non-localhost).
+            if (!window.isSecureContext) {
+                document.querySelectorAll('.tkt-mic-btn')
+                    .forEach(function (b) {
+                        b.style.display = 'none';
+                    });
+            }
+
             // Clear
             document.getElementById('clearFormBtn')
                 .addEventListener('click', function () {
@@ -797,6 +996,10 @@
                     clearClient();
 
                     loadSubCategories('', false);
+
+                    refreshDescUi();
+
+                    syncAssignToMe();
                 });
 
             // Submit validation
@@ -823,6 +1026,21 @@
                         document.getElementById('mobileField')
                             .value.trim();
 
+                    var channel =
+                        document.getElementById('edit_ChannelId').value;
+
+                    var callType =
+                        document.getElementById('edit_CallTypeId').value;
+
+                    var category =
+                        document.getElementById('edit_CategoryId').value;
+
+                    var subCategory =
+                        document.getElementById('edit_SubCategoryId').value;
+
+                    var assignedTo =
+                        document.getElementById('edit_AssignedTo').value;
+
                     if (!clientId) {
                         masterShowToast(
                             'Please select a client.', 'error');
@@ -832,12 +1050,6 @@
                     if (!mobile) {
                         masterShowToast(
                             'Mobile number is required.', 'error');
-                        return;
-                    }
-
-                    if (!priority) {
-                        masterShowToast(
-                            'Please select a priority.', 'error');
                         return;
                     }
 
@@ -853,6 +1065,43 @@
                         return;
                     }
 
+                    if (!channel) {
+                        masterShowToast(
+                            'Please select a channel.', 'error');
+                        return;
+                    }
+
+                    if (!callType) {
+                        masterShowToast(
+                            'Please select a call type.', 'error');
+                        return;
+                    }
+
+                    if (!category) {
+                        masterShowToast(
+                            'Please select a category.', 'error');
+                        return;
+                    }
+
+                    if (!subCategory) {
+                        masterShowToast(
+                            'Please select a sub category.', 'error');
+                        return;
+                    }
+
+                    if (!priority) {
+                        masterShowToast(
+                            'Please select a priority.', 'error');
+                        return;
+                    }
+
+                    if (!assignedTo) {
+                        masterShowToast(
+                            'Please select who to assign this ticket to.',
+                            'error');
+                        return;
+                    }
+
                     this.submit();
                 });
         });
@@ -861,35 +1110,132 @@
         // VOICE TO TEXT
         // ==========================================
 
-        var recognition = null;
-        var voiceField = 'Description';
+        // ==========================================
+        // ASSIGN TO ME  (dropdown lock / unlock)
+        // ==========================================
 
-        function speechSupported() {
-            return ('webkitSpeechRecognition' in window
-                || 'SpeechRecognition' in window);
-        }
+        var currentUserId = '@(Model.CurrentUserId?.ToString() ?? "")';
 
-        function setListening(on) {
+        function syncAssignToMe() {
 
-            var micBtn =
-                document.getElementById('voiceMicBtn_' + voiceField);
-            var status =
-                document.getElementById('voiceStatus_' + voiceField);
+            var chk = document.getElementById('assignToMe');
+            var sel = document.getElementById('edit_AssignedTo');
+            var chip = document.getElementById('assignToMeChip');
+            var hint = document.getElementById('assignToMeHint');
 
-            if (micBtn) {
-                if (on) micBtn.classList.add('is-recording');
-                else micBtn.classList.remove('is-recording');
+            if (!chk || !sel) {
+                return;
             }
 
-            if (status) {
-                if (on) {
-                    status.innerHTML =
-                        '<span class="tkt-voice-dot"></span>'
-                        + 'Listening\u2026 speak now';
-                    status.classList.add('visible');
-                } else {
-                    status.classList.remove('visible');
+            if (chk.checked) {
+
+                // Locked to the logged-in user.
+                if (currentUserId) {
+
+                    var meOption = sel.querySelector(
+                        'option[value="' + currentUserId + '"]');
+
+                    if (meOption) {
+                        sel.value = currentUserId;
+                    }
                 }
+
+                sel.style.pointerEvents = 'none';
+                sel.style.opacity = '.75';
+
+                if (chip) {
+                    chip.classList.remove('off');
+                }
+
+                if (hint) {
+                    hint.textContent = 'Assigned to you (logged in).';
+                }
+
+            } else {
+
+                sel.style.pointerEvents = '';
+                sel.style.opacity = '';
+
+                if (chip) {
+                    chip.classList.add('off');
+                }
+
+                if (hint) {
+                    hint.textContent = 'Pick who will handle this ticket.';
+                }
+            }
+        }
+
+        // ==========================================
+        // VOICE TO TEXT (mic + clear inside the box)
+        // ==========================================
+
+        var voiceRec = null;
+        var voiceTarget = null;
+        var voiceBase = '';
+        var voiceFinal = '';
+        var voiceSupported = false;
+
+        function speechSupported() {
+
+            voiceSupported =
+                ('webkitSpeechRecognition' in window
+                    || 'SpeechRecognition' in window);
+
+            return voiceSupported;
+        }
+
+        // Keeps the character counter + clear button in sync.
+        function refreshDescUi() {
+
+            var field = document.getElementById('edit_Description');
+
+            if (!field) {
+                return;
+            }
+
+            var wrap = field.closest('.tkt-input-wrap');
+
+            var count = document.getElementById('cnt_Description');
+
+            if (count) {
+                count.textContent = field.value.length + '/1000';
+            }
+
+            if (wrap) {
+                wrap.classList.toggle(
+                    'has-text', field.value.length > 0);
+            }
+        }
+
+        // Clear button (inside the description box).
+        function clearDescription() {
+
+            var field = document.getElementById('edit_Description');
+
+            if (!field || !field.value) {
+                return;
+            }
+
+            if (confirm('Clear the description?')) {
+                field.value = '';
+                refreshDescUi();
+            }
+        }
+
+        function setVoiceStatus(fieldId, on) {
+
+            var status =
+                document.getElementById('voiceStatus_' + fieldId);
+
+            if (!status) {
+                return;
+            }
+
+            if (on) {
+                status.classList.add('visible');
+            } else {
+                status.classList.remove('visible');
             }
         }
 
@@ -902,107 +1248,129 @@
                 .trim();
         }
 
-        var speechBaseText = '';
-        var speechFinal = '';
-
-        function startVoice(fieldName) {
-
-            if (fieldName) voiceField = fieldName;
-
-            var textarea =
-                document.getElementById('edit_' + voiceField);
+        // Mic button -> start / stop voice input.
+        function toggleVoice(btn, fieldId) {
 
             if (!speechSupported()) {
-                alert('Speech Recognition is not supported. Use Chrome.');
+                masterShowToast(
+                    'Voice input is not supported in this browser.',
+                    'error');
                 return;
             }
 
-            var SpeechRecognition =
-                window.SpeechRecognition
+            // Same button pressed again -> stop.
+            if (voiceRec && voiceTarget === fieldId) {
+                stopVoice();
+                return;
+            }
+
+            stopVoice();
+
+            var SR = window.SpeechRecognition
                 || window.webkitSpeechRecognition;
 
-            recognition = new SpeechRecognition();
-            recognition.lang = 'en-IN';
-            recognition.interimResults = true;
-            recognition.continuous = true;
+            voiceRec = new SR();
+            voiceRec.lang = 'en-IN';
+            voiceRec.continuous = true;
+            voiceRec.interimResults = true;
 
-            recognition.onstart = function () {
-                speechBaseText = textarea.value.trim();
-                speechFinal = '';
-                setListening(true);
-                textarea.focus();
+            voiceTarget = fieldId;
+
+            var field = document.getElementById(fieldId);
+
+            voiceBase = (field.value || '').trim();
+            voiceFinal = '';
+
+            voiceRec.onstart = function () {
+                setVoiceStatus(fieldId, true);
             };
 
-            recognition.onresult = function (event) {
+            // Rebuilds the field from base + final + live interim text,
+            // so the user sees the words as they speak.
+            function paint(interim) {
+
+                var parts = [];
+
+                if (voiceBase) parts.push(voiceBase);
+                if (voiceFinal) parts.push(voiceFinal);
+                if (interim) parts.push(interim);
+
+                field.value = parts.join(' ');
+
+                refreshDescUi();
+            }
+
+            voiceRec.onresult = function (e) {
 
                 var interim = '';
 
-                for (var i = event.resultIndex;
-                     i < event.results.length; i++) {
+                for (var i = e.resultIndex; i < e.results.length; i++) {
 
-                    var raw = event.results[i][0].transcript;
+                    var raw = e.results[i][0].transcript;
 
-                    if (event.results[i].isFinal) {
+                    if (e.results[i].isFinal) {
 
                         var clean = stripDevanagari(raw);
 
-                        // Skip all-Hindi and duplicate results.
+                        // Skip empty (all-Hindi) and duplicate results.
                         if (!clean) continue;
-                        if (speechFinal
-                            && speechFinal.indexOf(clean) !== -1) continue;
+                        if (voiceFinal
+                            && voiceFinal.indexOf(clean) !== -1) continue;
 
-                        speechFinal += ' ' + clean;
+                        voiceFinal += ' ' + clean;
 
                     } else {
                         interim += stripDevanagari(raw) + ' ';
                     }
                 }
 
-                var parts = [];
-
-                if (speechBaseText) parts.push(speechBaseText);
-                if (speechFinal.trim()) parts.push(speechFinal.trim());
-                if (interim.trim()) parts.push(interim.trim());
-
-                textarea.value = parts.join(' ');
+                paint(interim.trim());
             };
 
-            recognition.onerror = function (event) {
-                if (event.error === 'not-allowed') {
-                    alert('Microphone permission denied.');
-                }
-                setListening(false);
+            voiceRec.onerror = function () {
+                stopVoice();
+                masterShowToast('Could not capture voice.', 'error');
             };
 
-            recognition.onend = function () {
-                setListening(false);
+            voiceRec.onend = function () {
+                if (voiceRec) stopVoice();
             };
 
             try {
-                recognition.start();
+                voiceRec.start();
             } catch (e) {
-                alert('Could not start: ' + e.message);
+                masterShowToast(
+                    'Could not start voice input.', 'error');
+                return;
             }
+
+            btn.classList.add('recording');
+            btn.innerHTML = '&#9899;'; // stop square
+            setVoiceStatus(fieldId, true);
         }
 
         function stopVoice() {
-            if (recognition) recognition.stop();
-            setListening(false);
-        }
 
-        function resetVoice(fieldName) {
+            var btn =
+                document.querySelector('.tkt-mic-btn.recording');
 
-            if (fieldName) voiceField = fieldName;
+            if (btn) {
+                btn.classList.remove('recording');
+                btn.innerHTML = '&#127908;';
+            }
 
-            if (!confirm('Clear ' + voiceField + '?')) return;
+            if (voiceTarget) {
+                setVoiceStatus(voiceTarget, false);
+            }
 
-            if (recognition) recognition.stop();
-            setListening(false);
+            if (voiceRec) {
+                try { voiceRec.stop(); } catch (e) { }
+            }
 
-            speechBaseText = '';
-            speechFinal = '';
-
-            document.getElementById('edit_' + voiceField).value = '';
+            voiceRec = null;
+            voiceTarget = null;
+            voiceBase = '';
+            voiceFinal = '';
         }
 
     </script>

@@ -31,6 +31,42 @@ public class TicketService
     public const string SqlNowIstText =
         "DATEADD(MINUTE, 330, SYSUTCDATETIME())";
 
+    // ============================================
+    // DURATION FORMATTER
+    // ============================================
+
+    // Minutes ko readable duration me convert karta hai:
+    //   < 60 min   → "48m"
+    //   < 1440 min → "4h 48m"
+    //   >= 1440    → "1d 4h 48m"
+    //
+    // days  = totalMinutes / 1440
+    // hours = (totalMinutes % 1440) / 60
+    // mins  = totalMinutes % 60
+    public static string FormatDuration(int totalMinutes)
+    {
+        if (totalMinutes <= 0)
+        {
+            return "0m";
+        }
+
+        if (totalMinutes < 60)
+        {
+            return $"{totalMinutes}m";
+        }
+
+        int days = totalMinutes / 1440;
+        int hours = (totalMinutes % 1440) / 60;
+        int mins = totalMinutes % 60;
+
+        if (days > 0)
+        {
+            return $"{days}d {hours}h {mins}m";
+        }
+
+        return $"{hours}h {mins}m";
+    }
+
     public async Task<SqlConnection> OpenAsync()
     {
         string? cs =
@@ -874,9 +910,10 @@ public class TicketService
 
     // Ek user ki recent notifications (nayi pehle).
     // ticketId diya to sirf us ticket ki notifications.
+    // mode = "all" | "unread" | "read"
     public async Task<List<TicketNotification>> RecentNotificationsAsync(
         SqlConnection connection, int userId, int take = 20,
-        int? ticketId = null)
+        int? ticketId = null, string mode = "all")
     {
         var list = new List<TicketNotification>();
 
@@ -893,6 +930,15 @@ public class TicketService
         if (ticketId.HasValue)
         {
             sql += " AND n.[TicketId] = @TicketId";
+        }
+
+        if (mode == "unread")
+        {
+            sql += " AND n.[IsRead] = 0";
+        }
+        else if (mode == "read")
+        {
+            sql += " AND n.[IsRead] = 1";
         }
 
         sql += " ORDER BY n.[Id] DESC";
@@ -943,6 +989,26 @@ public class TicketService
         using SqlCommand command = new SqlCommand(sql, connection);
 
         command.CommandTimeout = 0;
+        command.Parameters.AddWithValue("@UserId", userId);
+
+        await command.ExecuteNonQueryAsync();
+    }
+
+    // Ek specific notification read mark karo.
+    // UserId bhi check hota hai — koi doosre user ki
+    // notification read nahi ho sakti.
+    public async Task MarkReadAsync(
+        SqlConnection connection, int userId, int notificationId)
+    {
+        const string sql = @"
+            UPDATE [Trn_Notification]
+            SET [IsRead] = 1
+            WHERE [Id] = @Id AND [UserId] = @UserId";
+
+        using SqlCommand command = new SqlCommand(sql, connection);
+
+        command.CommandTimeout = 0;
+        command.Parameters.AddWithValue("@Id", notificationId);
         command.Parameters.AddWithValue("@UserId", userId);
 
         await command.ExecuteNonQueryAsync();
@@ -1069,7 +1135,8 @@ public class TicketService
         SqlConnection connection,
         int ticketId,
         int newUserId,
-        int? changedBy)
+        int? changedBy,
+        string? reason = null)
     {
         // Purana assignee.
         string oldName = "";
@@ -1129,7 +1196,7 @@ public class TicketService
             string.IsNullOrEmpty(oldName) ? "Assigned" : "Reassigned",
             oldName,
             newName,
-            null,
+            string.IsNullOrWhiteSpace(reason) ? null : reason.Trim(),
             changedBy);
     }
 

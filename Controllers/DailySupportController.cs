@@ -260,9 +260,29 @@ public class DailySupportController : Controller
             errors.Add("Priority is required.");
         }
 
-        if (!model.StatusId.HasValue)
+        if (!model.ChannelId.HasValue)
         {
-            errors.Add("Status is required.");
+            errors.Add("Channel is required.");
+        }
+
+        if (!model.CallTypeId.HasValue)
+        {
+            errors.Add("Call Type is required.");
+        }
+
+        if (!model.CategoryId.HasValue)
+        {
+            errors.Add("Category is required.");
+        }
+
+        if (!model.SubCategoryId.HasValue)
+        {
+            errors.Add("Sub Category is required.");
+        }
+
+        if (!model.AssignedTo.HasValue || model.AssignedTo <= 0)
+        {
+            errors.Add("Assigned To is required.");
         }
 
         if (errors.Count > 0)
@@ -281,11 +301,21 @@ public class DailySupportController : Controller
         int? createdBy =
             int.TryParse(currentId, out int uid) ? uid : null;
 
-        // Assign To is auto-filled with the logged-in user
-        // (reassign later from the ticket Detail page).
-        if (!model.AssignedTo.HasValue || model.AssignedTo <= 0)
+        // Status form me chip ke through aata hai (hamesha Open).
+        // Agar kisi wajah se missing ho to Open set kar do.
+        if (!model.StatusId.HasValue)
         {
-            model.AssignedTo = createdBy;
+            var statuses = await _ticketService.LoadLookupAsync(
+                connection, "Mst_Status", "StatusId", "StatusName");
+
+            var openStatus = statuses.FirstOrDefault(s =>
+                string.Equals(s.Name, "Open",
+                    StringComparison.OrdinalIgnoreCase));
+
+            if (openStatus != null)
+            {
+                model.StatusId = openStatus.Id;
+            }
         }
 
         int ticketId = await _ticketService.CreateTicketAsync(
@@ -320,6 +350,7 @@ public class DailySupportController : Controller
                 d.[AssignedTo], d.[CreatedBy], d.[ReviewStatus], d.[ReviewedBy],
                 d.[ReviewedAt],
                 ISNULL(c.[ClientName], '') AS ClientName,
+                ISNULL(c.[Email], '') AS ClientEmail,
                 ISNULL(ch.[ChannelName], '') AS ChannelName,
                 ISNULL(ct.[CallTypeName], '') AS CallTypeName,
                 ISNULL(cat.[CategoryName], '') AS CategoryName,
@@ -372,6 +403,7 @@ public class DailySupportController : Controller
 
             model.ClientId = Convert.ToInt32(reader["ClientId"]);
             model.ClientName = ToStr(reader["ClientName"]);
+            model.ClientEmail = ToStr(reader["ClientEmail"]);
             model.Mobile = ToStr(reader["Mobile"]);
             model.CallerName = ToStr(reader["CallerName"]);
 
@@ -404,8 +436,6 @@ public class DailySupportController : Controller
             model.AssignedTo =
                 TicketService.ToIntOrNull(reader["AssignedTo"]);
             model.AssignedToName = ToStr(reader["AssignedToName"]);
-            model.CreatedBy = TicketService.ToIntOrNull(reader["CreatedBy"]);
-            model.CreatedByName = ToStr(reader["CreatedByName"]);
             model.CreatedBy = TicketService.ToIntOrNull(reader["CreatedBy"]);
             model.CreatedByName = ToStr(reader["CreatedByName"]);
 
@@ -646,19 +676,13 @@ public class DailySupportController : Controller
             model.AssignedTo.Value == currentUserIdVal.Value;
 
         // ---- Close permission ----
-        // Resolved ticket ko owner (assignee/creator) ya admin close kar sakta hai.
+        // Close button Re-Assign ke bilkul barabar dikhta hai:
+        // jab tak ticket CLOSED nahi hai, close kar sakte hain.
+        // Reason/Remarks lazmi hai (UI + confirm modal me required),
+        // aur close hamesha final hai.
         // NOTE: Mst_Status.Resolved ka IsClosed flag DB me 1 hai (galat data),
         // isliye hum flag ko ignore karke status ke *naam* se decide karte hain.
-        bool detailIsAdmin = await IsAdminUserAsync(connection, currentUserIdVal);
-
-        bool detailIsOwner =
-            currentUserIdVal.HasValue
-            && (model.AssignedTo == currentUserIdVal
-                || model.CreatedBy == currentUserIdVal);
-
-        model.CanClose = !model.IsReadOnly
-            && model.IsResolvedByName
-            && (detailIsOwner || detailIsAdmin);
+        model.CanClose = !model.IsReadOnly;
 
         foreach (var up in model.Updates)
         {
@@ -702,6 +726,28 @@ public class DailySupportController : Controller
 
         // Review panel sirf admin ko (accept/reject).
         model.CanReview = model.IsAdmin;
+
+        // ---- Red dot: is ticket ka current user ke liye koi
+        // UNREAD notification hai? ----
+        if (int.TryParse(
+                DynamicTableService.GetLoggedInUserId(User),
+                out int notifUid))
+        {
+            using SqlCommand notifCommand = new SqlCommand(@"
+                SELECT COUNT(1)
+                FROM [Trn_Notification]
+                WHERE [TicketId] = @TicketId
+                    AND [UserId] = @UserId
+                    AND [IsRead] = 0",
+                connection);
+
+            notifCommand.Parameters.AddWithValue("@TicketId", model.Id);
+            notifCommand.Parameters.AddWithValue("@UserId", notifUid);
+
+            model.HasUnreadNotification =
+                Convert.ToInt32(
+                    await notifCommand.ExecuteScalarAsync()) > 0;
+        }
 
         ViewData["Title"] = "Ticket " + model.TicketNo;
 
@@ -1165,7 +1211,8 @@ public class DailySupportController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Assign(
         int ticketId,
-        int userId)
+        int userId,
+        string? reason)
     {
         if (userId <= 0)
         {
@@ -1173,6 +1220,16 @@ public class DailySupportController : Controller
             {
                 success = false,
                 message = "Please select a user."
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(reason)
+            || reason.Trim().Length < 3)
+        {
+            return Json(new
+            {
+                success = false,
+                message = "Reassign ki wajah (reason) likhna zaruri hai."
             });
         }
 
@@ -1186,12 +1243,12 @@ public class DailySupportController : Controller
             int.TryParse(currentId, out int uid) ? uid : null;
 
         await _ticketService.AssignAsync(
-            connection, ticketId, userId, changedBy);
+            connection, ticketId, userId, changedBy, reason.Trim());
 
         return Json(new
         {
             success = true,
-            message = "Ticket assigned."
+            message = "Ticket reassigned."
         });
     }
 
@@ -1265,25 +1322,35 @@ public class DailySupportController : Controller
 
     // Recent notifications — bell/list ke liye.
     // ticketId diya to sirf us ticket ki (Detail page ke liye).
+    // mode = "all" | "unread" | "read"
     [HttpGet]
-    public async Task<IActionResult> NotifList(int? ticketId)
+    public async Task<IActionResult> NotifList(
+        int? ticketId, string mode = "all", int take = 20)
     {
         string? currentId =
             DynamicTableService.GetLoggedInUserId(User);
 
         if (!int.TryParse(currentId, out int uid))
         {
-            return Json(new { items = Array.Empty<object>() });
+            return Json(new
+            {
+                items = Array.Empty<object>(),
+                unreadCount = 0
+            });
         }
 
         using SqlConnection connection =
             await _ticketService.OpenAsync();
 
         var items = await _ticketService.RecentNotificationsAsync(
-            connection, uid, 20, ticketId);
+            connection, uid, take, ticketId, mode);
+
+        int unreadCount =
+            await _ticketService.UnreadCountAsync(connection, uid);
 
         return Json(new
         {
+            unreadCount,
             items = items.Select(n => new
             {
                 id = n.Id,
@@ -1297,6 +1364,28 @@ public class DailySupportController : Controller
                 createdAt = n.CreatedAt.ToString("dd MMM, h:mm tt")
             })
         });
+    }
+
+    // Ek notification read mark karo.
+    // Click karte hi panel se hat jaati hai.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> MarkNotifRead(int id)
+    {
+        string? currentId =
+            DynamicTableService.GetLoggedInUserId(User);
+
+        if (!int.TryParse(currentId, out int uid) || id <= 0)
+        {
+            return Json(new { success = false });
+        }
+
+        using SqlConnection connection =
+            await _ticketService.OpenAsync();
+
+        await _ticketService.MarkReadAsync(connection, uid, id);
+
+        return Json(new { success = true });
     }
 
     // Sabko read mark karo.

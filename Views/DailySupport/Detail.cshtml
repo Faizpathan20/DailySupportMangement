@@ -1,4 +1,4 @@
-@model Master.Models.TicketDetailViewModel
+﻿@model Master.Models.TicketDetailViewModel
 
 @{
     ViewData["Title"] = "Ticket " + Model.TicketNo;
@@ -11,22 +11,9 @@
     string Dash(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "&mdash;" : value!;
 
-    // Relative time: "2 hours ago", "yesterday", "3 days ago".
-    string TimeAgo(DateTime at)
-    {
-        var diff = Master.Configurations.TicketService.NowIst - at;
-
-        if (diff.TotalSeconds < 60) return "just now";
-        if (diff.TotalMinutes < 60)
-            return $"{(int)diff.TotalMinutes} min ago";
-        if (diff.TotalHours < 24)
-            return $"{(int)diff.TotalHours} hours ago";
-        if (diff.TotalDays < 2) return "yesterday";
-        if (diff.TotalDays < 30)
-            return $"{(int)diff.TotalDays} days ago";
-
-        return at.ToString("dd MMM yyyy");
-    }
+    // Duration formatter: "48m" | "4h 48m" | "1d 4h 48m"
+    string FormatDuration(int minutes) =>
+        Master.Configurations.TicketService.FormatDuration(minutes);
 
     var lastActivity = Model.Timeline.Count > 0
         ? Model.Timeline.Max(t => t.At)
@@ -54,8 +41,8 @@
             .ToList()
         : Model.StatusOptions;
 
-    // ---- Layout 5: split the timeline into two layers ----
-    // Work Log = the work YOU logged (KindKey "work" / "note").
+    // ---- Timeline ko do layers me split ----
+    // Work Log = aapka kaam (KindKey "work" / "note").
     // System Activity = automatic events (created / status / assign / ...).
     var workLog = Model.Timeline
         .Where(t => t.KindKey == "work" || t.KindKey == "note")
@@ -67,38 +54,49 @@
         .OrderByDescending(t => t.At)
         .ToList();
 
-    // ---- Layout 5: stage bar stages + current index ----
-    // "On Hold" is a side-branch, not a pipeline step: a ticket can
-    // jump In Progress -> Pending Review without ever being on hold.
-    // Keeping it in the bar makes it show as "done" (✓) on that jump.
-    // So the bar shows only the main pipeline, and On Hold is shown
-    // separately as a chip when the ticket really is on hold.
-    var allStages = Model.StatusOptions.ToList();
+    // ============================================================
+    // STEPPER — 5 steps
+    // Open > In Progress > Waiting > Resolved > Closed
+    //
+    // DB me 6 statuses hain. "On Hold" aur "Pending Review"
+    // dono WAITING step pe map hote hain.
+    // ============================================================
 
-    var stages = allStages
-        .Where(s => !string.Equals(
-            s.Name, "On Hold", StringComparison.OrdinalIgnoreCase))
-        .ToList();
+    var stepDefs = new (string Label, string[] Match)[]
+    {
+        ("Open",        new[] { "Open" }),
+        ("In Progress", new[] { "In Progress" }),
+        ("Waiting",     new[] { "On Hold", "Pending Review" }),
+        ("Resolved",    new[] { "Resolved" }),
+        ("Closed",      new[] { "Closed" })
+    };
 
-    bool isOnHold = string.Equals(
-        Model.StatusName, "On Hold",
-        StringComparison.OrdinalIgnoreCase);
+    int currentStepIndex = -1;
 
-    int currentStageIndex = stages.FindIndex(s =>
-        string.Equals(s.Name, Model.StatusName,
-            StringComparison.OrdinalIgnoreCase));
+    for (int i = 0; i < stepDefs.Length; i++)
+    {
+        if (stepDefs[i].Match.Any(m => string.Equals(
+            m, Model.StatusName,
+            StringComparison.OrdinalIgnoreCase)))
+        {
+            currentStepIndex = i;
+            break;
+        }
+    }
 
-    // A stage counts as "done" only when the ticket actually passed
-    // through it (per the status history), not merely because it sits
-    // earlier in the master list.
-    var visitedStatuses = new HashSet<string>(
-        Model.Timeline
-            .Where(t => t.KindKey == "status")
-            .SelectMany(t => new[] { t.OldStatus, t.NewStatus })
-            .Where(s => !string.IsNullOrWhiteSpace(s))
-            .Select(s => s!)
-            .Concat(new[] { Model.StatusName }),
-        StringComparer.OrdinalIgnoreCase);
+    // ---- Stepper track geometry ----
+    // Grid me n columns hain, to dot ke centers 0.5/n, 1.5/n, ... (n-0.5)/n
+    // par padte hain. Track line in dono ke beech hi honi chahiye, aur
+    // progress line current dot ke center tak pahunchni chahiye.
+    int stepCount = stepDefs.Length;
+
+    // left / right inset (%) — pehle aur last dot ke center tak
+    int stepTrackInsetPct = (int)Math.Round(50.0 / stepCount);
+
+    // kitna % track bhara hua (current dot ke center tak)
+    int stepProgressPct = currentStepIndex < 0
+        ? 0
+        : (int)Math.Round(currentStepIndex * 100.0 / stepCount);
 
     // Days the ticket has been sitting in the current status.
     var stageSince = Model.Timeline
@@ -113,131 +111,34 @@
         ? Math.Max(0, (int)(Master.Configurations.TicketService.NowIst
             - stageSince.Value).TotalDays)
         : 0;
+
+    // ---- Assignment logic (header) ----
+    // CreatedBy = jisne assign kiya, AssignedTo = jise kiya.
+    bool isSelfAssigned =
+        Model.CreatedBy.HasValue
+        && Model.AssignedTo.HasValue
+        && Model.CreatedBy.Value == Model.AssignedTo.Value;
+
+    // ---- Aaj ka time (aaj ki work updates ka total) ----
+    var todayDate = Master.Configurations.TicketService.NowIst.Date;
+
+    int todayMinutes = Model.Updates
+        .Where(u => u.WorkDate.Date == todayDate)
+        .Sum(u => u.TimeSpent ?? 0);
+
+    // Review card me "sent by" — assignee ya creator.
+    string reviewSentBy =
+        string.IsNullOrWhiteSpace(Model.AssignedToName)
+            ? Model.CreatedByName
+            : Model.AssignedToName;
 }
 
-<div class="page-header">
 
-    <a href="@Url.Action("Index", "DailySupport")"
-       class="back-link">
-
-        &larr; Back to Daily Support
-
-    </a>
-
-    <!-- ===== Summary header (compact, split) ===== -->
-    <div class="tkt-summary">
-
-        <div class="tkt-summary-main">
-
-            <div class="tkt-summary-top">
-
-                <h1>
-                    @Model.TicketNo
-                </h1>
-
-                <span class="@Badge(Model.StatusName, "tkt-b")">
-                    @Model.StatusName
-                </span>
-
-                @if (!string.IsNullOrWhiteSpace(Model.PriorityName))
-                {
-                    <span class="@Badge(Model.PriorityName, "tkt-b")">
-                        @Model.PriorityName
-                    </span>
-                }
-
-            </div>
-
-            <div class="tkt-summary-meta">
-
-                <span>
-                    <strong>@Model.ClientName</strong>
-                </span>
-
-                @if (!string.IsNullOrWhiteSpace(Model.Mobile))
-                {
-                    <span>&middot; &#128241; @Model.Mobile</span>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(Model.CreatedByName))
-                {
-                    <span>&middot; Assigned By: <strong>@Model.CreatedByName</strong></span>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(Model.AssignedToName))
-                {
-                    <span>&middot; Assigned To: <strong>@Model.AssignedToName</strong></span>
-                }
-
-                <span>&middot; &#9201; @Model.TimeSpentDisplay</span>
-
-                @if (lastActivity.HasValue)
-                {
-                    <span>&middot; Last activity: @TimeAgo(lastActivity.Value)</span>
-                }
-
-            </div>
-
-            @if (isStale)
-            {
-                <div class="tkt-stale">
-                    &#9888; @((int)staleDays) din se koi activity nahi &mdash;
-                    follow-up karein.
-                </div>
-            }
-
-        </div>
-
-        <!-- ===== Quick actions (compact side panel) ===== -->
-        <div class="tkt-summary-aside">
-
-            <span class="tkt-aside-title">
-                Quick Actions
-            </span>
-
-            @if (!Model.IsReadOnly && Model.CanAddWork)
-            {
-                <button type="button"
-                        class="tkt-btn tkt-btn-dark tkt-btn-sm"
-                        onclick="openUpdateModal()">
-
-                    &#10133; Add Today's Work
-
-                </button>
-            }
-
-            @if (!Model.IsReadOnly && Model.CanAssign)
-            {
-                <button type="button"
-                        class="tkt-btn tkt-btn-sm"
-                        onclick="openAssignModal()">
-
-                    &#128100; Assign / Reassign
-
-                </button>
-            }
-
-            @if (Model.CanClose)
-            {
-                <button type="button"
-                        class="tkt-btn tkt-btn-close tkt-btn-sm"
-                        onclick="openCloseConfirm()">
-
-                    &#9989; Close Ticket
-
-                </button>
-            }
-
-            @if (Model.IsReadOnly)
-            {
-                <span class="tkt-readonly">Ticket Closed – View Only</span>
-            }
-
-        </div>
-
-    </div>
-
-</div>
+@* ============================================================
+   TICKET DETAIL — REDESIGN (Tailwind)
+   1. Sticky header  2. Stepper  3. Body grid
+   4. Work logs      5. Bottom (Review / Activity / Tickets)
+   ============================================================ *@
 
 
 @if (TempData["Success"] != null)
@@ -266,193 +167,245 @@
      style="display:none;"></div>
 
 
-<!-- ================= TICKET INFORMATION ================= -->
+@* ================= 1. STICKY HEADER ================= *@
 
-<div class="tkt-info-wrap">
+<header class="sticky top-0 z-50 bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
 
-    <!-- Ticket Details -->
-    <div class="state-section tkt-info-card">
+    <div class="flex items-start justify-between gap-6 flex-wrap">
 
-        <div class="form-section-title">
-            &#127915; TICKET DETAILS
-        </div>
+        <!-- ---------- LEFT ---------- -->
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 min-w-0">
 
-        <div class="tkt-info-list">
+            <a href="@Url.Action("Index", "DailySupport")"
+               class="shrink-0 w-10 h-10 inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white text-blue-600 hover:bg-blue-600 hover:border-blue-600 hover:text-white transition"
+               title="Back to Daily Support"
+               aria-label="Back to Daily Support">
 
-            <div class="tkt-info-row">
-                <span class="tkt-info-key">Ticket No</span>
-                <span class="tkt-info-val">@Model.TicketNo</span>
-            </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.2" stroke-linecap="round"
+                     stroke-linejoin="round" class="w-5 h-5">
+                    <path d="m15 18-6-6 6-6" />
+                </svg>
 
-            <div class="tkt-info-row">
-                <span class="tkt-info-key">Support Date</span>
-                <span class="tkt-info-val">
-                    @Model.SupportDate.ToString("dd MMM yyyy, hh:mm tt")
-                </span>
-            </div>
+            </a>
 
-            <div class="tkt-info-row">
-                <span class="tkt-info-key">Status</span>
-                <span class="tkt-info-val">
+            <div class="min-w-0">
+
+                <div class="flex items-center gap-2.5 flex-wrap">
+
+                    <h1 class="text-xl font-bold text-gray-900 leading-none">
+                        @Model.TicketNo
+                    </h1>
+
+                    @* Red dot = is ticket ka aapke liye unread notification *@
+                    @if (Model.HasUnreadNotification)
+                    {
+                        <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"
+                              title="Aapke liye unread notification hai"></span>
+                    }
+
                     <span class="@Badge(Model.StatusName, "tkt-b")">
                         @Model.StatusName
                     </span>
-                </span>
-            </div>
 
-            <div class="tkt-info-row">
-                <span class="tkt-info-key">Priority</span>
-                <span class="tkt-info-val">
                     @if (!string.IsNullOrWhiteSpace(Model.PriorityName))
                     {
                         <span class="@Badge(Model.PriorityName, "tkt-b")">
                             @Model.PriorityName
                         </span>
                     }
+
+                    @if (isStale)
+                    {
+                        <span class="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1">
+                            @((int)staleDays) din se koi activity nahi
+                        </span>
+                    }
+
+                </div>
+
+                @* ---------- Assignment logic ---------- *@
+                <div class="mt-2 text-sm text-gray-600 flex items-center gap-2 flex-wrap">
+
+                    @if (isSelfAssigned)
+                    {
+                        <span class="inline-flex items-center gap-1.5 font-medium text-gray-700">
+                            <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                            Self Assigned &bull; @Model.AssignedToName
+                        </span>
+                    }
                     else
                     {
-                        <text>&mdash;</text>
+                        <span class="inline-flex items-center gap-1.5">
+                            Assigned By:
+                            <strong class="font-semibold text-gray-800">
+                                @Model.CreatedByName
+                            </strong>
+                        </span>
+
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2.5" stroke-linecap="round"
+                             stroke-linejoin="round"
+                             class="w-4 h-4 text-gray-400">
+                            <path d="M5 12h14" />
+                            <path d="m12 5 7 7-7 7" />
+                        </svg>
+
+                        <span class="inline-flex items-center gap-1.5">
+                            Assigned To:
+                            <strong class="font-semibold text-gray-800">
+                                @Model.AssignedToName
+                            </strong>
+                        </span>
                     }
-                </span>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.ClientName))
+                    {
+                        <span class="text-gray-300">&bull;</span>
+
+                        <span class="font-medium text-gray-700">
+                            @Model.ClientName
+                        </span>
+                    }
+
+                </div>
+
             </div>
 
-            <div class="tkt-info-row">
-                <span class="tkt-info-key">Assigned To</span>
-                <span class="tkt-info-val">@Html.Raw(Dash(Model.AssignedToName))</span>
+        </div>
+
+
+        <!-- ---------- RIGHT ---------- -->
+        <div class="flex items-center gap-3 sm:gap-5 flex-wrap w-full sm:w-auto justify-start sm:justify-end">
+
+            <div class="text-right">
+                <div class="text-[11px] uppercase tracking-wide text-gray-500">
+                    Total Time
+                </div>
+                <div class="text-lg font-bold text-gray-900 leading-tight">
+                    @FormatDuration(Model.TimeSpentMinutes)
+                </div>
             </div>
 
-            <div class="tkt-info-row">
-                <span class="tkt-info-key">Time Spent</span>
-                <span class="tkt-info-val">@Model.TimeSpentDisplay</span>
+            <div class="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end">
+
+                @if (!Model.IsReadOnly && Model.CanAddWork)
+                {
+                    <button type="button"
+                            class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition"
+                            onclick="openUpdateModal()">
+
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round"
+                             stroke-linejoin="round" class="w-4 h-4">
+                            <path d="M12 5v14M5 12h14" />
+                        </svg>
+
+                        Add Work Log
+
+                    </button>
+                }
+
+                @if (!Model.IsReadOnly && Model.CanAssign)
+                {
+                    <button type="button"
+                            class="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
+                            onclick="openAssignModal()">
+
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round"
+                             stroke-linejoin="round" class="w-4 h-4">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M22 11h-6" />
+                        </svg>
+
+                        Re-Assign
+
+                    </button>
+                }
+
+                @if (Model.CanClose)
+                {
+                    <button type="button"
+                            class="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 transition"
+                            onclick="openCloseConfirm()">
+
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round"
+                             stroke-linejoin="round" class="w-4 h-4">
+                            <path d="M20 6 9 17l-5-5" />
+                        </svg>
+
+                        Close Ticket
+
+                    </button>
+                }
+
+                @if (Model.IsReadOnly)
+                {
+                    <span class="tkt-readonly">Ticket Closed &ndash; View Only</span>
+                }
+
             </div>
 
         </div>
 
     </div>
 
-
-    <!-- Classification -->
-    <div class="state-section tkt-info-card">
-
-        <div class="form-section-title">
-            &#128193; CLASSIFICATION
-        </div>
-
-        <div class="tkt-info-list">
-
-            <div class="tkt-info-row">
-                <span class="tkt-info-key">Channel</span>
-                <span class="tkt-info-val">@Html.Raw(Dash(Model.ChannelName))</span>
-            </div>
-
-            <div class="tkt-info-row">
-                <span class="tkt-info-key">Call Type</span>
-                <span class="tkt-info-val">@Html.Raw(Dash(Model.CallTypeName))</span>
-            </div>
-
-            <div class="tkt-info-row">
-                <span class="tkt-info-key">Category</span>
-                <span class="tkt-info-val">@Html.Raw(Dash(Model.CategoryName))</span>
-            </div>
-
-            <div class="tkt-info-row">
-                <span class="tkt-info-key">Sub Category</span>
-                <span class="tkt-info-val">@Html.Raw(Dash(Model.SubCategoryName))</span>
-            </div>
-
-            <div class="tkt-info-row">
-                <span class="tkt-info-key">Caller Name</span>
-                <span class="tkt-info-val">@Html.Raw(Dash(Model.CallerName))</span>
-            </div>
-
-        </div>
-
-    </div>
+</header>
 
 
-    <!-- Resolved / Closed -->
-    <div class="state-section tkt-info-card">
+@* ================= 2. STEPPER ================= *@
 
-        <div class="form-section-title">
-            &#9200; TIMELINE
-        </div>
+<div class="bg-white border-b border-gray-200 px-6 py-5">
 
-        <div class="tkt-info-list">
+    @* Track line: pehle dot ke CENTER (10%) se last dot ke CENTER (90%)
+       tak. Isliye line dots ke neeche se aati hai aur perfectly
+       connected lagti hai — pehle/last dot ke bahar nahi nikalti. *@
+    <div class="relative">
 
-            <div class="tkt-info-row">
-                <span class="tkt-info-key">Resolved On</span>
-                <span class="tkt-info-val">
-                    @(Model.ResolvedOn.HasValue
-                        ? Model.ResolvedOn.Value.ToString("dd MMM yyyy, hh:mm tt")
-                        : "—")
-                </span>
-            </div>
+        <div class="absolute top-[18px] h-[4px] bg-gray-200 rounded-full"
+             style="left:@(stepTrackInsetPct)%; right:@(stepTrackInsetPct)%"></div>
 
-            <div class="tkt-info-row">
-                <span class="tkt-info-key">Closed On</span>
-                <span class="tkt-info-val">
-                    @(Model.ClosedOn.HasValue
-                        ? Model.ClosedOn.Value.ToString("dd MMM yyyy, hh:mm tt")
-                        : "—")
-                </span>
-            </div>
+        @if (stepProgressPct > 0)
+        {
+            <div class="absolute top-[18px] h-[4px] bg-blue-500 rounded-full"
+                 style="left:@(stepTrackInsetPct)%; width:@(stepProgressPct)%"></div>
+        }
 
-        </div>
+        <div class="relative grid grid-cols-5">
 
-    </div>
-
-</div>
-
-
-<!-- ================= ISSUE / DESCRIPTION ================= -->
-
-<div class="state-section tkt-issue-block">
-
-    <div class="form-section-title">
-        &#128221; ISSUE
-    </div>
-
-    <div class="tkt-issue-subject">
-        @Model.Subject
-    </div>
-
-    <div class="tkt-issue-body">
-        @Model.Description
-    </div>
-
-</div>
-
-
-<!-- ================= STAGE BAR (pipeline: kahan hai) ================= -->
-
-@if (stages.Count > 0)
-{
-    <div class="state-section tkt-stage-card">
-
-        <div class="form-section-title">
-            &#128202; PROGRESS
-        </div>
-
-        <div class="tkt-stage-bar">
-
-            @for (int i = 0; i < stages.Count; i++)
+            @for (int i = 0; i < stepDefs.Length; i++)
             {
-                var st = stages[i];
-                var isCurrent = currentStageIndex == i;
+                var step = stepDefs[i];
 
-                // Done = the ticket actually passed through this stage.
-                var isDone = !isCurrent
-                    && visitedStatuses.Contains(st.Name);
+                bool isCurrent = (i == currentStepIndex);
+                bool isDone = (currentStepIndex >= 0 && i < currentStepIndex);
 
-                <div class="tkt-stage @(isDone ? "done" : "")
-                            @(isCurrent ? "current" : "")">
+                <div class="flex flex-col items-center gap-2.5 text-center">
 
-                    <div class="tkt-stage-dot">
-                        @(isDone ? "✓" : isCurrent ? "●" : "")
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-base font-bold border-2
+                                @(isCurrent ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-200"
+                                  : isDone ? "bg-blue-500 border-blue-500 text-white"
+                                  : "bg-white border-gray-300 text-gray-400")">
+
+                        @if (isDone)
+                        {
+                            @Html.Raw("&#10003;")
+                        }
+                        else
+                        {
+                            @(i + 1)
+                        }
+
                     </div>
 
-                    <div class="tkt-stage-label">
-                        @st.Name
+                    <div class="text-xs font-semibold leading-tight
+                                @(isCurrent ? "text-blue-700"
+                                  : isDone ? "text-gray-700"
+                                  : "text-gray-400")">
+                        @step.Label
                     </div>
 
                 </div>
@@ -460,57 +413,312 @@
 
         </div>
 
-        @if (isOnHold)
-        {
-            <div class="tkt-stage-onhold">
-                &#9208; On Hold
-            </div>
-        }
+    </div>
 
-        @if (currentStageIndex >= 0 || isOnHold)
+    @if (currentStepIndex >= 0)
+    {
+        <div class="mt-4 text-xs text-gray-500 text-center">
+            Now at <strong class="text-gray-700">@Model.StatusName</strong>
+            @if (stageDays > 0)
+            {
+                <span>&middot; @stageDays @(stageDays == 1 ? "day" : "days") in this stage</span>
+            }
+        </div>
+    }
+
+</div>
+
+
+@* ================= 3. BODY (3 TOP CARDS + FULL WIDTH ISSUE) ================= *@
+
+<div class="p-6">
+
+    <!-- ---------- TOP 3 CARDS ---------- -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+
+        <!-- Client Info -->
+        <div class="h-[160px] bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col overflow-hidden">
+
+            <div class="flex items-center gap-2 mb-3">
+                <span class="w-7 h-7 rounded-lg bg-green-50 text-green-600 inline-flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" class="w-3.5 h-3.5">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                    </svg>
+                </span>
+                <h2 class="text-[11px] font-bold uppercase tracking-widest text-gray-500">
+                    Client Info
+                </h2>
+            </div>
+
+            <div class="space-y-2 text-sm">
+
+                <div class="flex items-start justify-between gap-3">
+                    <span class="text-gray-500 shrink-0">Name</span>
+                    <span class="font-semibold text-gray-900 text-right">
+                        @Model.ClientName
+                    </span>
+                </div>
+
+                <div class="flex items-start justify-between gap-3">
+                    <span class="text-gray-500 shrink-0">Phone</span>
+                    <span class="text-right">
+                        @if (!string.IsNullOrWhiteSpace(Model.Mobile))
+                        {
+                            <a href="tel:@Model.Mobile"
+                               class="font-semibold text-blue-600 hover:underline">
+                                @Model.Mobile
+                            </a>
+                        }
+                        else
+                        {
+                            <span class="text-gray-400">&mdash;</span>
+                        }
+                    </span>
+                </div>
+
+                <div class="flex items-start justify-between gap-3">
+                    <span class="text-gray-500 shrink-0">Email</span>
+                    <span class="text-right min-w-0">
+                        @if (!string.IsNullOrWhiteSpace(Model.ClientEmail))
+                        {
+                            <a href="mailto:@Model.ClientEmail"
+                               title="@Model.ClientEmail"
+                               class="block text-[11px] font-medium text-blue-600 hover:underline truncate">
+                                @Model.ClientEmail
+                            </a>
+                        }
+                        else
+                        {
+                            <span class="text-gray-400">&mdash;</span>
+                        }
+                    </span>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Classification -->
+        <div class="h-[160px] bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col">
+
+            <div class="flex items-center gap-2 mb-3">
+                <span class="w-7 h-7 rounded-lg bg-violet-50 text-violet-600 inline-flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" class="w-3.5 h-3.5">
+                        <path d="m12 2 9 5-9 5-9-5 9-5Z" />
+                        <path d="m3 12 9 5 9-5" />
+                        <path d="m3 17 9 5 9-5" />
+                    </svg>
+                </span>
+                <h2 class="text-[11px] font-bold uppercase tracking-widest text-gray-500">
+                    Classification
+                </h2>
+            </div>
+
+            <div class="space-y-2 text-sm">
+
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-gray-500">Channel</span>
+                    <span class="font-semibold text-gray-900 text-right">
+                        @Html.Raw(Dash(Model.ChannelName))
+                    </span>
+                </div>
+
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-gray-500">Priority</span>
+                    <span class="font-semibold text-gray-900 text-right">
+                        @if (!string.IsNullOrWhiteSpace(Model.PriorityName))
+                        {
+                            <span class="@Badge(Model.PriorityName, "tkt-b")">
+                                @Model.PriorityName
+                            </span>
+                        }
+                        else
+                        {
+                            <text>&mdash;</text>
+                        }
+                    </span>
+                </div>
+
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-gray-500">Category</span>
+                    <span class="font-semibold text-gray-900 text-right">
+                        @Html.Raw(Dash(Model.CategoryName))
+                    </span>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Time Card -->
+        <div class="h-[160px] bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col">
+
+            <div class="flex items-center gap-2 mb-3">
+                <span class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 inline-flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" class="w-3.5 h-3.5">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v5l3 2" />
+                    </svg>
+                </span>
+                <h2 class="text-[11px] font-bold uppercase tracking-widest text-gray-500">
+                    Time
+                </h2>
+            </div>
+
+            <div class="space-y-2 text-sm">
+
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-gray-500">Today</span>
+                    <span class="font-bold text-gray-900">
+                        @FormatDuration(todayMinutes)
+                    </span>
+                </div>
+
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-gray-500">Total</span>
+                    <span class="font-bold text-blue-600">
+                        @FormatDuration(Model.TimeSpentMinutes)
+                    </span>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ---------- ISSUE CARD (FULL WIDTH) ---------- -->
+    <div class="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sm:p-6">
+
+        <div class="flex items-center gap-3 flex-wrap">
+
+            <span class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 inline-flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round" class="w-5 h-5">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+            </span>
+
+            <h2 class="text-xs font-bold uppercase tracking-widest text-gray-500">
+                Issue
+            </h2>
+
+            @* Chhota category tag — [software] *@
+            @if (!string.IsNullOrWhiteSpace(Model.CategoryName))
+            {
+                <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-700 lowercase">
+                    @Model.CategoryName
+                </span>
+            }
+            else if (!string.IsNullOrWhiteSpace(Model.ChannelName))
+            {
+                <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-700 lowercase">
+                    @Model.ChannelName
+                </span>
+            }
+
+        </div>
+
+        <div class="text-lg font-bold text-gray-900 leading-snug mt-4">
+            @Model.Subject
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Description))
         {
-            <div class="tkt-stage-caption">
-                Now at <strong>@Model.StatusName</strong>
-                @if (stageDays > 0)
-                {
-                    <span>&middot; @stageDays
-                        @(stageDays == 1 ? "day" : "days")</span>
-                }
+            <div class="mt-4 rounded-xl bg-gray-50 border border-gray-100 p-4 text-gray-600 leading-relaxed whitespace-pre-line">
+                @Model.Description
             </div>
         }
 
     </div>
-}
+
+</div>
 
 
-<!-- ================= WORK LOG (aapka kaam) ================= -->
+@* ================= 4. WORK LOGS (collapsible, closed by default) ================= *@
 
-<div class="state-section tkt-collapsible tkt-worklog">
+<details id="tktWorkLogs"
+         class="group mx-6 mt-2 bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden">
 
-    <div class="form-section-title"
-         onclick="toggleSection(this)">
+    <summary class="flex items-center justify-between gap-4 flex-wrap px-6 py-4 cursor-pointer select-none hover:bg-white transition list-none">
 
-        &#128203; WORK LOG
-        <span class="tkt-sec-count">
-            &mdash; @workLog.Count
-            @(workLog.Count == 1 ? "update" : "updates")
-        </span>
+        <div class="flex items-center gap-3 min-w-0">
 
-        <button type="button" class="tkt-sec-toggle"
-                title="Show / hide"
-                onclick="event.stopPropagation(); toggleSection(this)">&minus;</button>
+            <span class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 inline-flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round" class="w-5 h-5">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                </svg>
+            </span>
 
-    </div>
+            <div class="min-w-0">
+                <h2 class="text-base font-bold text-gray-900">
+                    Work Logs (@workLog.Count)
+                </h2>
+                <p class="text-xs text-gray-500 mt-1">
+                    Total: <span class="font-bold text-blue-600">@FormatDuration(Model.TimeSpentMinutes)</span>
+                </p>
+            </div>
+
+        </div>
+
+        <div class="flex items-center gap-3 shrink-0">
+
+            @if (!Model.IsReadOnly && Model.CanAddWork)
+            {
+                <button type="button"
+                        class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition"
+                        onclick="event.preventDefault(); event.stopPropagation(); openUpdateModal();">
+
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" class="w-4 h-4">
+                        <path d="M12 5v14M5 12h14" />
+                    </svg>
+
+                    Add Work Log
+
+                </button>
+            }
+
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round"
+                 stroke-linejoin="round"
+                 class="w-5 h-5 text-gray-400 group-open:rotate-180 transition shrink-0">
+                <path d="m6 9 6 6 6-6" />
+            </svg>
+
+        </div>
+
+    </summary>
+
+    <div class="px-6 pb-6 pt-5 border-t border-gray-100">
 
     @if (workLog.Count == 0)
     {
-        <p style="color:#64748b; font-size:14px;">
+        <div class="text-sm text-gray-500">
             Abhi tak koi work update nahi likha.
-        </p>
+        </div>
     }
     else
     {
-        <div class="tkt-rail">
+        <div class="relative pl-10">
+
+            @* Vertical line *@
+            <div class="absolute left-[15px] top-2 bottom-2 w-0.5 bg-gray-200"></div>
 
             @foreach (var item in workLog.OrderBy(t => t.At))
             {
@@ -518,84 +726,93 @@
                     ? "work"
                     : item.KindKey;
 
-                <div class="tkt-rail-item ic-@kindKey"
-                     tabindex="0"
-                     title="Click to start work on this ticket"
-                     data-body="@(item.Body ?? string.Empty)"
-                     onclick="selectTimelineEntry(this)">
+                bool hasNext = !string.IsNullOrWhiteSpace(item.NextAction);
+                bool hasWaiting = !string.IsNullOrWhiteSpace(item.WaitingOn);
 
-                    <div class="tkt-rail-marker">
-                        <span class="tkt-rail-dot"></span>
+                string initial = string.IsNullOrWhiteSpace(item.ByName)
+                    ? "?"
+                    : item.ByName.Trim().Substring(0, 1).ToUpperInvariant();
+
+                <div class="relative mb-4">
+
+                    @* Avatar circle *@
+                    <div class="absolute -left-10 top-3 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shadow-sm">
+                        @initial
                     </div>
 
-                    <div class="tkt-rail-body">
+                    <div class="rounded-xl border shadow-sm p-4
+                                @(hasWaiting ? "bg-orange-50 border-orange-200"
+                                  : hasNext ? "bg-blue-50 border-blue-200"
+                                  : "bg-white border-gray-200")">
 
-                        <div class="tkt-rail-head">
+                        <div class="flex items-center justify-between gap-3 flex-wrap">
 
-                            <span class="tkt-rail-title">
-                                @item.Title
-                            </span>
+                            <div class="flex items-center gap-2 flex-wrap">
 
-                            @if (item.TimeSpent.HasValue
-                                && item.TimeSpent.Value > 0)
+                                <span class="text-sm font-bold text-gray-900">
+                                    @item.ByName
+                                </span>
+
+                                <span class="text-xs text-gray-500">
+                                    @item.At.ToString("dd MMM yyyy, hh:mm tt")
+                                </span>
+
+                                @if (item.WorkDate.HasValue)
+                                {
+                                    <span class="text-[11px] rounded-full bg-white border border-gray-200 px-2 py-0.5 text-gray-500">
+                                        Work for @item.WorkDate.Value.ToString("dd MMM")
+                                    </span>
+                                }
+
+                            </div>
+
+                            @if (item.TimeSpent.HasValue && item.TimeSpent.Value > 0)
                             {
-                                <span class="tkt-rail-time">
-                                    &#9201; @(item.TimeSpent.Value)m
+                                <span class="text-sm font-bold text-blue-600">
+                                    @FormatDuration(item.TimeSpent.Value)
                                 </span>
                             }
-
-                            <span class="tkt-rail-date">
-                                @item.At.ToString("dd MMM yyyy")
-                            </span>
 
                         </div>
 
                         @if (!string.IsNullOrWhiteSpace(item.Body))
                         {
-                            <div class="tkt-rail-text">
+                            <div class="mt-2 text-sm text-gray-700 leading-relaxed whitespace-pre-line">
                                 @item.Body
                             </div>
                         }
 
-                        @if (!string.IsNullOrWhiteSpace(item.NextAction))
+                        @if (hasNext)
                         {
-                            <div class="tkt-tl-next">
-                                &#10132; Next: @item.NextAction
+                            <div class="mt-3 rounded-lg bg-white border border-blue-200 px-3 py-2 text-sm text-blue-800">
+                                <strong class="font-semibold">Next Step:</strong>
+                                @item.NextAction
                             </div>
                         }
 
-                        @if (!string.IsNullOrWhiteSpace(item.WaitingOn))
+                        @if (hasWaiting)
                         {
-                            <div class="tkt-tl-wait">
-                                &#9208; Waiting on: @item.WaitingOn
+                            <div class="mt-2 rounded-lg bg-white border border-orange-200 px-3 py-2 text-sm text-orange-800">
+                                <strong class="font-semibold">Waiting On:</strong>
+                                @item.WaitingOn
                             </div>
                         }
 
                         @if (!string.IsNullOrWhiteSpace(item.ResolutionNote))
                         {
-                            <div class="tkt-tl-resolved">
-                                &#9989; Resolution: @item.ResolutionNote
+                            <div class="mt-2 rounded-lg bg-white border border-green-200 px-3 py-2 text-sm text-green-800">
+                                <strong class="font-semibold">Resolution:</strong>
+                                @item.ResolutionNote
                             </div>
                         }
 
-                        <div class="tkt-rail-meta">
-
-                            @if (!string.IsNullOrWhiteSpace(item.ByName))
-                            {
-                                <span>&#128100; @item.ByName</span>
-                            }
-
-                            @if (item.WorkDate.HasValue)
-                            {
-                                <span>Work for @item.WorkDate.Value.ToString("dd MMM")</span>
-                            }
-
-                            @if (item.FollowUpDate.HasValue)
-                            {
-                                <span>&#128197; Follow-up: @item.FollowUpDate.Value.ToString("dd MMM")</span>
-                            }
-
-                        </div>
+                        @if (item.FollowUpDate.HasValue)
+                        {
+                            <div class="mt-2 text-xs text-gray-500">
+                                &#128197; Follow-up:
+                                @item.FollowUpDate.Value.ToString("dd MMM yyyy")
+                            </div>
+                        }
 
                     </div>
 
@@ -605,200 +822,387 @@
         </div>
     }
 
-</div>
+    </div>
+
+</details>
 
 
-<!-- ================= REVIEW (admin ka decision) ================= -->
+@* ================= 5. BOTTOM SECTION ================= *@
 
-@if (Model.IsPendingReview || Model.Reviews.Count > 0)
-{
-    <div class="state-section tkt-review-card tkt-collapsible">
+<div class="p-6 space-y-6">
 
-        <div class="form-section-title"
-             onclick="toggleSection(this)">
+    @* ---------- REVIEW CARD ---------- *@
+    @if (Model.IsPendingReview || Model.Reviews.Count > 0)
+    {
+        <div id="tktReviewCard"
+             class="bg-white rounded-2xl border border-gray-200 border-l-4 border-l-green-500 shadow-sm p-6">
 
-            &#128269; REVIEW
-            @if (Model.IsPendingReview)
-            {
-                <span class="tkt-review-state pending">pending with admin</span>
-            }
-            else if (Model.Reviews.Count > 0)
-            {
-                var last = Model.Reviews[0];
-                bool ok = string.Equals(last.ReviewAction, "Approved",
-                    StringComparison.OrdinalIgnoreCase);
+            <div class="flex items-center gap-3 mb-5">
 
-                <span class="tkt-review-state @(ok ? "ok" : "no")">
-                    @(ok ? "approved" : "rejected")
+                <span class="w-9 h-9 rounded-xl bg-green-50 text-green-600 inline-flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" class="w-5 h-5">
+                        <path d="M21.8 10A10 10 0 1 1 17 3.34" />
+                        <path d="m9 11 3 3L22 4" />
+                    </svg>
                 </span>
-            }
 
-            <button type="button" class="tkt-sec-toggle"
-                    title="Show / hide"
-                    onclick="event.stopPropagation(); toggleSection(this)">&minus;</button>
+                <h2 class="text-xs font-bold uppercase tracking-widest text-gray-500">
+                    Review
+                </h2>
 
-        </div>
-
-        @if (Model.IsPendingReview)
-        {
-            if (Model.IsAdmin)
-            {
-                <!-- Admin: accept / reject + rating + message (mic) -->
-                <form id="reviewForm"
-                      class="tkt-review-form"
-                      data-ticket="@Model.Id"
-                      onsubmit="return submitReview(event);">
-
-                    <input type="hidden" name="ticketId" value="@Model.Id" />
-
-                    @Html.AntiForgeryToken()
-
-                    <div class="tkt-review-sent">
-                        Sent for review by
-                        <strong>@(string.IsNullOrWhiteSpace(Model.AssignedToName) ? Model.CreatedByName : Model.AssignedToName)</strong>
-                    </div>
-
-                    <div class="tkt-review-actions">
-
-                        <label class="tkt-review-pick">
-                            <input type="radio" name="action" value="accept" checked />
-                            <span>&#9989; Accept</span>
-                        </label>
-
-                        <label class="tkt-review-pick">
-                            <input type="radio" name="action" value="reject" />
-                            <span>&#10060; Reject</span>
-                        </label>
-
-                    </div>
-
-                    <div class="tkt-review-rate">
-                        <span class="tkt-review-rate-label">Rating</span>
-
-                        <div class="tkt-star-row" id="reviewStars">
-                            @for (int s = 1; s <= 5; s++)
-                            {
-                                <button type="button"
-                                        class="tkt-star"
-                                        data-value="@s">&#9734;</button>
-                            }
-                        </div>
-
-                        <input type="hidden" name="rating" id="reviewRating" value="" />
-                    </div>
-
-                    <div class="tkt-review-msg">
-                        <label>Message</label>
-
-                        <div class="tkt-input-wrap">
-
-                            <div class="tkt-voice-wrap">
-                                <textarea name="remarks"
-                                          id="reviewMessage"
-                                          rows="3"
-                                          maxlength="500"
-                                          placeholder="Kya theek hai / kya dobara chahiye..."></textarea>
-
-                                <button type="button"
-                                        class="tkt-mic-btn tkt-voice-btn"
-                                        id="reviewVoiceBtn"
-                                        title="Voice input"
-                                        onclick="toggleVoice(this, 'reviewMessage')">&#127908;</button>
-                            </div>
-
-                            <span class="tkt-btn-row">
-                                <button type="button"
-                                        class="tkt-clear-btn"
-                                        title="Clear"
-                                        onclick="clearField('reviewMessage')">&#128465;</button>
-                            </span>
-
-                            <span class="tkt-count" id="cnt_reviewMessage">0/500</span>
-
-                            <span class="tkt-voice-status" id="voiceStatus_reviewMessage">
-                                <span class="tkt-voice-dot"></span>
-                                Listening&hellip; speak now
-                            </span>
-
-                        </div>
-                    </div>
-
-                    <div class="tkt-review-buttons">
-                        <button type="submit" class="primary-btn">
-                            Submit review
-                        </button>
-                    </div>
-
-                </form>
-            }
-            else
-            {
-                <div class="tkt-review-wait">
-                    &#9203; Aapka review admin ke paas pending hai.
-                </div>
-            }
-        }
-
-        @if (Model.Reviews.Count > 0)
-        {
-            <div class="tkt-decisions">
-
-                <div class="tkt-decisions-title">
-                    Review Decision
-                </div>
-
-                @for (int ri = 0; ri < Model.Reviews.Count; ri++)
+                @if (Model.IsPendingReview)
                 {
-                    var rv = Model.Reviews[ri];
-                    bool ok = string.Equals(rv.ReviewAction, "Approved",
+                    <span class="tkt-review-state pending">pending with admin</span>
+                }
+                else if (Model.Reviews.Count > 0)
+                {
+                    var last = Model.Reviews[0];
+                    bool ok = string.Equals(last.ReviewAction, "Approved",
                         StringComparison.OrdinalIgnoreCase);
 
-                    bool isLatest = ri == 0;
+                    <span class="tkt-review-state @(ok ? "ok" : "no")">
+                        @(ok ? "approved" : "rejected")
+                    </span>
+                }
 
-                    if (ri > 0)
-                    {
-                        <div class="tkt-decision-sep"></div>
-                    }
+            </div>
 
-                    <div class="tkt-decision @(ok ? "ok" : "no")
-                                @(isLatest ? "latest" : "")">
+            @if (Model.IsPendingReview)
+            {
+                if (Model.IsAdmin)
+                {
+                    @* Admin: accept / reject + rating + message (mic) *@
+                    <form id="reviewForm"
+                          class="tkt-review-form"
+                          data-ticket="@Model.Id"
+                          onsubmit="return submitReview(event);">
 
-                        <div class="tkt-decision-head">
+                        <input type="hidden" name="ticketId" value="@Model.Id" />
 
-                            <span class="tkt-decision-verdict">
-                                @(ok ? "\u2705 Accepted" : "\u274C Rejected")
-                            </span>
+                        @Html.AntiForgeryToken()
 
-                            <span class="tkt-decision-badge">
-                                @(ok ? "Resolved" : "Reopened")
-                            </span>
+                        <div class="tkt-review-sent">
+                            Sent for review by
+                            <strong>@reviewSentBy</strong>
+                        </div>
 
-                            @if (rv.Rating.HasValue)
-                            {
-                                <span class="tkt-decision-stars">
-                                    @for (int s = 1; s <= 5; s++)
-                                    {
-                                        @(s <= rv.Rating.Value ? "\u2605" : "\u2606")
-                                    }
+                        <div class="tkt-review-actions">
+
+                            <label class="tkt-review-pick">
+                                <input type="radio" name="action" value="accept" checked />
+                                <span>&#9989; Accept</span>
+                            </label>
+
+                            <label class="tkt-review-pick">
+                                <input type="radio" name="action" value="reject" />
+                                <span>&#10060; Reject</span>
+                            </label>
+
+                        </div>
+
+                        <div class="tkt-review-rate">
+                            <span class="tkt-review-rate-label">Rating</span>
+
+                            <div class="tkt-star-row" id="reviewStars">
+                                @for (int s = 1; s <= 5; s++)
+                                {
+                                    <button type="button"
+                                            class="tkt-star text-3xl"
+                                            data-value="@s">&#9734;</button>
+                                }
+                            </div>
+
+                            <input type="hidden" name="rating" id="reviewRating" value="" />
+                        </div>
+
+                        <div class="tkt-review-msg">
+                            <label>Message</label>
+
+                            <div class="tkt-input-wrap">
+
+                                <div class="tkt-voice-wrap">
+                                    <textarea name="remarks"
+                                              id="reviewMessage"
+                                              rows="3"
+                                              maxlength="500"
+                                              placeholder="Kya theek hai / kya dobara chahiye..."></textarea>
+
+                                    <button type="button"
+                                            class="tkt-mic-btn tkt-voice-btn"
+                                            id="reviewVoiceBtn"
+                                            title="Voice input"
+                                            onclick="toggleVoice(this, 'reviewMessage')">&#127908;</button>
+                                </div>
+
+                                <span class="tkt-btn-row">
+                                    <button type="button"
+                                            class="tkt-clear-btn"
+                                            title="Clear"
+                                            onclick="clearField('reviewMessage')">&#128465;</button>
                                 </span>
+
+                                <span class="tkt-count" id="cnt_reviewMessage">0/500</span>
+
+                                <span class="tkt-voice-status" id="voiceStatus_reviewMessage">
+                                    <span class="tkt-voice-dot"></span>
+                                    Listening&hellip; speak now
+                                </span>
+
+                            </div>
+                        </div>
+
+                        <div class="tkt-review-buttons">
+                            <button type="submit" class="primary-btn">
+                                Submit review
+                            </button>
+                        </div>
+
+                    </form>
+                }
+                else
+                {
+                    <div class="tkt-review-wait">
+                        &#9203; Aapka review admin ke paas pending hai.
+                    </div>
+                }
+            }
+
+            @if (Model.Reviews.Count > 0)
+            {
+                @* ---- Review history: dropdown + 10-at-a-time list ---- *@
+                @* Latest review sabse upar (Model.Reviews already DESC). *@
+                @* Pehle sirf 10 dikhte hain, "Load more" se +10.        *@
+
+                <details id="tktReviewHistory"
+                         class="group mt-2 rounded-xl border border-gray-200 overflow-hidden">
+
+                    <summary class="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer select-none bg-gray-50 hover:bg-gray-100 transition list-none">
+
+                        <div class="flex items-center gap-2 min-w-0">
+
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                 stroke-width="2.5" stroke-linecap="round"
+                                 stroke-linejoin="round"
+                                 class="w-4 h-4 text-gray-400 group-open:rotate-180 transition shrink-0">
+                                <path d="m6 9 6 6 6-6" />
+                            </svg>
+
+                            <span class="text-xs font-bold uppercase tracking-widest text-gray-500">
+                                Review History
+                            </span>
+
+                            <span class="tkt-sec-count">&mdash; @Model.Reviews.Count</span>
+
+                        </div>
+
+                        <span id="tktReviewCounter"
+                              class="text-[11px] text-gray-500 shrink-0">
+                            Showing @Math.Min(10, Model.Reviews.Count) of @Model.Reviews.Count
+                        </span>
+
+                    </summary>
+
+                    <div class="px-4 py-3 border-t border-gray-100">
+
+                        <div id="tktReviewList"
+                             class="max-h-[320px] overflow-y-auto space-y-2 pr-1">
+
+                            @for (int ri = 0; ri < Model.Reviews.Count; ri++)
+                            {
+                                var rv = Model.Reviews[ri];
+                                bool ok = string.Equals(rv.ReviewAction, "Approved",
+                                    StringComparison.OrdinalIgnoreCase);
+
+                                bool isLatest = ri == 0;
+
+                                @* 11th review se aage hidden — "Load more" par dikhta hai *@
+                                bool isBeyondFirstPage = ri >= 10;
+
+                                <div data-tkt-review-row
+                                     class="flex items-start gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2.5 @(ok ? "border-l-4 border-l-green-500" : "border-l-4 border-l-red-500") @(isLatest ? "shadow-sm ring-1 ring-green-100" : "") @(isBeyondFirstPage ? "hidden" : "")">
+
+                                    <span class="text-xs font-bold shrink-0 mt-0.5 @(ok ? "text-green-600" : "text-red-600")">
+                                        @Html.Raw(ok ? "&#9989;" : "&#10060;")
+                                    </span>
+
+                                    <div class="min-w-0 flex-1">
+
+                                        <div class="flex items-center gap-2 flex-wrap">
+
+                                            <span class="text-xs font-bold text-gray-900">
+                                                @(ok ? "Accepted" : "Rejected")
+                                            </span>
+
+                                            <span class="text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5 border @(ok ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-orange-50 text-orange-700 border-orange-200")">
+                                                @(ok ? "Resolved" : "Reopened")
+                                            </span>
+
+                                            @if (rv.Rating.HasValue)
+                                            {
+                                                <span class="text-yellow-400 tracking-tight text-sm">
+                                                    @for (int s = 1; s <= 5; s++)
+                                                    {
+                                                        @Html.Raw(s <= rv.Rating.Value ? "&#9733;" : "&#9734;")
+                                                    }
+                                                </span>
+                                            }
+
+                                        </div>
+
+                                        <div class="text-[11px] text-gray-500 mt-1">
+                                            @(string.IsNullOrWhiteSpace(rv.ReviewedByName)
+                                                ? "Admin"
+                                                : rv.ReviewedByName)
+                                            &middot;
+                                            @rv.ReviewedAt.ToString("dd MMM yyyy, h:mm tt")
+                                        </div>
+
+                                        @if (!string.IsNullOrWhiteSpace(rv.Remarks))
+                                        {
+                                            <div class="text-xs text-gray-700 leading-relaxed mt-1 line-clamp-2">
+                                                @rv.Remarks
+                                            </div>
+                                        }
+
+                                    </div>
+
+                                </div>
                             }
 
                         </div>
 
-                        <div class="tkt-decision-who">
-                            @(string.IsNullOrWhiteSpace(rv.ReviewedByName)
-                                ? "Admin"
-                                : rv.ReviewedByName)
-                            &middot;
-                            @rv.ReviewedAt.ToString("dd MMM yyyy, h:mm tt")
-                        </div>
-
-                        @if (!string.IsNullOrWhiteSpace(rv.Remarks))
+                        @if (Model.Reviews.Count > 10)
                         {
-                            <div class="tkt-decision-msg">
-                                @rv.Remarks
+                            <div class="mt-3 flex justify-center" id="tktReviewMoreWrap">
+                                <button type="button"
+                                        id="tktReviewMore"
+                                        class="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition"
+                                        onclick="showMoreReviews();">
+                                    Load more
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                         stroke-width="2.5" stroke-linecap="round"
+                                         stroke-linejoin="round" class="w-3.5 h-3.5">
+                                        <path d="m6 9 6 6 6-6" />
+                                    </svg>
+                                </button>
                             </div>
                         }
+
+                    </div>
+
+                </details>
+            }
+
+        </div>
+    }
+
+
+    @* ---------- SYSTEM ACTIVITY (collapsible, closed by default) ---------- *@
+    <details id="tktSystemActivity"
+             class="group bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+
+        <summary class="flex items-center justify-between gap-4 px-6 py-4 cursor-pointer select-none hover:bg-gray-50 transition list-none">
+
+            <div class="flex items-center gap-3 min-w-0">
+
+                <span class="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 inline-flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" class="w-5 h-5">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v5l3 2" />
+                    </svg>
+                </span>
+
+                <h2 class="text-xs font-bold uppercase tracking-widest text-gray-500">
+                    System Activity
+                </h2>
+
+                <span class="tkt-sec-count">&mdash; @systemLog.Count</span>
+
+            </div>
+
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round"
+                 stroke-linejoin="round"
+                 class="w-5 h-5 text-gray-400 group-open:rotate-180 transition shrink-0">
+                <path d="m6 9 6 6 6-6" />
+            </svg>
+
+        </summary>
+
+        <div class="px-6 pb-6 pt-4 border-t border-gray-100">
+
+        @if (systemLog.Count == 0)
+        {
+            <div class="text-sm text-gray-500">
+                No system activity yet.
+            </div>
+        }
+        else
+        {
+            <div class="tkt-rail tkt-rail-muted">
+
+                @foreach (var item in systemLog)
+                {
+                    var kindKey = string.IsNullOrWhiteSpace(item.KindKey)
+                        ? "work"
+                        : item.KindKey;
+
+                    <div class="tkt-rail-item ic-@kindKey">
+
+                        <div class="tkt-rail-marker">
+                            <span class="tkt-rail-dot"></span>
+                        </div>
+
+                        <div class="tkt-rail-body">
+
+                            <div class="tkt-rail-head">
+
+                                <span class="tkt-rail-title">
+                                    @Html.Raw(string.IsNullOrWhiteSpace(item.Icon)
+                                        ? "&#128221;"
+                                        : item.Icon)
+                                    @item.Title
+                                </span>
+
+                                @if (!string.IsNullOrWhiteSpace(item.OldStatus)
+                                    && !string.IsNullOrWhiteSpace(item.NewStatus))
+                                {
+                                    <span class="tkt-tl-old">
+                                        @item.OldStatus
+                                    </span>
+
+                                    <span class="tkt-tl-arrow">&rarr;</span>
+
+                                    <span class="@Badge(item.NewStatus, "tkt-b")">
+                                        @item.NewStatus
+                                    </span>
+                                }
+
+                                <span class="tkt-rail-date">
+                                    @item.At.ToString("dd MMM yyyy, HH:mm")
+                                </span>
+
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(item.Body))
+                            {
+                                <div class="tkt-rail-text">
+                                    @item.Body
+                                </div>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(item.ByName))
+                            {
+                                <div class="tkt-rail-meta">
+                                    <span>&#128100; @item.ByName</span>
+                                </div>
+                            }
+
+                        </div>
 
                     </div>
                 }
@@ -806,228 +1210,167 @@
             </div>
         }
 
-    </div>
-}
+        </div>
+
+    </details>
 
 
-<!-- ================= SYSTEM ACTIVITY (system ka record) ================= -->
+    @* ---------- CLIENT TICKETS (collapsed accordion) ---------- *@
+    <details id="clientTickets"
+             class="group bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
 
-<div class="state-section tkt-collapsible tkt-sysact collapsed">
+        <summary class="flex items-center justify-between gap-4 px-6 py-4 cursor-pointer select-none hover:bg-gray-50 transition">
 
-    <div class="form-section-title"
-         onclick="toggleSection(this)">
+            <div class="flex items-center gap-3 min-w-0">
 
-        &#9881; SYSTEM ACTIVITY
-        <span class="tkt-sec-count">
-            &mdash; @systemLog.Count
-        </span>
+                <span class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 inline-flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" class="w-5 h-5">
+                        <path d="M8 6h13M8 12h13M8 18h13" />
+                        <path d="M3 6h.01M3 12h.01M3 18h.01" />
+                    </svg>
+                </span>
 
-        <button type="button" class="tkt-sec-toggle"
-                title="Show / hide"
-                onclick="event.stopPropagation(); toggleSection(this)">+</button>
+                <div class="min-w-0">
+                    <h2 class="text-sm font-bold text-gray-900">
+                        @Model.ClientName &mdash; Tickets
+                    </h2>
+                    <p class="text-xs text-gray-500 mt-0.5">
+                        Total @Model.ClientTotalTickets
+                        (@Model.ClientOpenTickets open,
+                        @Model.ClientClosedTickets closed)
+                    </p>
+                </div>
 
-    </div>
+            </div>
 
-    @if (systemLog.Count == 0)
-    {
-        <p style="color:#64748b; font-size:14px;">
-            No system activity yet.
-        </p>
-    }
-    else
-    {
-        <div class="tkt-rail tkt-rail-muted">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round"
+                 stroke-linejoin="round"
+                 class="w-5 h-5 text-gray-400 group-open:rotate-180 transition shrink-0">
+                <path d="m6 9 6 6 6-6" />
+            </svg>
 
-            @foreach (var item in systemLog)
+        </summary>
+
+        <div class="px-6 pb-6 pt-1 border-t border-gray-100">
+
+            @if (Model.ClientTickets.Count == 0)
             {
-                var kindKey = string.IsNullOrWhiteSpace(item.KindKey)
-                    ? "work"
-                    : item.KindKey;
+                <div class="text-sm text-gray-500 pt-4">
+                    Is client ka koi ticket nahi mila.
+                </div>
+            }
+            else
+            {
+                <div class="table-container tkt-client-table mt-4">
 
-                <div class="tkt-rail-item ic-@kindKey">
+                    <table>
 
-                    <div class="tkt-rail-marker">
-                        <span class="tkt-rail-dot"></span>
-                    </div>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Ticket No</th>
+                                <th>Date</th>
+                                <th>Issue</th>
+                                <th>Category</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th>Assigned</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
 
-                    <div class="tkt-rail-body">
+                        <tbody>
+                            @{ int rowNo = 0; }
 
-                        <div class="tkt-rail-head">
-
-                            <span class="tkt-rail-title">
-                                @(string.IsNullOrWhiteSpace(item.Icon)
-                                    ? "\U0001F4DD"
-                                    : item.Icon)
-                                @item.Title
-                            </span>
-
-                            @if (!string.IsNullOrWhiteSpace(item.OldStatus)
-                                && !string.IsNullOrWhiteSpace(item.NewStatus))
+                            @foreach (var t in Model.ClientTickets)
                             {
-                                <span class="tkt-tl-old">
-                                    @item.OldStatus
-                                </span>
+                                rowNo++;
 
-                                <span class="tkt-tl-arrow">&rarr;</span>
+                                bool isCurrent = t.Id == Model.Id;
 
-                                <span class="@Badge(item.NewStatus, "tkt-b")">
-                                    @item.NewStatus
-                                </span>
+                                <tr class="@(isCurrent ? "tkt-current-row" : "")">
+
+                                    <td>@rowNo</td>
+
+                                    <td class="col-nowrap">
+                                        <a href="@Url.Action("Detail", "DailySupport", new { id = t.Id })"
+                                           class="tkt-link">
+
+                                            @t.TicketNo
+
+                                        </a>
+
+                                        @if (isCurrent)
+                                        {
+                                            <span class="tkt-current-tag">current</span>
+                                        }
+                                    </td>
+
+                                    <td class="col-nowrap">
+                                        @t.SupportDate.ToString("dd/MM/yy")
+                                    </td>
+
+                                    <td class="col-wrap">
+                                        @t.Subject
+                                    </td>
+
+                                    <td class="col-wrap">
+                                        @t.CategoryName
+
+                                        @if (!string.IsNullOrWhiteSpace(t.SubCategoryName))
+                                        {
+                                            <span class="text-gray-400">
+                                                &rsaquo; @t.SubCategoryName
+                                            </span>
+                                        }
+                                    </td>
+
+                                    <td class="col-nowrap">
+                                        @if (!string.IsNullOrWhiteSpace(t.PriorityName))
+                                        {
+                                            <span class="@Badge(t.PriorityName, "tkt-b")">
+                                                @t.PriorityName
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <text>&mdash;</text>
+                                        }
+                                    </td>
+
+                                    <td class="col-nowrap">
+                                        <span class="@Badge(t.StatusName, "tkt-b")">
+                                            @t.StatusName
+                                        </span>
+                                    </td>
+
+                                    <td class="col-nowrap">
+                                        @Html.Raw(Dash(t.AssignedToName))
+                                    </td>
+
+                                    <td class="col-nowrap">
+                                        @Master.Configurations.TicketService.FormatDuration(t.TimeSpentMinutes)
+                                    </td>
+
+                                </tr>
                             }
 
-                            <span class="tkt-rail-date">
-                                @item.At.ToString("dd MMM yyyy, HH:mm")
-                            </span>
+                        </tbody>
 
-                        </div>
-
-                        @if (!string.IsNullOrWhiteSpace(item.ByName))
-                        {
-                            <div class="tkt-rail-meta">
-                                <span>&#128100; @item.ByName</span>
-                            </div>
-                        }
-
-                    </div>
+                    </table>
 
                 </div>
             }
 
         </div>
-    }
+
+    </details>
 
 </div>
 
-
-<!-- ================= CLIENT TICKETS (full table) ================= -->
-
-<div class="state-section tkt-collapsible" id="clientTickets">
-
-    <div class="form-section-title"
-         onclick="toggleSection(this)">
-
-        &#128196; @Model.ClientName &mdash; TICKETS
-
-        <span class="tkt-client-count">
-            Total @Model.ClientTotalTickets
-            (@Model.ClientOpenTickets open, @Model.ClientClosedTickets closed)
-        </span>
-
-        <button type="button" class="tkt-sec-toggle"
-                title="Show / hide"
-                onclick="event.stopPropagation(); toggleSection(this)">−</button>
-
-    </div>
-
-    @if (Model.ClientTickets.Count == 0)
-    {
-        <p style="color:#64748b; font-size:14px;">
-            Is client ka koi ticket nahi mila.
-        </p>
-    }
-    else
-    {
-        <div class="table-container tkt-client-table">
-
-            <table>
-
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Ticket No</th>
-                        <th>Date</th>
-                        <th>Issue</th>
-                        <th>Category</th>
-                        <th>Priority</th>
-                        <th>Status</th>
-                        <th>Assigned</th>
-                        <th>Time</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    @{ int rowNo = 0; }
-
-                    @foreach (var t in Model.ClientTickets)
-                    {
-                        rowNo++;
-
-                        bool isCurrent = t.Id == Model.Id;
-
-                        <tr class="@(isCurrent ? "tkt-current-row" : "")">
-
-                            <td>@rowNo</td>
-
-                            <td class="col-nowrap">
-                                <a href="@Url.Action("Detail", "DailySupport", new { id = t.Id })"
-                                   class="tkt-link">
-
-                                    @t.TicketNo
-
-                                </a>
-
-                                @if (isCurrent)
-                                {
-                                    <span class="tkt-current-tag">current</span>
-                                }
-                            </td>
-
-                            <td class="col-nowrap">
-                                @t.SupportDate.ToString("dd/MM/yy")
-                            </td>
-
-                            <td class="col-wrap">
-                                @t.Subject
-                            </td>
-
-                            <td class="col-nowrap">
-                                @Html.Raw(Dash(t.CategoryName))
-                                @if (!string.IsNullOrWhiteSpace(t.SubCategoryName))
-                                {
-                                    <small class="cell-sub">
-                                        @t.SubCategoryName
-                                    </small>
-                                }
-                            </td>
-
-                            <td class="col-nowrap">
-                                @if (!string.IsNullOrWhiteSpace(t.PriorityName))
-                                {
-                                    <span class="@Badge(t.PriorityName, "tkt-b")">
-                                        @t.PriorityName
-                                    </span>
-                                }
-                                else
-                                {
-                                    <text>&mdash;</text>
-                                }
-                            </td>
-
-                            <td class="col-nowrap">
-                                <span class="@Badge(t.StatusName, "tkt-b")">
-                                    @t.StatusName
-                                </span>
-                            </td>
-
-                            <td class="col-nowrap">
-                                @Html.Raw(Dash(t.AssignedToName))
-                            </td>
-
-                            <td class="col-nowrap">
-                                @t.TimeSpentDisplay
-                            </td>
-
-                        </tr>
-                    }
-
-                </tbody>
-
-            </table>
-
-        </div>
-    }
-
-</div>
 
 
 <!-- ================= ADD WORK MODAL ================= -->
@@ -1284,6 +1627,22 @@
 
             </div>
 
+            @* Reassign reason — timeline me dikhta hai *@
+            <div class="form-group">
+
+                <label>
+                    Reason
+                </label>
+
+                <textarea id="assign_Reason"
+                          rows="3"
+                          maxlength="300"
+                          placeholder="Kyu reassign kiya... (timeline me dikhega)"></textarea>
+
+                <span class="tkt-count" id="cnt_assign_Reason">0/300</span>
+
+            </div>
+
         </div>
 
         <div class="modal-actions">
@@ -1361,6 +1720,22 @@
             becomes read-only and no further work can be added.
         </p>
 
+        @* Close reason — timeline me dikhta hai *@
+        <div class="tkt-confirm-field">
+
+            <label for="close_Remarks">
+                Reason / Remarks
+            </label>
+
+            <textarea id="close_Remarks"
+                      rows="3"
+                      maxlength="300"
+                      placeholder="Kyu close kiya... (timeline me dikhega)"></textarea>
+
+            <span class="tkt-count" id="cnt_close_Remarks">0/300</span>
+
+        </div>
+
         <div class="tkt-confirm-actions">
 
             <button type="button"
@@ -1370,7 +1745,7 @@
             </button>
 
             <button type="button"
-                    class="tkt-btn tkt-confirm-yes"
+                    class="tkt-btn tkt-confirm-yes tkt-confirm-danger"
                     id="closeConfirmYes"
                     onclick="confirmCloseTicket()">
                 Yes, Close
@@ -1382,6 +1757,14 @@
 
 </div>
 
+
+@section Styles
+{
+    @* Tailwind build (npm run css). Sirf is page pe load hota hai
+         taaki baaki pages Tailwind ke classes se affect na hon. *@
+    <link rel="stylesheet"
+          href="~/css/tailwind.css?v=3" />
+}
 
 @section Scripts
 {
@@ -1397,31 +1780,6 @@
         // ==========================================
         // TIMELINE — CLICK AN ENTRY TO START WORK
         // ==========================================
-
-        // Expand / collapse a whole section (Ticket Info, Issue,
-        // Work Log, System Activity, Client Tickets...).
-        // Works whether the click lands on the header row or the +/-
-        // button (the button stops propagation, so no double toggle).
-        function toggleSection(el) {
-
-            var section = el.closest('.tkt-collapsible')
-                || (el.classList && el.classList.contains('tkt-collapsible')
-                    ? el
-                    : null);
-
-            if (!section) return;
-
-            section.classList.toggle('collapsed');
-
-            var toggle = section.querySelector(
-                '.form-section-title .tkt-sec-toggle');
-
-            if (toggle) {
-                toggle.innerText = section.classList.contains('collapsed')
-                    ? '+'
-                    : '−';
-            }
-        }
 
         // Work Log me kisi row pe click -> confirm -> edit mode me modal.
         // Naya update add nahi hota; wahi row update hota hai.
@@ -1594,7 +1952,8 @@
         document.addEventListener('DOMContentLoaded', function () {
 
             ['upd_WaitingOn', 'upd_ResolutionNote',
-                'upd_WorkDone', 'upd_NextAction', 'reviewMessage']
+                'upd_WorkDone', 'upd_NextAction', 'reviewMessage',
+                'assign_Reason', 'close_Remarks']
                 .forEach(function (id) {
                     var field = document.getElementById(id);
                     if (field) {
@@ -1925,11 +2284,76 @@
         }
 
         // ==========================================
+        // REVIEW HISTORY — 10 AT A TIME ("Load more")
+        // ==========================================
+        //
+        // Server saari reviews render karta hai (latest pehle).
+        // Sirf pehle 10 dikhte hain — baaki hidden hain.
+        // "Load more" click par agle 10 reveal hote hain aur
+        // counter ("Showing N of M") update ho jata hai.
+
+        var TKT_REVIEW_PAGE = 10;
+
+        function showMoreReviews() {
+
+            var list = document.getElementById('tktReviewList');
+
+            if (!list) return;
+
+            var rows = list.querySelectorAll('[data-tkt-review-row]');
+
+            var shown = 0;
+            var i;
+
+            for (i = 0; i < rows.length; i++) {
+                if (!rows[i].classList.contains('hidden')) {
+                    shown++;
+                }
+            }
+
+            var revealed = 0;
+
+            for (i = 0; i < rows.length && revealed < TKT_REVIEW_PAGE; i++) {
+                if (rows[i].classList.contains('hidden')) {
+                    rows[i].classList.remove('hidden');
+                    shown++;
+                    revealed++;
+                }
+            }
+
+            var counter = document.getElementById('tktReviewCounter');
+
+            if (counter) {
+                counter.textContent =
+                    'Showing ' + shown + ' of ' + rows.length;
+            }
+
+            // Sab dikh gaya -> button hata do.
+            if (shown >= rows.length) {
+                var wrap = document.getElementById('tktReviewMoreWrap');
+                if (wrap) {
+                    wrap.style.display = 'none';
+                }
+            }
+        }
+
+
+        // ==========================================
         // CLOSE TICKET (Resolved -> Closed, owner/admin)
         // ==========================================
 
         function openCloseConfirm() {
+
+            var box = document.getElementById('close_Remarks');
+
+            if (box) {
+                box.value = '';
+                refreshFieldUi('close_Remarks');
+            }
+
             document.getElementById('closeConfirm').classList.add('open');
+
+            if (box) { box.focus(); }
         }
 
         function closeCloseConfirm() {
@@ -1938,6 +2362,21 @@
 
         function confirmCloseTicket() {
 
+            var remarksField = document.getElementById('close_Remarks');
+
+            var remarks = remarksField
+                ? remarksField.value.trim()
+                : '';
+
+            if (remarks.length < 3) {
+                masterShowToast(
+                    'Close karne ki wajah (reason) likhna zaruri hai.',
+                    'error');
+
+                if (remarksField) { remarksField.focus(); }
+                return;
+            }
+
             var btn = document.getElementById('closeConfirmYes');
 
             if (btn) { btn.disabled = true; }
@@ -1945,6 +2384,7 @@
             var body = new URLSearchParams();
             body.append('ticketId', '@Model.Id');
             body.append('action', 'close');
+            body.append('remarks', remarks);
             body.append(
                 '__RequestVerificationToken', getAntiForgeryToken());
 
@@ -1972,6 +2412,8 @@
                         refreshSupportBadge();
                     }
 
+                    markActivityFocus();
+
                     setTimeout(function () { location.reload(); }, 700);
                 })
                 .catch(function () {
@@ -1979,6 +2421,68 @@
                     if (btn) { btn.disabled = false; }
                 });
         }
+
+        // ==========================================
+        // SYSTEM ACTIVITY — REASSIGN / CLOSE KE BAAD
+        // ==========================================
+        //
+        // Reload ke baad timeline dropdown khud khul jata hai
+        // aur newest entry highlight + scroll hoti hai, taaki
+        // "kisko, kyu" turant dikhe.
+
+        function markActivityFocus() {
+            try {
+                sessionStorage.setItem('tktFocusActivity', '1');
+            } catch (e) { /* private mode */ }
+        }
+
+        (function () {
+
+            function focusActivity() {
+
+                var flag = null;
+
+                try {
+                    flag = sessionStorage.getItem('tktFocusActivity');
+                    sessionStorage.removeItem('tktFocusActivity');
+                } catch (e) { /* ignore */ }
+
+                if (!flag) { return; }
+
+                var box = document.getElementById('tktSystemActivity');
+
+                if (!box) { return; }
+
+                box.open = true;
+
+                var first = box.querySelector('.tkt-rail-item');
+
+                if (first) {
+                    first.classList.add('tkt-rail-flash');
+                }
+
+                setTimeout(function () {
+                    box.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+                }, 150);
+
+                setTimeout(function () {
+                    if (first) {
+                        first.classList.remove('tkt-rail-flash');
+                    }
+                }, 6000);
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener(
+                    'DOMContentLoaded', focusActivity);
+            } else {
+                focusActivity();
+            }
+
+        })();
 
         // Anti-forgery token (page ke kisi form se).
         function getAntiForgeryToken() {
@@ -2097,7 +2601,17 @@
         // ==========================================
 
         function openAssignModal() {
+
+            var reason = document.getElementById('assign_Reason');
+
+            if (reason) {
+                reason.value = '';
+                refreshFieldUi('assign_Reason');
+            }
+
             document.getElementById('assignModal').style.display = 'flex';
+
+            if (reason) { reason.focus(); }
         }
 
         function closeAssignModal() {
@@ -2108,9 +2622,25 @@
 
             var userId = document.getElementById('assign_UserId').value;
 
+            var reasonField = document.getElementById('assign_Reason');
+
+            var reason = reasonField
+                ? reasonField.value.trim()
+                : '';
+
+            if (reason.length < 3) {
+                masterShowToast(
+                    'Reassign ki wajah (reason) likhna zaruri hai.',
+                    'error');
+
+                if (reasonField) { reasonField.focus(); }
+                return;
+            }
+
             postAction('@Url.Action("Assign","DailySupport")', {
                 ticketId: ticketId,
-                userId: userId
+                userId: userId,
+                reason: reason
             });
         }
 
@@ -2139,12 +2669,73 @@
                         res.success ? 'success' : 'error');
 
                     if (res.success) {
+
+                        // Reload ke baad System Activity khud khule.
+                        markActivityFocus();
+
                         setTimeout(function () {
                             window.location.reload();
                         }, 700);
                     }
                 });
         }
+
+        // ==========================================
+        // NOTIFICATION FOCUS (?focus=review)
+        // Notification se aaye ho to REVIEW section khud
+        // expand + highlight + scroll ho jata hai — review
+        // alag feel nahi hota.
+        // ==========================================
+
+        (function () {
+
+            function focusReview() {
+
+                var params = new URLSearchParams(
+                    window.location.search);
+
+                if (params.get('focus') !== 'review') {
+                    return;
+                }
+
+                var card = document.getElementById('tktReviewCard');
+
+                if (!card) {
+                    return;
+                }
+
+                card.classList.remove('collapsed');
+
+                card.classList.add('tkt-review-focus');
+
+                // Review history dropdown bhi khul jata hai,
+                // warna review history andar hi chhupi rehti.
+                var history = document.getElementById('tktReviewHistory');
+
+                if (history) {
+                    history.open = true;
+                }
+
+                setTimeout(function () {
+                    card.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+                }, 150);
+
+                setTimeout(function () {
+                    card.classList.remove('tkt-review-focus');
+                }, 6000);
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener(
+                    'DOMContentLoaded', focusReview);
+            } else {
+                focusReview();
+            }
+
+        })();
 
     </script>
 }

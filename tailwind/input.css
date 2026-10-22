@@ -1,0 +1,11 @@
+/* Tailwind entry point.
+ *
+ * NOTE: preflight (Tailwind ka default CSS reset) config me
+ * band hai — is project ki poori styling hand-written
+ * site.css me hai, reset se baaki pages toot jate.
+ *
+ * Sirf "components" + "utilities" compile hote hain.
+ */
+
+@tailwind components;
+@tailwind utilities;

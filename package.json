@@ -1,0 +1,13 @@
+{
+  "name": "master-ui",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Tailwind CSS build for the MASTER app UI.",
+  "scripts": {
+    "css": "tailwindcss -i ./tailwind/input.css -o ./wwwroot/css/tailwind.css --minify",
+    "css:watch": "tailwindcss -i ./tailwind/input.css -o ./wwwroot/css/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}

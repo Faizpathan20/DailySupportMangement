@@ -2,6 +2,11 @@
 
 @{
     ViewData["Title"] = "Daily Support";
+
+    // Premium page look (New Ticket page jaisa): gray canvas
+    // + floating white cards.
+    ViewData["BodyClass"] = "tkt-page-body";
+
     int totalRecords = Model.TotalRecords;
 
     var staticOptions = ViewBag.StaticOptions as Dictionary<string, string[]>
@@ -53,6 +58,57 @@
                         : "prio-default";
     }
 
+    var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Subject"] = "Short subject",
+        ["Description"] = "Client problem / request",
+        ["Remarks"] = "Voice to text - click Mic and speak..."
+    };
+
+    // Placeholders ViewBag me daalte hain taake field
+    // renderer (@functions) unhe parh sake.
+    ViewBag.Placeholders = placeholders;
+
+    // ---- Edit form: fields 3 premium cards me group ----
+    var editGroups = new[]
+    {
+        new
+        {
+            Key = "ticket",
+            Title = "Ticket Info",
+            Names = new[] { "Mobile", "CallerName", "Channel", "Category" }
+        },
+        new
+        {
+            Key = "assign",
+            Title = "Assignment & Status",
+            Names = new[] { "Priority", "UserId", "Status" }
+        },
+        new
+        {
+            Key = "details",
+            Title = "Details",
+            Names = new[] { "Subject", "Description" }
+        }
+    };
+
+    // Koi field agar groups me na ho to "Other Details"
+    // card me chala jayega (koi data lost na ho).
+    var groupedFieldNames =
+        editGroups.SelectMany(g => g.Names).ToArray();
+
+    var remainingFields =
+        Model.FormFields
+            .Where(f => !groupedFieldNames.Contains(
+                f.Name,
+                StringComparer.OrdinalIgnoreCase))
+            .ToList();
+}
+
+
+@functions {
+
+    // Status pill ka CSS class (table + modal dono).
     string StatusPillClass(string status)
     {
         return status switch
@@ -67,16 +123,448 @@
         };
     }
 
-    var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+
+    // Ek group ke fields (view ke order me).
+    List<MasterColumnViewModel> GroupFields(string[] names)
     {
-        ["Subject"] = "Short subject",
-        ["Description"] = "Client problem / request",
-        ["Remarks"] = "Voice to text - click Mic and speak..."
-    };
+        var list = new List<MasterColumnViewModel>();
+
+        foreach (var name in names)
+        {
+            var field = Model.FormFields.FirstOrDefault(
+                f => string.Equals(
+                    f.Name,
+                    name,
+                    StringComparison.OrdinalIgnoreCase));
+
+            if (field != null)
+            {
+                list.Add(field);
+            }
+        }
+
+        return list;
+    }
+
+
+    // Ek field ka poora markup (label + control + error).
+    // Markup wala method async Task hona zaroori hai.
+    async Task RenderEditField(MasterColumnViewModel field)
+    {
+        var staticOptions =
+            ViewBag.StaticOptions as Dictionary<string, string[]>
+            ?? new Dictionary<string, string[]>();
+
+        var dropdowns =
+            ViewBag.Dropdowns
+            as Dictionary<string, List<LookupOptionViewModel>>
+            ?? new Dictionary<string, List<LookupOptionViewModel>>();
+
+        var placeholders =
+            ViewBag.Placeholders as Dictionary<string, string>
+            ?? new Dictionary<string, string>();
+
+        var options =
+            field.Type == "options"
+            && staticOptions.TryGetValue(field.Name, out var opts)
+                ? opts
+                : Array.Empty<string>();
+
+        var hasOther = options.Contains(
+            "Other",
+            StringComparer.OrdinalIgnoreCase);
+
+        string fullClass =
+            field.Control == "textarea"
+                ? "form-group form-group-full"
+                : "form-group";
+
+        var placeholder =
+            placeholders.TryGetValue(field.Name, out var ph)
+                ? ph
+                : "";
+
+        string GetVal(string name) => Model.GetFormValue(name);
+
+        string GetErr(string name) => Model.FieldError(name);
+
+        if (field.Type == "options")
+        {
+            var onChange = new List<string>();
+
+            if (hasOther)
+            {
+                onChange.Add("toggleOtherField(this)");
+            }
+
+            if (field.Name == "Status")
+            {
+                onChange.Add("updateCurrentStatus()");
+            }
+
+            string onChangeAttr = string.Join("; ", onChange);
+
+            <div class="@fullClass">
+
+                <label class="tkt-field-label">
+                    @field.Display
+                    @if (field.Required)
+                    {
+                        <span class="tkt-req">*</span>
+                    }
+                </label>
+
+                <select name="@field.Name"
+                        id="edit_@field.Name"
+                        class="tkt-input"
+                        onchange="@onChangeAttr"
+                        @(field.Required ? "required" : null)>
+
+                    <option value=""
+                            disabled
+                            selected="@(string.IsNullOrWhiteSpace(GetVal(field.Name)))">
+                        -- Select @field.Display --
+                    </option>
+
+                    @foreach (var option in options)
+                    {
+                        <option value="@option"
+                                selected="@(GetVal(field.Name) == option)">
+                            @option
+                        </option>
+                    }
+
+                </select>
+
+                @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
+                {
+                    <span class="field-error">
+                        @GetErr(field.Name)
+                    </span>
+                }
+
+                @if (hasOther)
+                {
+                    <div id="other@(field.Name)Group"
+                         style="@(GetVal(field.Name) == "Other" ? "" : "display:none")">
+
+                        <label class="sub-label">
+                            Other @field.Display
+                        </label>
+
+                        <input type="text"
+                               class="tkt-input"
+                               name="Other@(field.Name)"
+                               id="edit_Other@(field.Name)"
+                               maxlength="92"
+                               placeholder="Specify other @field.Display.ToLower()"
+                               value="@GetVal("Other" + field.Name)"
+                               @(GetVal(field.Name) == "Other" ? "required" : null) />
+
+                        @if (!string.IsNullOrWhiteSpace(GetErr("Other" + field.Name)))
+                        {
+                            <span class="field-error">
+                                @GetErr("Other" + field.Name)
+                            </span>
+                        }
+
+                    </div>
+                }
+
+                @if (field.Name == "Status")
+                {
+                    <div class="tkt-status-block">
+
+                        <div class="tkt-stepper"
+                             id="statusStepper">
+
+                            <div class="tkt-step"
+                                 data-status="Open">
+
+                                <span class="tkt-step-dot">
+                                    <svg class="tkt-step-check"
+                                         viewBox="0 0 24 24" fill="none"
+                                         stroke="currentColor" stroke-width="3"
+                                         stroke-linecap="round"
+                                         stroke-linejoin="round"
+                                         aria-hidden="true">
+                                        <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                    <span class="tkt-step-num">1</span>
+                                </span>
+
+                                <span class="tkt-step-text">Open</span>
+                            </div>
+
+                            <div class="tkt-step"
+                                 data-status="In Progress">
+
+                                <span class="tkt-step-dot">
+                                    <svg class="tkt-step-check"
+                                         viewBox="0 0 24 24" fill="none"
+                                         stroke="currentColor" stroke-width="3"
+                                         stroke-linecap="round"
+                                         stroke-linejoin="round"
+                                         aria-hidden="true">
+                                        <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                    <span class="tkt-step-num">2</span>
+                                </span>
+
+                                <span class="tkt-step-text">In Progress</span>
+                            </div>
+
+                            <div class="tkt-step"
+                                 data-status="On Hold">
+
+                                <span class="tkt-step-dot">
+                                    <svg class="tkt-step-check"
+                                         viewBox="0 0 24 24" fill="none"
+                                         stroke="currentColor" stroke-width="3"
+                                         stroke-linecap="round"
+                                         stroke-linejoin="round"
+                                         aria-hidden="true">
+                                        <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                    <span class="tkt-step-num">3</span>
+                                </span>
+
+                                <span class="tkt-step-text">On Hold</span>
+                            </div>
+
+                            <div class="tkt-step"
+                                 data-status="Closed">
+
+                                <span class="tkt-step-dot">
+                                    <svg class="tkt-step-check"
+                                         viewBox="0 0 24 24" fill="none"
+                                         stroke="currentColor" stroke-width="3"
+                                         stroke-linecap="round"
+                                         stroke-linejoin="round"
+                                         aria-hidden="true">
+                                        <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                    <span class="tkt-step-num">4</span>
+                                </span>
+
+                                <span class="tkt-step-text">Closed</span>
+                            </div>
+
+                        </div>
+
+                        <div class="tkt-status-legend">
+
+                            <span class="tkt-status-legend-item">
+
+                                <span class="status-tracker-label">
+                                    Previous
+                                </span>
+
+                                <span id="prevStatusBadge"
+                                      class="status-pill @StatusPillClass(Model.EditPreviousStatus)">
+                                    @(string.IsNullOrWhiteSpace(Model.EditPreviousStatus) ? "—" : Model.EditPreviousStatus)
+                                </span>
+
+                            </span>
+
+                            <span class="tkt-status-legend-item">
+
+                                <span class="status-tracker-label">
+                                    Current
+                                </span>
+
+                                <span id="curStatusBadge"
+                                      class="status-pill @StatusPillClass(GetVal("Status"))">
+                                    @(string.IsNullOrWhiteSpace(GetVal("Status")) ? "—" : GetVal("Status"))
+                                </span>
+
+                            </span>
+
+                        </div>
+
+                    </div>
+                }
+
+            </div>
+        }
+        else if (field.Control == "select")
+        {
+            var lookupOptions =
+                field.LookupKey != null
+                && dropdowns.TryGetValue(
+                    field.LookupKey,
+                    out var lopts)
+                    ? lopts
+                    : new List<LookupOptionViewModel>();
+
+            <div class="@fullClass">
+
+                <label class="tkt-field-label">
+                    @field.Display
+                    @if (field.Required)
+                    {
+                        <span class="tkt-req">*</span>
+                    }
+                </label>
+
+                <select name="@field.Name"
+                        id="edit_@field.Name"
+                        class="tkt-input"
+                        @(field.Required ? "required" : null)>
+
+                    <option value=""
+                            disabled
+                            selected="@(string.IsNullOrWhiteSpace(GetVal(field.Name)))">
+                        -- Select @field.Display --
+                    </option>
+
+                    @foreach (var option in lookupOptions)
+                    {
+                        <option value="@option.Id"
+                                selected="@(GetVal(field.Name) == option.Id.ToString())">
+                            @option.Name
+                        </option>
+                    }
+
+                </select>
+
+                @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
+                {
+                    <span class="field-error">
+                        @GetErr(field.Name)
+                    </span>
+                }
+
+            </div>
+        }
+        else if (field.Control == "textarea")
+        {
+            <div class="@fullClass">
+
+                <label class="tkt-field-label">
+                    @field.Display
+                    @if (field.Required)
+                    {
+                        <span class="tkt-req">*</span>
+                    }
+                </label>
+
+                <textarea id="edit_@field.Name"
+                          class="tkt-input tkt-textarea"
+                          name="@field.Name"
+                          rows="3"
+                          placeholder="@placeholder"
+                          @(field.Required ? "required" : null)>@GetVal(field.Name)</textarea>
+
+                @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
+                {
+                    <span class="field-error">
+                        @GetErr(field.Name)
+                    </span>
+                }
+
+                @if (field.Name == "Description" || field.Name == "Remarks")
+                {
+                    <div class="voice-controls">
+
+                        <button type="button"
+                                class="voice-btn mic-btn"
+                                id="voiceMicBtn_@field.Name"
+                                onclick="startVoice('@field.Name')">
+
+                            <svg viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round"
+                                 stroke-linejoin="round"
+                                 aria-hidden="true">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                <line x1="12" y1="19" x2="12" y2="23" />
+                            </svg>
+
+                            Mic
+
+                        </button>
+
+                        <button type="button"
+                                class="voice-btn voice-stop"
+                                onclick="stopVoice()">
+
+                            <svg viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round"
+                                 stroke-linejoin="round"
+                                 aria-hidden="true">
+                                <rect x="6" y="6" width="12" height="12" rx="2" />
+                            </svg>
+
+                            Stop
+
+                        </button>
+
+                        <button type="button"
+                                class="voice-btn voice-reset"
+                                onclick="resetVoice('@field.Name')">
+
+                            <svg viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round"
+                                 stroke-linejoin="round"
+                                 aria-hidden="true">
+                                <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+                                <polyline points="3 3 3 8 8 8" />
+                            </svg>
+
+                            Reset
+
+                        </button>
+
+                    </div>
+
+                    <span class="voice-status"
+                          id="voiceStatus_@field.Name"></span>
+
+                    <span class="voice-hint">
+                        Voice to Text: speak into the mic; the text is appended to the end of @field.Display. The mic stays open until you click Stop.
+                    </span>
+                }
+
+            </div>
+        }
+        else
+        {
+            <div class="@fullClass">
+
+                <label class="tkt-field-label">
+                    @field.Display
+                    @if (field.Required)
+                    {
+                        <span class="tkt-req">*</span>
+                    }
+                </label>
+
+                <input type="@(field.InputType == "date" ? "date" : field.InputType == "time" ? "time" : "text")"
+                       class="tkt-input"
+                       id="edit_@field.Name"
+                       name="@field.Name"
+                       value="@GetVal(field.Name)"
+                       placeholder="@placeholder"
+                       @(field.Required ? "required" : null) />
+
+                @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
+                {
+                    <span class="field-error">
+                        @GetErr(field.Name)
+                    </span>
+                }
+
+            </div>
+        }
+    }
 }
 
 
-<div class="page-header">
+<div class="page-header tkt-page-head">
 
     <div>
 
@@ -90,27 +578,20 @@
 
     </div>
 
-</div>
+    <div class="tkt-head-meta">
 
+        <span class="tkt-head-chip">
 
-<!-- ================= MY NOTIFICATIONS ================= -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round" aria-hidden="true">
+                <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+            </svg>
 
-<div class="tkt-notif-wrap">
+            @totalRecords tickets
 
-    <div class="tkt-notif-title-row">
-        <span class="tkt-notif-title">
-            &#128276; My Notifications
         </span>
 
-        <button type="button"
-                class="tkt-notif-mark"
-                onclick="markAllNotifsRead(event)">
-            Mark all read
-        </button>
-    </div>
-
-    <div id="pageNotifGrid" class="tkt-notif-rows">
-        <div class="tkt-notif-empty">Loading&hellip;</div>
     </div>
 
 </div>
@@ -122,7 +603,7 @@
 
 
     <a href="@Url.Action("Index", "DailySupport", new { view = "open", assignedTo = Model.FilterAssignedTo, priorityId = Model.FilterPriorityId })"
-       class="dashboard-card tkt-kpi-link @(Model.FilterView == "open" ? "tkt-kpi-active" : "")">
+       class="dashboard-card tkt-kpi-link tkt-kpi-blue @(Model.FilterView == "open" ? "tkt-kpi-active" : "")">
 
         <div class="card-content">
 
@@ -141,14 +622,19 @@
         </div>
 
         <div class="card-icon">
-            📥
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round" aria-hidden="true">
+                <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+                <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+            </svg>
         </div>
 
     </a>
 
 
     <a href="@Url.Action("Index", "DailySupport", new { view = "inprogress", assignedTo = Model.FilterAssignedTo, priorityId = Model.FilterPriorityId })"
-       class="dashboard-card tkt-kpi-link @(Model.FilterView == "inprogress" ? "tkt-kpi-active" : "")">
+       class="dashboard-card tkt-kpi-link tkt-kpi-amber @(Model.FilterView == "inprogress" ? "tkt-kpi-active" : "")">
 
         <div class="card-content">
 
@@ -167,14 +653,18 @@
         </div>
 
         <div class="card-icon">
-            🔧
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round" aria-hidden="true">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+            </svg>
         </div>
 
     </a>
 
 
     <a href="@Url.Action("Index", "DailySupport", new { view = "onhold", assignedTo = Model.FilterAssignedTo, priorityId = Model.FilterPriorityId })"
-       class="dashboard-card tkt-kpi-link @(Model.FilterView == "onhold" ? "tkt-kpi-active" : "")">
+       class="dashboard-card tkt-kpi-link tkt-kpi-slate @(Model.FilterView == "onhold" ? "tkt-kpi-active" : "")">
 
         <div class="card-content">
 
@@ -193,14 +683,20 @@
         </div>
 
         <div class="card-icon">
-            ⏸️
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <line x1="10" y1="15" x2="10" y2="9" />
+                <line x1="14" y1="15" x2="14" y2="9" />
+            </svg>
         </div>
 
     </a>
 
 
     <a href="@Url.Action("Index", "DailySupport", new { view = "resolvedToday", assignedTo = Model.FilterAssignedTo, priorityId = Model.FilterPriorityId })"
-       class="dashboard-card tkt-kpi-link @(Model.FilterView == "resolvedToday" ? "tkt-kpi-active" : "")">
+       class="dashboard-card tkt-kpi-link tkt-kpi-green @(Model.FilterView == "resolvedToday" ? "tkt-kpi-active" : "")">
 
         <div class="card-content">
 
@@ -219,11 +715,109 @@
         </div>
 
         <div class="card-icon">
-            ✅
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round" aria-hidden="true">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
         </div>
 
     </a>
 
+
+</div>
+
+
+<!-- ================= NOTIFICATIONS (collapsed card, below KPI cards) ================= -->
+
+<div class="state-section tkt-notif-card tkt-collapsible collapsed"
+     id="tktNotifCard">
+
+    <div class="form-section-title tkt-notif-head"
+         id="tktNotifHead"
+         role="button"
+         tabindex="0"
+         aria-expanded="false"
+         aria-controls="tktNotifBody">
+
+        <span class="tkt-notif-head-icon"
+              aria-hidden="true">
+
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+
+        </span>
+
+        <span>
+            Notifications
+        </span>
+
+        <span class="tkt-notif-count"
+              id="notifCountBadge"
+              hidden>0</span>
+
+        <button type="button"
+                class="tkt-notif-mark"
+                onclick="markAllNotifsRead(event)">
+            Mark all read
+        </button>
+
+        <button type="button"
+                class="tkt-sec-toggle"
+                id="tktNotifToggle"
+                title="Expand / collapse notifications"
+                aria-expanded="false"
+                aria-controls="tktNotifBody"
+                onclick="toggleNotifCard(event)">
+
+            +
+
+        </button>
+
+    </div>
+
+    <div class="tkt-notif-body"
+         id="tktNotifBody">
+
+        <!-- Unread / History tabs -->
+        <div class="tkt-notif-tabs">
+
+            <button type="button"
+                    class="tkt-notif-tab active"
+                    id="notifTabUnread"
+                    onclick="switchNotifTab('unread')">
+
+                Unread
+                <span class="tkt-notif-tab-count" id="notifTabUnreadCount">0</span>
+
+            </button>
+
+            <button type="button"
+                    class="tkt-notif-tab"
+                    id="notifTabHistory"
+                    onclick="switchNotifTab('history')">
+
+                History
+
+            </button>
+
+        </div>
+
+        <div id="pageNotifGrid" class="tkt-notif-rows">
+            <div class="tkt-notif-empty">Loading&hellip;</div>
+        </div>
+
+        <div id="pageNotifHistory"
+             class="tkt-notif-rows"
+             hidden>
+        </div>
+
+    </div>
 
 </div>
 
@@ -481,6 +1075,13 @@
                     class="export-btn excel-btn"
                     onclick="exportExcel()">
 
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
+                </svg>
+
                 Excel
 
             </button>
@@ -489,6 +1090,14 @@
                     class="export-btn csv-btn"
                     onclick="exportCSV()">
 
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <path d="M8 13h8M8 17h5" />
+                </svg>
+
                 CSV
 
             </button>
@@ -496,6 +1105,14 @@
             <button type="button"
                     class="export-btn print-btn"
                     onclick="printTable()">
+
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="6 9 6 2 18 2 18 9" />
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                    <rect x="6" y="14" width="12" height="8" />
+                </svg>
 
                 Print
 
@@ -506,18 +1123,76 @@
 
         <div class="toolbar-right">
 
-            <span class="toolbar-label">
-                Search:
+            <div class="tkt-search">
+
+                <span class="tkt-search-icon"
+                      aria-hidden="true">
+
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="m20 20-3.5-3.5" />
+                    </svg>
+
+                </span>
+
+                <input type="text"
+                       id="tableSearch"
+                       placeholder="Ticket no, client, subject… search"
+                       aria-label="Search tickets"
+                       autocomplete="off"
+                       oninput="filterTableDebounced()"
+                       onkeydown="if (event.key === 'Enter') { event.preventDefault(); filterTable(); }" />
+
+                <button type="button"
+                        class="tkt-search-clear"
+                        id="tableSearchClear"
+                        title="Clear search"
+                        aria-label="Clear search"
+                        onclick="clearTableSearch()"
+                        hidden>
+
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2.4" stroke-linecap="round"
+                         stroke-linejoin="round" aria-hidden="true">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+
+                </button>
+
+            </div>
+
+            <span class="tkt-search-count"
+                  id="searchCount"
+                  title="Matching rows">
+                0 / 0
             </span>
 
-            <input type="text"
-                   id="tableSearch"
-                   placeholder="Search..."
-                   oninput="filterTable()" />
+            <a href="@Url.Action("NewTicket", "DailySupport")"
+               class="primary-btn tkt-btn tkt-btn-primary">
 
-            <a href="@Url.Action("NewTicket", "DailySupport")" class="primary-btn">+ Add Ticket</a>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.5" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" />
+                </svg>
 
-            <a href="@Url.Action("Create", "Clients", new { returnUrl = Url.Action("Index", "DailySupport") })" class="primary-btn">+ Add Customer</a>
+                Add Ticket
+            </a>
+
+            <a href="@Url.Action("Create", "Clients", new { returnUrl = Url.Action("Index", "DailySupport") })"
+               class="primary-btn tkt-btn tkt-btn-ghost">
+
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.5" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" />
+                </svg>
+
+                Add Customer
+            </a>
 
         </div>
 
@@ -723,21 +1398,30 @@
                                     }
 
                                     <a href="@Url.Action("Detail", "DailySupport", new { id = rowId })"
-                                       class="action-btn"
-                                       title="View Ticket"
-                                       style="color:#2563eb; text-decoration:none;">
+                                       class="action-btn act-view"
+                                       title="View Ticket">
 
-                                        👁
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                             stroke-width="2" stroke-linecap="round"
+                                             stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                                            <circle cx="12" cy="12" r="3" />
+                                        </svg>
 
                                     </a>
 
                                     <button type="button"
-                                            class="edit-btn action-btn"
+                                            class="edit-btn action-btn act-edit"
                                             title="Edit"
                                             data-json="@rowJson"
                                             onclick="openEditModal(this)">
 
-                                        ✎
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                             stroke-width="2" stroke-linecap="round"
+                                             stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M12 20h9" />
+                                            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                                        </svg>
 
                                     </button>
 
@@ -756,10 +1440,15 @@
                                                value="@support.Get("Id")" />
 
                                         <button type="submit"
-                                                class="delete-btn action-btn"
+                                                class="delete-btn action-btn act-delete"
                                                 title="Delete">
 
-                                            ✕
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                 stroke-width="2" stroke-linecap="round"
+                                                 stroke-linejoin="round" aria-hidden="true">
+                                                <polyline points="3 6 5 6 21 6" />
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                            </svg>
 
                                         </button>
 
@@ -824,23 +1513,75 @@
 <div id="supportModal"
      class="modal">
 
-    <div class="modal-content modal-wide">
+    <div class="modal-content modal-wide tkt-modal">
 
 
-        <div class="modal-header">
+        <!-- ============ MODAL HEADER (sticky) ============ -->
 
-            <h2 id="modalTitle">
-                Edit Support
-            </h2>
+        <div class="tkt-modal-head">
 
+            <div class="tkt-modal-head-main">
 
-            <button type="button"
-                    class="modal-close"
-                    onclick="closeModal()">
+                <span class="tkt-modal-head-icon"
+                      aria-hidden="true">
 
-                &times;
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
 
-            </button>
+                </span>
+
+                <div class="tkt-modal-head-text">
+
+                    <h2 id="modalTitle">
+                        Edit Support
+                    </h2>
+
+                    <p class="tkt-modal-sub">
+
+                        <span id="modalTicketNo">
+                            Ticket
+                        </span>
+
+                        <span class="tkt-modal-sub-sep">
+                            &bull;
+                        </span>
+
+                        <span id="modalClientName">
+                            &mdash;
+                        </span>
+
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div class="tkt-modal-head-right">
+
+                <span id="modalStatusPill"
+                      class="status-pill badge-default">
+                    &mdash;
+                </span>
+
+                <button type="button"
+                        class="modal-close tkt-modal-close"
+                        onclick="closeModal()"
+                        aria-label="Close">
+
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" aria-hidden="true">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+
+                </button>
+
+            </div>
 
         </div>
 
@@ -858,306 +1599,123 @@
                    value="@GetVal("Id")" />
 
 
-            <div class="form-grid">
+            <div class="tkt-modal-body">
 
-                @foreach (var field in Model.FormFields)
-                {
-                    var options = field.Type == "options"
-                        && staticOptions.TryGetValue(
-                            field.Name,
-                            out var opts)
-                        ? opts
-                        : Array.Empty<string>();
+                <div class="tkt-form-cards">
 
-                    var hasOther = options.Contains(
-                        "Other",
-                        StringComparer.OrdinalIgnoreCase);
-
-                    string fullClass =
-                        field.Control == "textarea"
-                            ? "form-group form-group-full"
-                            : "form-group";
-
-                    var placeholder =
-                        placeholders.TryGetValue(
-                            field.Name,
-                            out var ph)
-                        ? ph
-                        : "";
-
-                    if (field.Type == "options")
+                    @foreach (var group in editGroups)
                     {
-                        var onChange = new List<string>();
+                        var groupFields = GroupFields(group.Names);
 
-                        if (hasOther)
+                        if (groupFields.Count == 0)
                         {
-                            onChange.Add(
-                                "toggleOtherField(this)");
+                            continue;
                         }
 
-                        if (field.Name == "Status")
-                        {
-                            onChange.Add(
-                                "updateCurrentStatus()");
-                        }
+                        <section class="tkt-form-card">
 
-                        string onChangeAttr =
-                            string.Join("; ", onChange);
+                            <div class="tkt-form-card-head">
 
-                        <div class="@fullClass">
+                                <span class="tkt-form-card-icon"
+                                      aria-hidden="true">
 
-                            <label>
-                                @field.Display
-                            </label>
-
-                            <select name="@field.Name"
-                                    id="edit_@field.Name"
-                                    onchange="@onChangeAttr"
-                                    @(field.Required ? "required" : null)>
-
-                                <option value=""
-                                        disabled
-                                        selected="@(string.IsNullOrWhiteSpace(GetVal(field.Name)))">
-                                    -- Select @field.Display --
-                                </option>
-
-                                @foreach (var option in options)
-                                {
-                                    <option value="@option"
-                                            selected="@(GetVal(field.Name) == option)">
-                                        @option
-                                    </option>
-                                }
-
-                            </select>
-
-                            @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
-                            {
-                                <span class="field-error">
-                                    @GetErr(field.Name)
-                                </span>
-                            }
-
-                            @if (hasOther)
-                            {
-                                <div id="other@(field.Name)Group"
-                                     style="@(GetVal(field.Name) == "Other" ? "" : "display:none")">
-
-                                    <label class="sub-label">
-                                        Other @field.Display
-                                    </label>
-
-                                    <input type="text"
-                                           name="Other@(field.Name)"
-                                           id="edit_Other@(field.Name)"
-                                           maxlength="92"
-                                           placeholder="Specify other @field.Display.ToLower()"
-                                           value="@GetVal("Other" + field.Name)"
-                                           @(GetVal(field.Name) == "Other" ? "required" : null) />
-
-                                    @if (!string.IsNullOrWhiteSpace(GetErr("Other" + field.Name)))
+                                    @if (group.Key == "ticket")
                                     {
-                                        <span class="field-error">
-                                            @GetErr("Other" + field.Name)
-                                        </span>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                             stroke-width="2" stroke-linecap="round"
+                                             stroke-linejoin="round">
+                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                            <circle cx="12" cy="7" r="4" />
+                                        </svg>
+                                    }
+                                    else if (group.Key == "assign")
+                                    {
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                             stroke-width="2" stroke-linecap="round"
+                                             stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="9" />
+                                            <path d="m15.5 8.5-2 5.5-5.5 2 2-5.5z" />
+                                        </svg>
+                                    }
+                                    else
+                                    {
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                             stroke-width="2" stroke-linecap="round"
+                                             stroke-linejoin="round">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                            <polyline points="14 2 14 8 20 8" />
+                                            <path d="M8 13h8M8 17h5" />
+                                        </svg>
                                     }
 
-                                </div>
-                            }
+                                </span>
 
-                            @if (field.Name == "Status")
-                            {
-                                <div class="status-tracker">
+                                <span class="tkt-form-card-title">
+                                    @group.Title
+                                </span>
 
-                                    <div class="status-tracker-row">
+                            </div>
 
-                                        <span class="status-tracker-label">
-                                            Previous Status
-                                        </span>
+                            <div class="form-grid">
 
-                                        <span id="prevStatusBadge"
-                                              class="status-pill @StatusPillClass(Model.EditPreviousStatus)">
-                                            @(string.IsNullOrWhiteSpace(Model.EditPreviousStatus) ? "—" : Model.EditPreviousStatus)
-                                        </span>
-
-                                    </div>
-
-                                    <div class="status-tracker-row">
-
-                                        <span class="status-tracker-label">
-                                            Current Status
-                                        </span>
-
-                                        <span id="curStatusBadge"
-                                              class="status-pill @StatusPillClass(GetVal("Status"))">
-                                            @(string.IsNullOrWhiteSpace(GetVal("Status")) ? "—" : GetVal("Status"))
-                                        </span>
-
-                                    </div>
-
-                                </div>
-                            }
-
-                        </div>
-                    }
-                    else if (field.Control == "select")
-                    {
-                        var lookupOptions =
-                            field.LookupKey != null
-                            && dropdowns.TryGetValue(
-                                field.LookupKey,
-                                out var lopts)
-                            ? lopts
-                            : new List<LookupOptionViewModel>();
-
-                        <div class="@fullClass">
-
-                            <label>
-                                @field.Display
-                            </label>
-
-                            <select name="@field.Name"
-                                    id="edit_@field.Name"
-                                    @(field.Required ? "required" : null)>
-
-                                <option value=""
-                                        disabled
-                                        selected="@(string.IsNullOrWhiteSpace(GetVal(field.Name)))">
-                                    -- Select @field.Display --
-                                </option>
-
-                                @foreach (var option in lookupOptions)
+                                @foreach (var field in groupFields)
                                 {
-                                    <option value="@option.Id"
-                                            selected="@(GetVal(field.Name) == option.Id.ToString())">
-                                        @option.Name
-                                    </option>
+                                    await RenderEditField(field);
                                 }
 
-                            </select>
+                            </div>
 
-                            @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
-                            {
-                                <span class="field-error">
-                                    @GetErr(field.Name)
-                                </span>
-                            }
-
-                        </div>
+                        </section>
                     }
-                    else if (field.Control == "textarea")
+
+                    @if (remainingFields.Count > 0)
                     {
-                        <div class="@fullClass">
+                        <section class="tkt-form-card">
 
-                            <label>
-                                @field.Display
-                            </label>
+                            <div class="tkt-form-card-head">
 
-                            <textarea id="edit_@field.Name"
-                                      name="@field.Name"
-                                      rows="2"
-                                      placeholder="@placeholder"
-                                      @(field.Required ? "required" : null)>@GetVal(field.Name)</textarea>
+                                <span class="tkt-form-card-icon"
+                                      aria-hidden="true">
 
-                            @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
-                            {
-                                <span class="field-error">
-                                    @GetErr(field.Name)
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                         stroke-width="2" stroke-linecap="round"
+                                         stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="9" />
+                                        <path d="M12 8v8M8 12h8" />
+                                    </svg>
+
                                 </span>
-                            }
 
-                            @if (field.Name == "Description" || field.Name == "Remarks")
-                            {
-                                <div class="voice-controls">
-
-                                    <button type="button"
-                                            class="voice-btn mic-btn"
-                                            id="voiceMicBtn_@field.Name"
-                                            onclick="startVoice('@field.Name')">
-
-                                        Mic
-
-                                    </button>
-
-                                    <button type="button"
-                                            class="voice-btn voice-stop"
-                                            onclick="stopVoice()">
-
-                                        Stop
-
-                                    </button>
-
-                                    <button type="button"
-                                            class="voice-btn voice-reset"
-                                            onclick="resetVoice('@field.Name')">
-
-                                        Reset
-
-                                    </button>
-
-                                </div>
-
-                                <span class="voice-status"
-                                      id="voiceStatus_@field.Name"></span>
-
-                                <span class="voice-hint">
-                                    Voice to Text: speak into the mic; the text is appended to the end of @field.Display. The mic stays open until you click Stop.
+                                <span class="tkt-form-card-title">
+                                    Other Details
                                 </span>
-                            }
 
-                        </div>
+                            </div>
+
+                            <div class="form-grid">
+
+                                @foreach (var field in remainingFields)
+                                {
+                                    await RenderEditField(field);
+                                }
+
+                            </div>
+
+                        </section>
                     }
-                    else
-                    {
-                        <div class="@fullClass">
 
-                            <label>
-                                @field.Display
-                            </label>
-
-                            <input type="@field.InputType"
-                                   id="edit_@field.Name"
-                                   name="@field.Name"
-                                   value="@GetVal(field.Name)"
-                                   placeholder="@placeholder"
-                                   @(field.Required ? "required" : null)
-                                   @(field.CreateOnly ? "readonly" : null) />
-
-                            @if (field.CreateOnly)
-                            {
-                                <span class="field-note">
-                                    Locked after creation
-                                </span>
-                            }
-
-                            @if (!string.IsNullOrWhiteSpace(GetErr(field.Name)))
-                            {
-                                <span class="field-error">
-                                    @GetErr(field.Name)
-                                </span>
-                            }
-
-                        </div>
-                    }
-                }
+                </div>
 
             </div>
 
 
-            <span class="voice-hint auto-time-hint">
-                Status flow: Open → In Progress → On Hold / Pending → Closed. Re-opening a Closed ticket returns it to In Progress.
-            </span>
+            <!-- ============ MODAL FOOTER (sticky) ============ -->
 
+            <div class="modal-actions tkt-modal-actions">
 
-            <div class="modal-actions">
-
-                <button type="submit"
-                        id="btnSubmit"
-                        class="save-btn">
-
-                    Save
-
-                </button>
+                <span class="tkt-modal-hint">
+                    Status flow: Open &rarr; In Progress &rarr; On Hold / Pending &rarr; Closed
+                </span>
 
                 <button type="button"
                         class="cancel-btn"
@@ -1167,11 +1725,28 @@
 
                 </button>
 
+                <button type="submit"
+                        id="btnSubmit"
+                        class="save-btn tkt-save-btn">
+
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2.6" stroke-linecap="round"
+                         stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="20 6 9 17 4 12" />
+                    </svg>
+
+                    <span id="btnSubmitLabel">
+                        Save
+                    </span>
+
+                </button>
+
             </div>
 
         </form>
 
     </div>
+
 
 </div>
 
@@ -1199,8 +1774,14 @@
                 ).innerText = "Edit Support";
 
                 document.getElementById(
-                    "btnSubmit"
+                    "btnSubmitLabel"
                 ).innerText = "Update";
+
+                updateStatusStepper(
+                    document.getElementById(
+                        "edit_Status"
+                    )?.value || ""
+                );
 
                 document.getElementById(
                     "supportModal"
@@ -1212,6 +1793,14 @@
     </script>
 }
 
+
+@section Styles
+{
+    @* Premium look (gray canvas + white cards + SVG icons).
+       Sirf is page par; baaki pages safe rahen. *@
+    <link rel="stylesheet"
+          href="~/css/dailysupport.css?v=2" />
+}
 
 @section Scripts
 {
@@ -1259,6 +1848,123 @@
             renderTable();
 
         }
+
+
+        // ==========================================
+        // SEARCH (debounced + clear + count)
+        // ==========================================
+
+        var searchDebounceTimer = null;
+
+
+        function filterTableDebounced() {
+
+            if (searchDebounceTimer) {
+                clearTimeout(searchDebounceTimer);
+            }
+
+            searchDebounceTimer = setTimeout(
+                filterTable,
+                120
+            );
+
+            // Clear button turant dikhe/hide ho.
+            var input =
+                document.getElementById(
+                    "tableSearch"
+                );
+
+            var clearBtn =
+                document.getElementById(
+                    "tableSearchClear"
+                );
+
+            if (input && clearBtn) {
+                clearBtn.hidden = !input.value;
+            }
+
+        }
+
+
+        function clearTableSearch() {
+
+            var input =
+                document.getElementById(
+                    "tableSearch"
+                );
+
+            if (!input) {
+                return;
+            }
+
+            input.value = "";
+
+            var clearBtn =
+                document.getElementById(
+                    "tableSearchClear"
+                );
+
+            if (clearBtn) {
+                clearBtn.hidden = true;
+            }
+
+            filterTable();
+
+            input.focus();
+
+        }
+
+
+        // "/" se search focus, "Esc" se clear.
+        document.addEventListener(
+            "keydown",
+            function (event) {
+
+                var input =
+                    document.getElementById(
+                        "tableSearch"
+                    );
+
+                if (!input) {
+                    return;
+                }
+
+                var tag =
+                    (event.target.tagName || "")
+                        .toLowerCase();
+
+                var typing =
+                    tag === "input" ||
+                    tag === "textarea" ||
+                    tag === "select";
+
+                if (event.key === "/" &&
+                    !typing &&
+                    !event.ctrlKey &&
+                    !event.metaKey) {
+
+                    event.preventDefault();
+
+                    input.focus();
+                    input.select();
+
+                    return;
+
+                }
+
+                if (event.key === "Escape" &&
+                    document.activeElement === input) {
+
+                    if (input.value) {
+                        clearTableSearch();
+                    } else {
+                        input.blur();
+                    }
+
+                }
+
+            }
+        );
 
 
         // ==========================================
@@ -1348,6 +2054,47 @@
 
 
             totalRecords = filteredRows.length;
+
+
+            // ---- Search count chip + clear button state ----
+
+            var countChip =
+                document.getElementById(
+                    "searchCount"
+                );
+
+            if (countChip) {
+
+                var dataRowCount = 0;
+
+                for (var c = 0; c < rows.length; c++) {
+
+                    if (!rows[c].classList.contains(
+                            "no-data-row")) {
+
+                        dataRowCount++;
+
+                    }
+
+                }
+
+                countChip.innerText =
+                    filteredRows.length +
+                    " / " +
+                    dataRowCount;
+
+            }
+
+            var searchClear =
+                document.getElementById(
+                    "tableSearchClear"
+                );
+
+            if (searchClear) {
+
+                searchClear.hidden = !searchValue;
+
+            }
 
 
             var totalPages =
@@ -2094,6 +2841,87 @@
 
             setStatusBadge(badge, select.value || "");
 
+            // Modal header ka status pill + stepper bhi update.
+            setStatusBadge(
+                document.getElementById(
+                    "modalStatusPill"
+                ),
+                select.value || ""
+            );
+
+            updateStatusStepper(select.value || "");
+
+        }
+
+
+        // ==========================================
+        // STATUS STEPPER
+        // Open -> In Progress -> On Hold -> Closed
+        // ==========================================
+
+        function statusStepIndex(status) {
+
+            var s = (status || "").toLowerCase();
+
+            if (!s) {
+                return -1;
+            }
+
+            if (s.indexOf("open") !== -1) {
+                return 0;
+            }
+
+            if (s.indexOf("progress") !== -1) {
+                return 1;
+            }
+
+            if (s.indexOf("hold") !== -1 ||
+                s.indexOf("pending") !== -1) {
+                return 2;
+            }
+
+            if (s.indexOf("clos") !== -1 ||
+                s.indexOf("resolv") !== -1) {
+                return 3;
+            }
+
+            return -1;
+        }
+
+
+        function updateStatusStepper(status) {
+
+            var stepper =
+                document.getElementById(
+                    "statusStepper"
+                );
+
+            if (!stepper) {
+                return;
+            }
+
+            var steps =
+                stepper.querySelectorAll(".tkt-step");
+
+            var current = statusStepIndex(status);
+
+            for (var i = 0; i < steps.length; i++) {
+
+                steps[i].classList.remove(
+                    "done", "current");
+
+                if (current < 0) {
+                    continue;
+                }
+
+                if (i < current) {
+                    steps[i].classList.add("done");
+                } else if (i === current) {
+                    steps[i].classList.add("current");
+                }
+
+            }
+
         }
 
 
@@ -2520,7 +3348,7 @@
 
 
             document.getElementById(
-                "btnSubmit"
+                "btnSubmitLabel"
             ).innerText = "Update";
 
 
@@ -2643,6 +3471,32 @@
                 ),
                 data["Status"] || ""
             );
+
+
+            // ---- Modal header: ticket no + client name ----
+
+            var ticketNo = data["TicketNo"] || "";
+
+            var clientName = data["ClientId"] || "";
+
+            var ticketLabel =
+                document.getElementById("modalTicketNo");
+
+            var clientLabel =
+                document.getElementById("modalClientName");
+
+            if (ticketLabel) {
+                ticketLabel.innerText =
+                    ticketNo
+                        ? "Ticket #" + ticketNo
+                        : "Ticket";
+            }
+
+            if (clientLabel) {
+                clientLabel.innerText =
+                    clientName || "—";
+            }
+
 
             updateCurrentStatus();
 

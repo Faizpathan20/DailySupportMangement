@@ -1,4 +1,4 @@
-
+﻿
 * {
     box-sizing: border-box;
     margin: 0;
@@ -12,7 +12,6 @@ body {
     line-height: 1.5;
 }
 
-
 /* =========================================
    LAYOUT
 ========================================= */
@@ -21,7 +20,6 @@ body {
     display: flex;
     min-height: 100vh;
 }
-
 
 /* =========================================
    SIDEBAR
@@ -48,7 +46,6 @@ body {
     transition: width 0.25s ease;
 }
 
-
 .sidebar-top {
     display: flex;
 
@@ -63,20 +60,17 @@ body {
     border-bottom: 1px solid #334155;
 }
 
-
 .sidebar-logo {
     padding: 0;
 
     border: none;
 }
 
-
 .sidebar-logo h2 {
     font-size: 21px;
     font-weight: 700;
     letter-spacing: -0.5px;
 }
-
 
 .sidebar-toggle {
     width: 36px;
@@ -104,13 +98,11 @@ body {
     transition: background 0.2s ease, color 0.2s ease;
 }
 
-
 .sidebar-toggle:hover {
     background: rgba(255, 255, 255, 0.12);
 
     color: white;
 }
-
 
 .user-info {
     padding: 18px 20px;
@@ -133,7 +125,6 @@ body {
     font-size: 14px;
 }
 
-
 .sidebar-menu {
     flex: 1;
 
@@ -144,18 +135,15 @@ body {
     padding: 20px 12px;
 }
 
-
 /* Slim dark scrollbar for the sidebar menu */
 
 .sidebar-menu::-webkit-scrollbar {
     width: 5px;
 }
 
-
 .sidebar-menu::-webkit-scrollbar-track {
     background: transparent;
 }
-
 
 .sidebar-menu::-webkit-scrollbar-thumb {
     background: #334155;
@@ -163,11 +151,9 @@ body {
     border-radius: 4px;
 }
 
-
 .sidebar-menu::-webkit-scrollbar-thumb:hover {
     background: #475569;
 }
-
 
 .menu-item {
     width: 100%;
@@ -200,12 +186,10 @@ body {
     transition: all 0.2s ease;
 }
 
-
 .menu-item:hover {
     background: rgba(255, 255, 255, 0.08);
     color: white;
 }
-
 
 .menu-item.active {
     background: rgba(59, 130, 246, 0.18);
@@ -213,16 +197,13 @@ body {
     color: white;
 }
 
-
 .logout-btn {
     font-family: inherit;
 }
 
-
 .menu-group {
     margin-bottom: 8px;
 }
-
 
 .menu-group-label {
     display: block;
@@ -240,7 +221,6 @@ body {
     color: #64748b;
 }
 
-
 .menu-group .menu-item {
     margin-bottom: 4px;
 
@@ -248,7 +228,6 @@ body {
 
     font-size: 14px;
 }
-
 
 /* =========================================
    SIDEBAR SUBMENUS (collapsible accordion)
@@ -278,18 +257,15 @@ body {
     transition: background 0.2s ease;
 }
 
-
 .menu-group-toggle:hover {
     background: rgba(255, 255, 255, 0.06);
 }
-
 
 .menu-group-toggle .menu-group-label {
     padding: 0;
 
     pointer-events: none;
 }
-
 
 .menu-arrow {
     color: #64748b;
@@ -299,11 +275,9 @@ body {
     transition: transform 0.25s ease;
 }
 
-
 .menu-group-parent.open .menu-arrow {
     transform: rotate(90deg);
 }
-
 
 .menu-submenu {
     max-height: 0;
@@ -313,11 +287,9 @@ body {
     transition: max-height 0.3s ease;
 }
 
-
 .menu-group-parent.open .menu-submenu {
     max-height: 400px;
 }
-
 
 .menu-item-sub {
     padding-left: 34px !important;
@@ -327,27 +299,75 @@ body {
     margin-bottom: 2px !important;
 }
 
+/* Sidebar collapsed: rules neeche "min-width: 701px" block
+   me hain (desktop collapsed rail ke liye). Mobile drawer
+   me submenu hamesha khuli rehti hai. */
 
-/* Sidebar collapsed: submenu toggle sirf icon
-   dikhaye, submenu band rahe. */
-.sidebar-collapsed .menu-group-toggle {
+/* Group icon — sirf collapsed rail me dikhta hai. */
+.menu-group-icon {
+    display: none;
+
+    align-items: center;
+
     justify-content: center;
 
-    padding: 6px;
+    flex-shrink: 0;
+
+    color: #94a3b8;
+
+    transition: color 0.2s ease;
 }
 
+.menu-group-icon svg {
+    width: 20px;
+    height: 20px;
 
-.sidebar-collapsed .menu-group-toggle
-    .menu-group-label,
-.sidebar-collapsed .menu-arrow {
-    display: none;
+    display: block;
 }
 
+/* Logout: sidebar ke bottom pe pinned (scroll se bahar). */
+.sidebar-footer {
+    flex-shrink: 0;
 
-.sidebar-collapsed .menu-submenu {
-    display: none;
+    padding: 10px 12px;
+
+    border-top: 1px solid #334155;
+
+    background: rgba(15, 23, 42, 0.35);
 }
 
+.sidebar-footer .menu-item {
+    margin-bottom: 0;
+
+    padding: 11px 15px;
+
+    border-radius: 8px;
+}
+
+.sidebar-footer .menu-item:hover {
+    background: rgba(239, 68, 68, 0.16);
+
+    color: #fecaca;
+}
+
+.sidebar-footer .menu-icon {
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    width: 20px;
+
+    height: 20px;
+}
+
+.sidebar-footer .menu-icon svg {
+    width: 18px;
+    height: 18px;
+
+    display: block;
+}
 
 /* Live meeting badge (Time Log menu). */
 .menu-badge {
@@ -364,12 +384,10 @@ body {
     animation: menuBadgePulse 1.2s infinite;
 }
 
-
 @@keyframes menuBadgePulse {
     0%, 100% { opacity: 1; }
     50%      { opacity: 0.35; }
 }
-
 
 /* =========================================
    MAIN
@@ -385,11 +403,9 @@ body {
     transition: margin-left 0.25s ease, width 0.25s ease;
 }
 
-
 .page-header {
     margin-bottom: 25px;
 }
-
 
 .page-header h1 {
     font-size: 28px;
@@ -398,12 +414,10 @@ body {
     color: #0f172a;
 }
 
-
 .page-header p {
     color: #64748b;
     font-size: 14px;
 }
-
 
 .back-link {
     display: inline-block;
@@ -419,11 +433,9 @@ body {
     text-decoration: none;
 }
 
-
 .back-link:hover {
     text-decoration: underline;
 }
-
 
 /* =========================================
    DASHBOARD CARDS
@@ -439,7 +451,6 @@ body {
 
     margin-bottom: 24px;
 }
-
 
 .dashboard-card {
     background: white;
@@ -467,14 +478,12 @@ body {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-
 .dashboard-card:hover {
     transform: translateY(-2px);
     box-shadow:
         0 3px 6px rgba(15, 23, 42, 0.06),
         0 12px 28px -8px rgba(15, 23, 42, 0.14);
 }
-
 
 .card-content p {
     color: #64748b;
@@ -490,7 +499,6 @@ body {
     font-weight: 600;
 }
 
-
 .card-content h2 {
     font-size: 26px;
 
@@ -500,7 +508,6 @@ body {
 
     letter-spacing: -0.3px;
 }
-
 
 .card-icon {
     width: 48px;
@@ -522,13 +529,11 @@ body {
     color: #2563eb;
 }
 
-
 .card-icon-svg {
     width: 22px;
 
     height: 22px;
 }
-
 
 /* Summary card row-group wrapper (COMPONENT 4).
    .dashboard-cards already provides the 4/2/1 responsive grid
@@ -537,7 +542,6 @@ body {
 .dash-summary-section {
     display: block;
 }
-
 
 /* =========================================
    DASHBOARD AJAX FILTER BUSY STATE
@@ -552,7 +556,6 @@ body {
     pointer-events: none;
 }
 
-
 /* =========================================
    SUPPORT ANALYTICS (COMPONENTS 5 & 6)
    Shared structural styles for the Support Status
@@ -564,7 +567,6 @@ body {
     margin-bottom: 20px;
 }
 
-
 .support-analytics-header {
     display: flex;
 
@@ -575,7 +577,6 @@ body {
     margin-bottom: 18px;
 }
 
-
 .support-analytics-header h3 {
     font-size: 16px;
 
@@ -584,7 +585,6 @@ body {
     color: #0f172a;
 }
 
-
 .support-analytics-total {
     font-size: 13px;
 
@@ -592,7 +592,6 @@ body {
 
     color: #64748b;
 }
-
 
 .support-analytics-bar {
     display: flex;
@@ -610,13 +609,11 @@ body {
     margin-bottom: 18px;
 }
 
-
 .support-analytics-segment {
     height: 100%;
 
     min-width: 0;
 }
-
 
 .support-analytics-legend {
     display: grid;
@@ -627,12 +624,10 @@ body {
     gap: 12px;
 }
 
-
 .support-analytics-legend--quart {
     grid-template-columns:
         repeat(4, minmax(0, 1fr));
 }
-
 
 .support-analytics-item {
     display: flex;
@@ -648,7 +643,6 @@ body {
     min-width: 0;
 }
 
-
 .support-analytics-dot {
     width: 10px;
 
@@ -658,7 +652,6 @@ body {
 
     flex-shrink: 0;
 }
-
 
 .support-analytics-name {
     color: #475569;
@@ -672,13 +665,11 @@ body {
     text-overflow: ellipsis;
 }
 
-
 .support-analytics-count {
     margin-left: auto;
 
     font-weight: 700;
 }
-
 
 /* Status colours (match the existing .badge-* palette) */
 
@@ -686,36 +677,29 @@ body {
     background: #3b82f6;
 }
 
-
 .support-status-inprogress {
     background: #f59e0b;
 }
-
 
 .support-status-pending {
     background: #94a3b8;
 }
 
-
 .support-status-completed {
     background: #22c55e;
 }
-
 
 .support-status-cancelled {
     background: #ef4444;
 }
 
-
 .support-status-onhold {
     background: #8b5cf6;
 }
 
-
 .support-status-closed {
     background: #22c55e;
 }
-
 
 /* Priority colours (severity scale: gray -> blue -> amber -> red) */
 
@@ -723,21 +707,17 @@ body {
     background: #94a3b8;
 }
 
-
 .support-priority-medium {
     background: #3b82f6;
 }
-
 
 .support-priority-high {
     background: #f59e0b;
 }
 
-
 .support-priority-urgent {
     background: #ef4444;
 }
-
 
 @media (max-width: 900px) {
 
@@ -749,7 +729,6 @@ body {
 
 }
 
-
 @media (max-width: 520px) {
 
     .support-analytics-legend,
@@ -759,7 +738,6 @@ body {
 
 }
 
-
 /* =========================================
    CLIENTS BY STATE (COMPONENT 7)
 ========================================= */
@@ -768,20 +746,17 @@ body {
     margin-bottom: 20px;
 }
 
-
 .clients-state-table {
     width: 100%;
 
     border-collapse: collapse;
 }
 
-
 .clients-state-table td {
     padding: 7px 0;
 
     vertical-align: middle;
 }
-
 
 .clients-state-name {
     width: 38%;
@@ -799,7 +774,6 @@ body {
     color: #0f172a;
 }
 
-
 .clients-state-bar-cell {
     padding-left: 12px;
 
@@ -807,7 +781,6 @@ body {
 
     width: auto;
 }
-
 
 .clients-state-bar {
     height: 8px;
@@ -819,7 +792,6 @@ body {
     overflow: hidden;
 }
 
-
 .clients-state-bar-fill {
     height: 100%;
 
@@ -829,7 +801,6 @@ body {
 
     max-width: 100%;
 }
-
 
 .clients-state-count {
     width: 70px;
@@ -845,7 +816,6 @@ body {
     color: #0f172a;
 }
 
-
 .clients-state-empty {
     color: #64748b;
 
@@ -853,7 +823,6 @@ body {
 
     padding: 8px 0;
 }
-
 
 /* =========================================
    MONTHLY ACTIVITY (COMPONENT 8)
@@ -863,7 +832,6 @@ body {
     margin-bottom: 20px;
 }
 
-
 .monthly-activity-chart {
     display: flex;
 
@@ -871,7 +839,6 @@ body {
 
     gap: 6px;
 }
-
 
 .ma-col {
     flex: 1;
@@ -886,7 +853,6 @@ body {
 
     gap: 6px;
 }
-
 
 .ma-track {
     width: 100%;
@@ -906,7 +872,6 @@ body {
     overflow: hidden;
 }
 
-
 .ma-bar {
     width: 100%;
 
@@ -914,7 +879,6 @@ body {
 
     border-radius: 6px 6px 0 0;
 }
-
 
 .ma-label {
     font-size: 11px;
@@ -926,7 +890,6 @@ body {
     white-space: nowrap;
 }
 
-
 .monthly-activity-empty {
     color: #64748b;
 
@@ -934,7 +897,6 @@ body {
 
     padding: 8px 0;
 }
-
 
 /* =========================================
    FOLLOW-UPS (COMPONENT 9)
@@ -944,7 +906,6 @@ body {
     margin-bottom: 20px;
 }
 
-
 .followups-table {
     width: 100%;
 
@@ -953,14 +914,12 @@ body {
     font-size: 14px;
 }
 
-
 .followups-table th,
 .followups-table td {
     padding: 10px;
 
     text-align: left;
 }
-
 
 .followups-table th {
     color: #64748b;
@@ -978,13 +937,11 @@ body {
     white-space: nowrap;
 }
 
-
 .followups-table td {
     color: #0f172a;
 
     border-bottom: 1px solid #f1f5f9;
 }
-
 
 .followups-table .col-client {
     font-weight: 600;
@@ -992,13 +949,11 @@ body {
     white-space: nowrap;
 }
 
-
 .followups-table .col-type {
     color: #334155;
 
     white-space: nowrap;
 }
-
 
 .followups-table .col-subject {
     color: #334155;
@@ -1012,18 +967,15 @@ body {
     text-overflow: ellipsis;
 }
 
-
 .followups-table .col-date {
     white-space: nowrap;
 }
-
 
 .followups-table .col-user {
     color: #334155;
 
     white-space: nowrap;
 }
-
 
 .followups-empty {
     color: #64748b;
@@ -1033,7 +985,6 @@ body {
     padding: 8px 0;
 }
 
-
 @media (max-width: 700px) {
 
     .followups-table .col-subject,
@@ -1042,7 +993,6 @@ body {
     }
 
 }
-
 
 /* =========================================
    SUPPORT TAB (COMPONENT 10)
@@ -1064,7 +1014,6 @@ body {
     margin-bottom: 20px;
 }
 
-
 .support-tab-title h2 {
     margin: 0;
 
@@ -1072,7 +1021,6 @@ body {
 
     color: #0f172a;
 }
-
 
 .support-tab-title p {
     margin: 4px 0 0;
@@ -1082,13 +1030,11 @@ body {
     color: #64748b;
 }
 
-
 .support-tab-action {
     text-decoration: none;
 
     display: inline-block;
 }
-
 
 /* ---- KPI strip ---- */
 
@@ -1102,7 +1048,6 @@ body {
     margin-bottom: 20px;
 }
 
-
 @media (max-width: 1100px) {
 
     .support-kpi-strip {
@@ -1111,7 +1056,6 @@ body {
 
 }
 
-
 @media (max-width: 700px) {
 
     .support-kpi-strip {
@@ -1119,7 +1063,6 @@ body {
     }
 
 }
-
 
 .support-kpi {
     display: flex;
@@ -1146,13 +1089,11 @@ body {
                 box-shadow 0.15s ease;
 }
 
-
 .support-kpi:hover {
     transform: translateY(-1px);
 
     box-shadow: 0 8px 20px -8px rgba(15, 23, 42, 0.18);
 }
-
 
 .support-kpi-number {
     font-size: 22px;
@@ -1163,7 +1104,6 @@ body {
 
     color: #0f172a;
 }
-
 
 .support-kpi-label {
     font-size: 11px;
@@ -1177,7 +1117,6 @@ body {
     color: #94a3b8;
 }
 
-
 .support-kpi-dot {
     width: 12px;
 
@@ -1187,7 +1126,6 @@ body {
 
     margin-bottom: 2px;
 }
-
 
 .support-kpi-dot-icon {
     width: 34px;
@@ -1211,19 +1149,16 @@ body {
     font-size: 17px;
 }
 
-
 .kpi-icon-svg {
     width: 18px;
 
     height: 18px;
 }
 
-
 .support-kpi-total {
 
     background: #eff6ff;
 }
-
 
 /* ---- Distribution grid ---- */
 
@@ -1237,7 +1172,6 @@ body {
     margin-bottom: 20px;
 }
 
-
 @media (max-width: 900px) {
 
     .dash-support-grid {
@@ -1246,11 +1180,9 @@ body {
 
 }
 
-
 .recent-support-panel {
     margin-bottom: 20px;
 }
-
 
 .recent-support-actions {
     display: flex;
@@ -1260,7 +1192,6 @@ body {
     gap: 14px;
 }
 
-
 .recent-table-hint {
     font-size: 12px;
 
@@ -1268,7 +1199,6 @@ body {
 
     white-space: nowrap;
 }
-
 
 .recent-table {
     width: 100%;
@@ -1278,14 +1208,12 @@ body {
     font-size: 14px;
 }
 
-
 .recent-table th,
 .recent-table td {
     padding: 10px;
 
     text-align: left;
 }
-
 
 .recent-table th {
     color: #64748b;
@@ -1305,7 +1233,6 @@ body {
     white-space: nowrap;
 }
 
-
 .recent-table td {
     color: #0f172a;
 
@@ -1314,17 +1241,14 @@ body {
     transition: background 0.12s ease;
 }
 
-
 .recent-table tbody tr:hover td {
     background: #f8fafc;
 }
-
 
 .recent-table .rs-date,
 .recent-table .rs-followup {
     white-space: nowrap;
 }
-
 
 .recent-table .rs-client {
     font-weight: 600;
@@ -1332,14 +1256,12 @@ body {
     white-space: nowrap;
 }
 
-
 .recent-table .rs-user,
 .recent-table .rs-type {
     color: #334155;
 
     white-space: nowrap;
 }
-
 
 .recent-table .rs-subject {
     color: #334155;
@@ -1353,18 +1275,15 @@ body {
     text-overflow: ellipsis;
 }
 
-
 .recent-client-link {
     color: #2563eb;
 
     text-decoration: none;
 }
 
-
 .recent-client-link:hover {
     text-decoration: underline;
 }
-
 
 .recent-support-empty {
     color: #64748b;
@@ -1373,7 +1292,6 @@ body {
 
     padding: 8px 0;
 }
-
 
 /* Priority pills (same palette as the Component 6 bars) */
 
@@ -1393,13 +1311,11 @@ body {
     white-space: nowrap;
 }
 
-
 .prio-low {
     color: #374151;
 
     background: #e5e7eb;
 }
-
 
 .prio-medium {
     color: #1e40af;
@@ -1407,13 +1323,11 @@ body {
     background: #dbeafe;
 }
 
-
 .prio-high {
     color: #92400e;
 
     background: #fef3c7;
 }
-
 
 .prio-urgent {
     color: #991b1b;
@@ -1421,13 +1335,11 @@ body {
     background: #fee2e2;
 }
 
-
 .prio-default {
     color: #475569;
 
     background: #e2e8f0;
 }
-
 
 @media (max-width: 700px) {
 
@@ -1439,7 +1351,6 @@ body {
     }
 
 }
-
 
 /* =========================================
    DASHBOARD SECTION
@@ -1463,16 +1374,13 @@ body {
         0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
-
 .dashboard-section h2 {
     margin-bottom: 6px;
 }
 
-
 .dashboard-section p {
     color: #64748b;
 }
-
 
 /* =========================================
    STATE SECTION
@@ -1502,7 +1410,6 @@ body {
     margin-top: 18px;
 }
 
-
 .section-header {
     display: flex;
 
@@ -1513,20 +1420,17 @@ body {
     margin-bottom: 20px;
 }
 
-
 .section-header h2 {
     margin-bottom: 5px;
     font-weight: 700;
     color: #0f172a;
 }
 
-
 .section-header p {
     color: #64748b;
 
     font-size: 14px;
 }
-
 
 /* =========================================
    BUTTONS
@@ -1549,7 +1453,6 @@ button,
     transition: all 0.2s ease;
 }
 
-
 .primary-btn {
     background: #2563eb;
 
@@ -1562,20 +1465,17 @@ button,
     box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
 }
 
-
 .primary-btn:hover {
     background: #1d4ed8;
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
     transform: translateY(-1px);
 }
 
-
 .search-btn {
     background: #2563eb;
 
     color: white;
 }
-
 
 .reset-btn {
     background: #64748b;
@@ -1589,7 +1489,6 @@ button,
     border-radius: 8px;
 }
 
-
 .edit-btn {
     background: #f59e0b;
 
@@ -1602,12 +1501,10 @@ button,
     border-radius: 6px;
 }
 
-
 .edit-btn:hover {
     background: #d97706;
     box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
 }
-
 
 .delete-btn {
     background: #ef4444;
@@ -1621,12 +1518,10 @@ button,
     border-radius: 6px;
 }
 
-
 .delete-btn:hover {
     background: #dc2626;
     box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
 }
-
 
 /* =========================================
    ACTION CELL - ICON BUTTONS
@@ -1635,7 +1530,6 @@ button,
 th.actions-col {
     text-align: center;
 }
-
 
 .action-cell {
     display: flex;
@@ -1648,7 +1542,6 @@ th.actions-col {
 
     white-space: nowrap;
 }
-
 
 .action-btn {
     width: 24px;
@@ -1672,7 +1565,6 @@ th.actions-col {
     color: white;
 }
 
-
 .save-btn {
     background: #10b981;
 
@@ -1685,12 +1577,10 @@ th.actions-col {
     border-radius: 8px;
 }
 
-
 .save-btn:hover {
     background: #059669;
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
 }
-
 
 .cancel-btn {
     background: #e2e8f0;
@@ -1710,11 +1600,9 @@ th.actions-col {
     cursor: pointer;
 }
 
-
 .cancel-btn:hover {
     background: #cbd5e1;
 }
-
 
 /* =========================================
    SEARCH
@@ -1727,7 +1615,6 @@ th.actions-col {
 
     margin-bottom: 20px;
 }
-
 
 .search-form input {
     width: 300px;
@@ -1743,7 +1630,6 @@ th.actions-col {
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-
 .search-form input:focus {
     outline: none;
 
@@ -1751,7 +1637,6 @@ th.actions-col {
 
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
-
 
 /* =========================================
    TABLE TOOLBAR
@@ -1771,7 +1656,6 @@ th.actions-col {
     border-bottom: 1px solid #e2e8f0;
 }
 
-
 .toolbar-left,
 .toolbar-right {
     display: flex;
@@ -1781,7 +1665,6 @@ th.actions-col {
     gap: 10px;
 }
 
-
 .toolbar-label {
     font-size: 14px;
 
@@ -1789,7 +1672,6 @@ th.actions-col {
 
     font-weight: 500;
 }
-
 
 .toolbar-left select {
     padding: 8px 12px;
@@ -1809,7 +1691,6 @@ th.actions-col {
     transition: border-color 0.2s ease;
 }
 
-
 .toolbar-left select:focus {
     outline: none;
 
@@ -1817,7 +1698,6 @@ th.actions-col {
 
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
-
 
 .toolbar-right input {
     padding: 8px 14px;
@@ -1833,7 +1713,6 @@ th.actions-col {
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-
 .toolbar-right input:focus {
     outline: none;
 
@@ -1841,7 +1720,6 @@ th.actions-col {
 
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
-
 
 /* =========================================
    TOOLBAR CENTER - EXPORT BUTTONS
@@ -1854,7 +1732,6 @@ th.actions-col {
 
     gap: 8px;
 }
-
 
 .export-btn {
     padding: 7px 14px;
@@ -1874,50 +1751,41 @@ th.actions-col {
     transition: all 0.2s ease;
 }
 
-
 .excel-btn {
     background: #10b981;
 }
-
 
 .excel-btn:hover {
     background: #059669;
     box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
 }
 
-
 .csv-btn {
     background: #3b82f6;
 }
-
 
 .csv-btn:hover {
     background: #2563eb;
     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.35);
 }
 
-
 .print-btn {
     background: #8b5cf6;
 }
-
 
 .print-btn:hover {
     background: #7c3aed;
     box-shadow: 0 2px 8px rgba(139, 92, 246, 0.35);
 }
 
-
 .pdf-btn {
     background: #ef4444;
 }
-
 
 .pdf-btn:hover {
     background: #dc2626;
     box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
 }
-
 
 /* =========================================
    REPORT FILTER SECTION
@@ -1937,7 +1805,6 @@ th.actions-col {
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
-
 .filter-row {
     display: grid;
 
@@ -1949,7 +1816,6 @@ th.actions-col {
     margin-bottom: 14px;
 }
 
-
 .filter-group {
     display: flex;
 
@@ -1958,7 +1824,6 @@ th.actions-col {
     gap: 6px;
 }
 
-
 .filter-group label {
     font-size: 13px;
 
@@ -1966,7 +1831,6 @@ th.actions-col {
 
     color: #475569;
 }
-
 
 .filter-group select,
 .filter-group input {
@@ -1988,7 +1852,6 @@ th.actions-col {
         box-shadow 0.2s ease;
 }
 
-
 .filter-group select:focus,
 .filter-group input:focus {
     outline: none;
@@ -1997,7 +1860,6 @@ th.actions-col {
 
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
-
 
 .filter-actions {
     display: flex;
@@ -2009,7 +1871,6 @@ th.actions-col {
     padding-top: 4px;
 }
 
-
 .filter-actions .primary-btn,
 .filter-actions .cancel-btn {
     padding: 9px 20px;
@@ -2017,11 +1878,9 @@ th.actions-col {
     font-size: 14px;
 }
 
-
 .report-summary-cards {
     margin-bottom: 20px;
 }
-
 
 /* =========================================
    TABLE FOOTER
@@ -2041,13 +1900,11 @@ th.actions-col {
     border-top: 1px solid #e2e8f0;
 }
 
-
 .footer-left {
     font-size: 14px;
 
     color: #64748b;
 }
-
 
 .footer-right {
     display: flex;
@@ -2061,7 +1918,6 @@ th.actions-col {
        jagah. */
     flex-wrap: wrap;
 }
-
 
 /* =========================================
    PAGINATION
@@ -2085,13 +1941,11 @@ th.actions-col {
     transition: all 0.2s ease;
 }
 
-
 .page-btn:hover:not(:disabled):not(.active) {
     background: #f8fafc;
 
     border-color: #94a3b8;
 }
-
 
 .page-btn.active {
     background: #2563eb;
@@ -2103,19 +1957,38 @@ th.actions-col {
     box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
 }
 
-
 .page-btn:disabled {
     opacity: 0.4;
 
     cursor: not-allowed;
 }
 
-
 /* =========================================
    RESPONSIVE - TABLE TOOLBAR
 ========================================= */
 
 @media (max-width: 700px) {
+
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .page-header .header-actions,
+    .page-header > div:last-child {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .page-header .header-actions .primary-btn,
+    .page-header > div:last-child .primary-btn,
+    .page-header > div:last-child .btn {
+        flex: 1 1 100%;
+        justify-content: center;
+    }
 
     .table-toolbar {
         flex-direction: column;
@@ -2126,9 +1999,8 @@ th.actions-col {
     }
 
     .filter-row {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
     }
-
 
     .toolbar-center {
         width: 100%;
@@ -2138,29 +2010,50 @@ th.actions-col {
         flex-wrap: wrap;
     }
 
-
     .toolbar-right {
         width: 100%;
 
         flex-wrap: wrap;
     }
 
-
     .toolbar-right input {
         width: 100%;
     }
 
-
     .table-footer {
         flex-direction: column;
 
-        align-items: flex-start;
+        align-items: center;
+
+        text-align: center;
 
         gap: 12px;
     }
 
-}
+    .tkt-filter-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
 
+    .tkt-filter-row > .tkt-filter-field {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    .tkt-filter-footer {
+        flex: 1 1 100%;
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .tkt-filter-footer .btn,
+    .tkt-filter-footer .secondary-btn,
+    .tkt-filter-footer .primary-btn {
+        flex: 1;
+    }
+
+}
 
 /* =========================================
    TABLE
@@ -2168,8 +2061,9 @@ th.actions-col {
 
 .table-container {
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
 }
-
 
 /* =========================================
    MASTER TABLES - HORIZONTAL SCROLL
@@ -2179,13 +2073,11 @@ th.actions-col {
     overflow-x: auto;
 }
 
-
 .master-table table {
     width: 100%;
 
     table-layout: auto;
 }
-
 
 .master-table th,
 .master-table td {
@@ -2194,18 +2086,15 @@ th.actions-col {
     word-break: normal;
 }
 
-
 .master-table th.sortable {
     white-space: normal;
 }
-
 
 table {
     width: 100%;
 
     border-collapse: collapse;
 }
-
 
 th,
 td {
@@ -2215,7 +2104,6 @@ td {
 
     border-bottom: 1px solid #f1f5f9;
 }
-
 
 th {
     background: #f8fafc;
@@ -2230,7 +2118,6 @@ th {
 
     letter-spacing: 0.3px;
 }
-
 
 /* =========================================
    SORT ARROWS
@@ -2248,11 +2135,9 @@ th {
     position: relative;
 }
 
-
 .sortable:hover {
     background: #eef2ff;
 }
-
 
 .th-text {
     vertical-align: middle;
@@ -2261,7 +2146,6 @@ th {
 
     padding-right: 16px;
 }
-
 
 .sort-indicator {
     display: inline-flex;
@@ -2281,7 +2165,6 @@ th {
     margin: 0;
 }
 
-
 .sort-up,
 .sort-down {
     width: 0;
@@ -2291,38 +2174,31 @@ th {
     border-right: 3px solid transparent;
 }
 
-
 .sort-up {
     border-bottom: 4px solid #cbd5e1;
 
     margin-bottom: 1px;
 }
 
-
 .sort-down {
     border-top: 4px solid #cbd5e1;
 }
-
 
 .sortable:hover .sort-up {
     border-bottom-color: #94a3b8;
 }
 
-
 .sortable:hover .sort-down {
     border-top-color: #94a3b8;
 }
-
 
 th.sort-asc .sort-up {
     border-bottom-color: #2563eb;
 }
 
-
 th.sort-desc .sort-down {
     border-top-color: #2563eb;
 }
-
 
 td {
     font-size: 13px;
@@ -2330,21 +2206,17 @@ td {
     color: #334155;
 }
 
-
 tbody tr {
     transition: background 0.15s ease;
 }
-
 
 tbody tr:hover {
     background: #f8fafc;
 }
 
-
 td form {
     display: inline;
 }
-
 
 /* =========================================
    STATUS BADGES
@@ -2368,7 +2240,6 @@ td form {
     letter-spacing: 0.2px;
 }
 
-
 .status-inactive {
     display: inline-block;
 
@@ -2386,7 +2257,6 @@ td form {
 
     letter-spacing: 0.2px;
 }
-
 
 /* =========================================
    STATUS PILLS - DAILY SUPPORT
@@ -2408,13 +2278,11 @@ td form {
     white-space: nowrap;
 }
 
-
 .badge-open {
     color: #1e40af;
 
     background: #dbeafe;
 }
-
 
 .badge-inprogress {
     color: #92400e;
@@ -2422,13 +2290,11 @@ td form {
     background: #fef3c7;
 }
 
-
 .badge-pending {
     color: #374151;
 
     background: #e5e7eb;
 }
-
 
 .badge-completed {
     color: #166534;
@@ -2436,13 +2302,11 @@ td form {
     background: #dcfce7;
 }
 
-
 .badge-cancelled {
     color: #991b1b;
 
     background: #fee2e2;
 }
-
 
 /* Daily Support (reference status set) */
 
@@ -2452,7 +2316,6 @@ td form {
     background: #ede9fe;
 }
 
-
 /* Ticketing workflow: Pending Review + Resolved */
 
 .badge-pendingreview {
@@ -2461,13 +2324,11 @@ td form {
     background: #ffedd5;
 }
 
-
 .badge-resolved {
     color: #166534;
 
     background: #dcfce7;
 }
-
 
 /* Clickable grid row (goes to ticket detail) */
 
@@ -2475,11 +2336,9 @@ tr.tkt-row-link {
     cursor: pointer;
 }
 
-
 tr.tkt-row-link:hover {
     background: #f8fafc;
 }
-
 
 /* Page header: title on the left, action buttons on the right */
 
@@ -2490,7 +2349,6 @@ tr.tkt-row-link:hover {
 
     gap: 8px;
 }
-
 
 /* Small caption under a KPI card value (Today Calls / Open...) */
 
@@ -2504,7 +2362,6 @@ tr.tkt-row-link:hover {
     color: #64748b;
 }
 
-
 /* Small second line inside a grid cell (client id, call time) */
 
 .cell-sub {
@@ -2514,7 +2371,6 @@ tr.tkt-row-link:hover {
 
     color: #64748b;
 }
-
 
 /* Hint under a locked-after-creation field (Ticket No) */
 
@@ -2528,13 +2384,11 @@ tr.tkt-row-link:hover {
     color: #94a3b8;
 }
 
-
 .badge-default {
     color: #475569;
 
     background: #e2e8f0;
 }
-
 
 .badge-active {
     color: #1d4ed8;
@@ -2542,20 +2396,17 @@ tr.tkt-row-link:hover {
     background: #dbeafe;
 }
 
-
 .badge-inactive {
     color: #991b1b;
 
     background: #fee2e2;
 }
 
-
 .badge-planned {
     color: #1e40af;
 
     background: #dbeafe;
 }
-
 
 /* =========================================
    VISITS TAB (COMPONENT 11) — KPI dot colours
@@ -2565,16 +2416,13 @@ tr.tkt-row-link:hover {
     background: #22c55e;
 }
 
-
 .visit-kpi-month {
     background: #3b82f6;
 }
 
-
 .visit-kpi-upcoming {
     background: #f59e0b;
 }
-
 
 /* =========================================
    CLIENTS TAB (COMPONENT 12)
@@ -2586,16 +2434,13 @@ tr.tkt-row-link:hover {
     background: #22c55e;
 }
 
-
 .client-kpi-nonactive {
     background: #94a3b8;
 }
 
-
 .client-kpi-month {
     background: #3b82f6;
 }
-
 
 /* Overview table columns */
 
@@ -2605,7 +2450,6 @@ tr.tkt-row-link:hover {
     white-space: nowrap;
 }
 
-
 .recent-table .rc-state,
 .recent-table .rc-user {
     color: #334155;
@@ -2613,18 +2457,15 @@ tr.tkt-row-link:hover {
     white-space: nowrap;
 }
 
-
 .recent-table .rc-date {
     white-space: nowrap;
 }
-
 
 .recent-table .rc-mobile {
     color: #334155;
 
     white-space: nowrap;
 }
-
 
 .recent-table .rc-email {
     color: #334155;
@@ -2638,7 +2479,6 @@ tr.tkt-row-link:hover {
     text-overflow: ellipsis;
 }
 
-
 @media (max-width: 700px) {
 
     .recent-table .rc-email,
@@ -2648,13 +2488,11 @@ tr.tkt-row-link:hover {
 
 }
 
-
 .prev-dash {
     color: #94a3b8;
 
     font-weight: 600;
 }
-
 
 .prev-ref {
     display: inline-block;
@@ -2671,7 +2509,6 @@ tr.tkt-row-link:hover {
 
     background: #dbeafe;
 }
-
 
 /* =========================================
    SUPPORT ACTION BUTTONS (START / COMPLETE)
@@ -2697,56 +2534,45 @@ tr.tkt-row-link:hover {
     white-space: nowrap;
 }
 
-
 .start-action {
     background: #2563eb;
 }
-
 
 .start-action:hover {
     background: #1d4ed8;
 }
 
-
 .complete-action {
     background: #10b981;
 }
-
 
 .complete-action:hover {
     background: #059669;
 }
 
-
 .resume-action {
     background: #2563eb;
 }
-
 
 .resume-action:hover {
     background: #1d4ed8;
 }
 
-
 .pause-action {
     background: #f59e0b;
 }
-
 
 .pause-action:hover {
     background: #d97706;
 }
 
-
 .cancel-action {
     background: #ef4444;
 }
 
-
 .cancel-action:hover {
     background: #dc2626;
 }
-
 
 /* =========================================
    VOICE TO TEXT (REMARKS)
@@ -2763,7 +2589,6 @@ tr.tkt-row-link:hover {
 
     margin-bottom: 4px;
 }
-
 
 .voice-btn {
     border: none;
@@ -2783,23 +2608,19 @@ tr.tkt-row-link:hover {
     transition: all 0.2s ease;
 }
 
-
 .mic-btn {
     background: #2563eb;
 }
 
-
 .mic-btn:hover {
     background: #1d4ed8;
 }
-
 
 .mic-btn.is-recording {
     background: #dc2626;
 
     animation: voicePulse 1.2s infinite;
 }
-
 
 @keyframes voicePulse {
 
@@ -2814,7 +2635,6 @@ tr.tkt-row-link:hover {
 
 }
 
-
 .voice-status {
     display: none;
 
@@ -2827,33 +2647,27 @@ tr.tkt-row-link:hover {
     color: #dc2626;
 }
 
-
 .voice-status.visible {
     display: inline-flex;
     align-items: center;
     gap: 6px;
 }
 
-
 .voice-stop {
     background: #ef4444;
 }
-
 
 .voice-stop:hover {
     background: #dc2626;
 }
 
-
 .voice-reset {
     background: #64748b;
 }
 
-
 .voice-reset:hover {
     background: #475569;
 }
-
 
 .voice-hint {
     display: block;
@@ -2865,7 +2679,6 @@ tr.tkt-row-link:hover {
     color: #94a3b8;
 }
 
-
 .auto-time-hint {
     margin: 14px 2px 0 2px;
 
@@ -2873,7 +2686,6 @@ tr.tkt-row-link:hover {
 
     color: #94a3b8;
 }
-
 
 /* =========================================
    MESSAGES
@@ -2895,7 +2707,6 @@ tr.tkt-row-link:hover {
     border-left: 4px solid #22c55e;
 }
 
-
 .error-message {
     background: #fee2e2;
 
@@ -2912,7 +2723,6 @@ tr.tkt-row-link:hover {
     border-left: 4px solid #ef4444;
 }
 
-
 .field-error {
     display: block;
 
@@ -2925,7 +2735,6 @@ tr.tkt-row-link:hover {
     font-weight: 500;
 }
 
-
 .empty-state {
     text-align: center;
 
@@ -2936,7 +2745,6 @@ tr.tkt-row-link:hover {
     font-size: 14px;
 }
 
-
 /* =========================================
    SUPPORT TABLE - NATURAL COLUMN WIDTHS
 ========================================= */
@@ -2944,7 +2752,6 @@ tr.tkt-row-link:hover {
 .support-table {
     overflow-x: auto;
 }
-
 
 .support-table table {
     width: 100%;
@@ -2954,7 +2761,6 @@ tr.tkt-row-link:hover {
     min-width: 1150px;
 }
 
-
 .support-table th,
 .support-table td {
     overflow-wrap: normal;
@@ -2962,11 +2768,9 @@ tr.tkt-row-link:hover {
     word-break: normal;
 }
 
-
 .support-table .col-nowrap {
     white-space: nowrap;
 }
-
 
 .support-table .col-wrap {
     white-space: normal;
@@ -2991,7 +2795,6 @@ tr.tkt-row-link:hover {
     overflow: hidden;
 }
 
-
 /* =========================================
    MODAL - POPUP LOOK
 ========================================= */
@@ -3013,7 +2816,6 @@ tr.tkt-row-link:hover {
 
     animation: fadeIn 0.2s ease;
 }
-
 
 .modal-content {
     width: 640px;
@@ -3039,11 +2841,9 @@ tr.tkt-row-link:hover {
     animation: slideUp 0.25s ease;
 }
 
-
 .modal-wide {
     width: 820px;
 }
-
 
 .modal-compact {
     width: 400px;
@@ -3071,12 +2871,10 @@ tr.tkt-row-link:hover {
     margin-bottom: 0;
 }
 
-
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
 }
-
 
 @keyframes slideUp {
     from {
@@ -3088,7 +2886,6 @@ tr.tkt-row-link:hover {
         transform: translateY(0) scale(1);
     }
 }
-
 
 .modal-header {
     display: flex;
@@ -3104,7 +2901,6 @@ tr.tkt-row-link:hover {
     border-bottom: 1px solid #f1f5f9;
 }
 
-
 .modal-header h2 {
     font-size: 20px;
 
@@ -3112,7 +2908,6 @@ tr.tkt-row-link:hover {
 
     color: #0f172a;
 }
-
 
 .modal-close {
     background: #f1f5f9;
@@ -3133,7 +2928,6 @@ tr.tkt-row-link:hover {
 
     line-height: 1;
 }
-
 
 .modal-close:hover {
     background: #e2e8f0;
@@ -3173,11 +2967,9 @@ tr.tkt-row-link:hover {
 }
 .select-more:hover { background: #dbeafe; }
 
-
 .form-group {
     margin-bottom: 20px;
 }
-
 
 .form-group label {
     display: block;
@@ -3191,7 +2983,6 @@ tr.tkt-row-link:hover {
     font-size: 14px;
 }
 
-
 #otherSupportTypeGroup {
     margin-top: 12px;
 
@@ -3203,7 +2994,6 @@ tr.tkt-row-link:hover {
 
     background: #f8fafc;
 }
-
 
 #otherSupportTypeGroup .sub-label {
     display: block;
@@ -3217,7 +3007,6 @@ tr.tkt-row-link:hover {
     font-size: 13px;
 }
 
-
 .status-tracker {
     margin-top: 12px;
 
@@ -3230,7 +3019,6 @@ tr.tkt-row-link:hover {
     background: #f8fafc;
 }
 
-
 .status-tracker-row {
     display: flex;
 
@@ -3241,11 +3029,9 @@ tr.tkt-row-link:hover {
     gap: 10px;
 }
 
-
 .status-tracker-row + .status-tracker-row {
     margin-top: 10px;
 }
-
 
 .status-tracker-label {
     font-size: 12px;
@@ -3254,7 +3040,6 @@ tr.tkt-row-link:hover {
 
     color: #64748b;
 }
-
 
 .form-group input,
 .form-group select,
@@ -3282,7 +3067,6 @@ tr.tkt-row-link:hover {
     resize: vertical;
 }
 
-
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
@@ -3293,12 +3077,10 @@ tr.tkt-row-link:hover {
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-
 .form-group input::placeholder,
 .form-group textarea::placeholder {
     color: #94a3b8;
 }
-
 
 .modal-actions {
     display: flex;
@@ -3307,7 +3089,6 @@ tr.tkt-row-link:hover {
 
     margin-top: 24px;
 }
-
 
 /* =========================================
    FORM GRID - TWO COLUMN LAYOUT
@@ -3322,23 +3103,19 @@ tr.tkt-row-link:hover {
     gap: 0 18px;
 }
 
-
 .form-group-full {
     grid-column: 1 / -1;
 }
-
 
 .form-grid-single {
     grid-template-columns:
         repeat(1, minmax(0, 1fr));
 }
 
-
 .modal-actions .save-btn,
 .modal-actions .cancel-btn {
     flex: 1;
 }
-
 
 /* =========================================
    LOGIN
@@ -3356,7 +3133,6 @@ tr.tkt-row-link:hover {
     background: #f0f2f5;
 }
 
-
 .login-container {
     width: 100%;
 
@@ -3364,7 +3140,6 @@ tr.tkt-row-link:hover {
 
     padding: 20px;
 }
-
 
 .login-card {
     background: white;
@@ -3378,7 +3153,6 @@ tr.tkt-row-link:hover {
         0 10px 40px rgba(0, 0, 0, 0.08);
 }
 
-
 .login-card h1 {
     text-align: center;
 
@@ -3389,7 +3163,6 @@ tr.tkt-row-link:hover {
     color: #0f172a;
 }
 
-
 .subtitle {
     text-align: center;
 
@@ -3399,7 +3172,6 @@ tr.tkt-row-link:hover {
 
     font-size: 14px;
 }
-
 
 .login-btn {
     width: 100%;
@@ -3425,12 +3197,10 @@ tr.tkt-row-link:hover {
     box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
 }
 
-
 .login-btn:hover {
     background: #1d4ed8;
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
 }
-
 
 .error {
     color: #dc2626;
@@ -3440,6 +3210,55 @@ tr.tkt-row-link:hover {
     margin-bottom: 10px;
 }
 
+/* =========================================
+   MOBILE MENU BUTTON + SIDEBAR DRAWER
+========================================= */
+
+.mobile-menu-btn {
+    display: none;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 900;
+    width: 44px;
+    height: 44px;
+    border: 1px solid #e6ebf1;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 4px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.mobile-menu-bars {
+    width: 18px;
+    height: 2px;
+    background: #1f2937;
+    border-radius: 2px;
+}
+
+.sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(1px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+    z-index: 950;
+}
+
+body.sidebar-open .sidebar-backdrop {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
 
 /* =========================================
    RESPONSIVE
@@ -3454,27 +3273,48 @@ tr.tkt-row-link:hover {
 
 }
 
-
 @media (max-width: 700px) {
 
-    .sidebar {
-        width: 200px;
+    html, body {
+        overflow-x: hidden;
+        max-width: 100%;
     }
 
+    .layout {
+        overflow-x: hidden;
+    }
+
+    .mobile-menu-btn {
+        display: inline-flex;
+    }
+
+    .sidebar-backdrop {
+        display: block;
+    }
+
+    .sidebar {
+        width: min(78vw, 280px);
+        transform: translateX(-100%);
+        transition: transform 0.28s ease;
+        z-index: 1001;
+        box-shadow: 12px 0 40px rgba(0, 0, 0, 0.28);
+    }
+
+    body.sidebar-open .sidebar {
+        transform: translateX(0);
+    }
 
     .main-content {
-        margin-left: 200px;
-
-        width: calc(100% - 200px);
-
-        padding: 20px;
+        margin-left: 0;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+        padding: 66px 8px 20px;
     }
-
 
     .dashboard-cards {
         grid-template-columns: 1fr;
     }
-
 
     .section-header {
         flex-direction: column;
@@ -3484,18 +3324,15 @@ tr.tkt-row-link:hover {
         gap: 15px;
     }
 
-
     .search-form {
         flex-wrap: wrap;
     }
-
 
     .search-form input {
         width: 100%;
     }
 
 }
-
 
 /* =========================================
    AJAX TOAST
@@ -3516,7 +3353,6 @@ tr.tkt-row-link:hover {
 
     gap: 10px;
 }
-
 
 .master-toast {
     min-width: 260px;
@@ -3545,13 +3381,11 @@ tr.tkt-row-link:hover {
     border-left: 4px solid transparent;
 }
 
-
 .master-toast.show {
     opacity: 1;
 
     transform: translateY(0);
 }
-
 
 .master-toast-success {
     background: #16a34a;
@@ -3559,13 +3393,11 @@ tr.tkt-row-link:hover {
     border-left-color: #14532d;
 }
 
-
 .master-toast-error {
     background: #dc2626;
 
     border-left-color: #7f1d1d;
 }
-
 
 /* =========================================
    SIDEBAR COLLAPSE (toggle, persisted state)
@@ -3579,20 +3411,17 @@ tr.tkt-row-link:hover {
         width: 70px;
     }
 
-
     .sidebar-collapsed .main-content {
         margin-left: 70px;
 
         width: calc(100% - 70px);
     }
 
-
     .sidebar-collapsed .sidebar-top {
         justify-content: center;
 
         padding: 20px 0;
     }
-
 
     .sidebar-collapsed .sidebar-logo,
     .sidebar-collapsed .user-info,
@@ -3601,11 +3430,9 @@ tr.tkt-row-link:hover {
         display: none;
     }
 
-
     .sidebar-collapsed .sidebar-menu {
         padding: 20px 10px;
     }
-
 
     .sidebar-collapsed .menu-item {
         justify-content: center;
@@ -3615,15 +3442,66 @@ tr.tkt-row-link:hover {
         gap: 0;
     }
 
-
     .sidebar-collapsed .menu-group .menu-item {
         justify-content: center;
 
         padding: 11px 0;
     }
 
-}
+    /* ---- Collapsed rail (icon-only sidebar) ----
+       Har group ka apna icon hai, isliye collapsed state
+       me rail khali nahi lagti - pehle sirf logout ka
+       door icon dikhta tha. */
 
+    .sidebar-collapsed .menu-group-toggle {
+        justify-content: center;
+
+        width: 44px;
+
+        height: 44px;
+
+        margin: 0 auto 6px;
+
+        padding: 0;
+
+        border-radius: 12px;
+    }
+
+    .sidebar-collapsed .menu-group-toggle:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .sidebar-collapsed .menu-group-toggle
+        .menu-group-label,
+    .sidebar-collapsed .menu-arrow {
+        display: none;
+    }
+
+    .sidebar-collapsed .menu-group-icon {
+        display: inline-flex;
+    }
+
+    .sidebar-collapsed .menu-group-toggle:hover .menu-group-icon {
+        color: #ffffff;
+    }
+
+    .sidebar-collapsed .menu-submenu {
+        display: none;
+    }
+
+    .sidebar-collapsed .sidebar-footer {
+        padding: 10px 8px;
+    }
+
+    .sidebar-collapsed .sidebar-footer .menu-item {
+        justify-content: center;
+
+        padding: 12px 0;
+
+        gap: 0;
+    }
+
+}
 
 /* =========================================
    Sr No. COLUMNS (Reports + Dashboard tabs)
@@ -3643,7 +3521,6 @@ tr.tkt-row-link:hover {
     text-align: center;
 }
 
-
 /* =========================================
    LOADING OVERLAY / SPINNER (professional)
 ========================================= */
@@ -3651,7 +3528,6 @@ tr.tkt-row-link:hover {
 .loading-wrap {
     position: relative;
 }
-
 
 .loading-overlay {
     position: fixed;
@@ -3684,7 +3560,6 @@ tr.tkt-row-link:hover {
         visibility 0.25s ease;
 }
 
-
 .loading-overlay.visible {
     opacity: 1;
 
@@ -3692,7 +3567,6 @@ tr.tkt-row-link:hover {
 
     pointer-events: auto;
 }
-
 
 .loading-card {
     display: flex;
@@ -3711,7 +3585,6 @@ tr.tkt-row-link:hover {
 
     box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);
 }
-
 
 .spinner {
     width: 40px;
@@ -3742,7 +3615,6 @@ tr.tkt-row-link:hover {
     animation: spin 0.9s linear infinite;
 }
 
-
 .loading-text {
     font-size: 13px;
 
@@ -3752,7 +3624,6 @@ tr.tkt-row-link:hover {
 
     letter-spacing: 0.2px;
 }
-
 
 .loading-dots::after {
     content: "...";
@@ -3766,7 +3637,6 @@ tr.tkt-row-link:hover {
     animation: dots-pulse 1.4s ease-in-out infinite;
 }
 
-
 @keyframes spin {
 
     to {
@@ -3774,7 +3644,6 @@ tr.tkt-row-link:hover {
     }
 
 }
-
 
 @keyframes dots-pulse {
 
@@ -3788,7 +3657,6 @@ tr.tkt-row-link:hover {
     }
 
 }
-
 
 /* =========================================
    FULL-PAGE APP LOADER (sidebar navigation)
@@ -3821,7 +3689,6 @@ tr.tkt-row-link:hover {
         visibility 0.3s ease;
 }
 
-
 .app-loader.visible {
     opacity: 1;
 
@@ -3829,7 +3696,6 @@ tr.tkt-row-link:hover {
 
     pointer-events: auto;
 }
-
 
 .app-loader-card {
     display: flex;
@@ -3852,7 +3718,6 @@ tr.tkt-row-link:hover {
 
     min-width: 230px;
 }
-
 
 .app-loader-spinner {
     width: 48px;
@@ -3883,7 +3748,6 @@ tr.tkt-row-link:hover {
     animation: spin 0.9s linear infinite;
 }
 
-
 .app-loader-text {
     font-size: 13px;
 
@@ -3891,7 +3755,6 @@ tr.tkt-row-link:hover {
 
     color: #64748b;
 }
-
 
 /* =========================================
    SEARCHABLE SELECT (combobox)
@@ -3904,7 +3767,6 @@ tr.tkt-row-link:hover {
 
     width: 100%;
 }
-
 
 .searchable-select-trigger {
     display: flex;
@@ -3937,11 +3799,9 @@ tr.tkt-row-link:hover {
         box-shadow 0.2s ease;
 }
 
-
 .searchable-select-trigger:hover {
     border-color: #cbd5e1;
 }
-
 
 .searchable-select.is-open .searchable-select-trigger,
 .searchable-select-trigger:focus {
@@ -3952,7 +3812,6 @@ tr.tkt-row-link:hover {
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-
 .searchable-select-trigger .ss-label {
     overflow: hidden;
 
@@ -3962,7 +3821,6 @@ tr.tkt-row-link:hover {
 
     color: #334155;
 }
-
 
 .searchable-select-trigger .ss-caret {
     flex-shrink: 0;
@@ -3976,11 +3834,9 @@ tr.tkt-row-link:hover {
     transition: transform 0.2s ease;
 }
 
-
 .searchable-select.is-open .ss-caret {
     transform: rotate(180deg);
 }
-
 
 .searchable-select-dropdown {
     position: absolute;
@@ -4004,11 +3860,9 @@ tr.tkt-row-link:hover {
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
 }
 
-
 .searchable-select.is-open .searchable-select-dropdown {
     display: block;
 }
-
 
 .searchable-select-search {
     width: 100%;
@@ -4032,18 +3886,15 @@ tr.tkt-row-link:hover {
     outline: none;
 }
 
-
 .searchable-select-search::placeholder {
     color: #94a3b8;
 }
-
 
 .searchable-select-options {
     max-height: 220px;
 
     overflow-y: auto;
 }
-
 
 .searchable-select-option {
     padding: 8px 11px;
@@ -4055,14 +3906,12 @@ tr.tkt-row-link:hover {
     cursor: pointer;
 }
 
-
 .searchable-select-option:hover,
 .searchable-select-option.highlighted {
     background: #eff6ff;
 
     color: #1d4ed8;
 }
-
 
 .searchable-select-option.selected {
     background: #dbeafe;
@@ -4071,7 +3920,6 @@ tr.tkt-row-link:hover {
 
     font-weight: 500;
 }
-
 
 .searchable-select-empty {
     padding: 10px 11px;
@@ -4088,7 +3936,6 @@ tr.tkt-row-link:hover {
 
     box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08);
 }
-
 
 /* =========================================
    CRM MODULE
@@ -4124,17 +3971,14 @@ tr.tkt-row-link:hover {
     background: #fee2e2;
 }
 
-
 .done-btn {
     background: #16a34a;
     color: #fff;
 }
 
-
 .done-btn:hover {
     background: #15803d;
 }
-
 
 /* ---- Range tabs (follow-up) ---- */
 
@@ -4144,7 +3988,6 @@ tr.tkt-row-link:hover {
     gap: 8px;
     margin-bottom: 18px;
 }
-
 
 .range-tab {
     display: inline-block;
@@ -4158,17 +4001,14 @@ tr.tkt-row-link:hover {
     transition: all 0.2s ease;
 }
 
-
 .range-tab:hover {
     background: #e2e8f0;
 }
-
 
 .range-tab.active {
     background: #2563eb;
     color: #fff;
 }
-
 
 /* ---- Detail panels ---- */
 
@@ -4179,14 +4019,12 @@ tr.tkt-row-link:hover {
     margin-bottom: 18px;
 }
 
-
 .crm-dashboard-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 18px;
     margin-bottom: 18px;
 }
-
 
 .detail-panel {
     background: #fff;
@@ -4197,14 +4035,12 @@ tr.tkt-row-link:hover {
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
 }
 
-
 .detail-panel h2 {
     font-size: 15px;
     font-weight: 700;
     color: #0f172a;
     margin: 0 0 14px;
 }
-
 
 .panel-head {
     display: flex;
@@ -4213,11 +4049,9 @@ tr.tkt-row-link:hover {
     margin-bottom: 14px;
 }
 
-
 .panel-head h2 {
     margin: 0;
 }
-
 
 .link {
     color: #2563eb;
@@ -4225,11 +4059,9 @@ tr.tkt-row-link:hover {
     text-decoration: none;
 }
 
-
 .link:hover {
     text-decoration: underline;
 }
-
 
 .detail-list {
     display: grid;
@@ -4237,13 +4069,11 @@ tr.tkt-row-link:hover {
     gap: 10px 24px;
 }
 
-
 .detail-item {
     display: flex;
     flex-direction: column;
     gap: 3px;
 }
-
 
 .detail-label {
     font-size: 12px;
@@ -4251,13 +4081,11 @@ tr.tkt-row-link:hover {
     font-weight: 600;
 }
 
-
 .detail-value {
     font-size: 14px;
     color: #0f172a;
     word-break: break-word;
 }
-
 
 /* ---- Timeline ---- */
 
@@ -4267,17 +4095,14 @@ tr.tkt-row-link:hover {
     border-left: 2px solid #e2e8f0;
 }
 
-
 .timeline-item {
     position: relative;
     padding: 0 0 18px 16px;
 }
 
-
 .timeline-item:last-child {
     padding-bottom: 0;
 }
-
 
 .timeline-dot {
     position: absolute;
@@ -4291,7 +4116,6 @@ tr.tkt-row-link:hover {
     box-shadow: 0 0 0 2px #dbeafe;
 }
 
-
 .timeline-head {
     display: flex;
     justify-content: space-between;
@@ -4300,18 +4124,15 @@ tr.tkt-row-link:hover {
     margin-bottom: 4px;
 }
 
-
 .timeline-head strong {
     font-size: 13px;
     color: #0f172a;
 }
 
-
 .timeline-date {
     font-size: 12px;
     color: #94a3b8;
 }
-
 
 .timeline-mode {
     font-size: 12px;
@@ -4319,36 +4140,30 @@ tr.tkt-row-link:hover {
     margin-bottom: 4px;
 }
 
-
 .timeline-text {
     font-size: 13px;
     color: #334155;
 }
-
 
 .timeline-change {
     font-size: 13px;
     margin-bottom: 4px;
 }
 
-
 .timeline-change .old-value {
     color: #b91c1c;
     text-decoration: line-through;
 }
-
 
 .timeline-change .arrow {
     margin: 0 6px;
     color: #94a3b8;
 }
 
-
 .timeline-change .new-value {
     color: #15803d;
     font-weight: 600;
 }
-
 
 /* ---- Bar list (dashboard) ---- */
 
@@ -4358,13 +4173,11 @@ tr.tkt-row-link:hover {
     gap: 12px;
 }
 
-
 .bar-item {
     display: flex;
     flex-direction: column;
     gap: 5px;
 }
-
 
 .bar-label {
     display: flex;
@@ -4374,12 +4187,10 @@ tr.tkt-row-link:hover {
     color: #334155;
 }
 
-
 .bar-count {
     font-weight: 700;
     color: #0f172a;
 }
-
 
 .bar-track {
     height: 8px;
@@ -4387,7 +4198,6 @@ tr.tkt-row-link:hover {
     background: #f1f5f9;
     overflow: hidden;
 }
-
 
 .bar-fill {
     height: 100%;
@@ -4397,11 +4207,9 @@ tr.tkt-row-link:hover {
     min-width: 2px;
 }
 
-
 .bar-fill-alt {
     background: #7c3aed;
 }
-
 
 @media (max-width: 900px) {
 
@@ -4415,7 +4223,6 @@ tr.tkt-row-link:hover {
     }
 
 }
-
 
 /* =========================================================
    CRM MODULE - modern UI (consolidated into site.css so it
@@ -4474,7 +4281,6 @@ tr.tkt-row-link:hover {
     align-items: center;
 }
 
-
 /* ---------------- Buttons ---------------- */
 
 .crm-btn {
@@ -4523,7 +4329,6 @@ tr.tkt-row-link:hover {
 .crm-btn-danger:hover {
     background: #fef2f2;
 }
-
 
 /* ---------------- KPI tiles ---------------- */
 
@@ -4595,7 +4400,6 @@ tr.tkt-row-link:hover {
     text-decoration: none;
 }
 
-
 /* ---------------- Cards / panels ---------------- */
 
 .crm-card {
@@ -4627,7 +4431,6 @@ tr.tkt-row-link:hover {
     grid-template-columns: 1fr 1fr;
     gap: 20px;
 }
-
 
 /* ---------------- Toolbar ---------------- */
 
@@ -4669,7 +4472,6 @@ tr.tkt-row-link:hover {
 .crm-search {
     min-width: 220px;
 }
-
 
 /* ---------------- Table ---------------- */
 
@@ -4777,7 +4579,6 @@ tr.tkt-row-link:hover {
     color: #059669;
 }
 
-
 /* ---------------- Footer / pagination ---------------- */
 
 .crm-table-foot {
@@ -4824,7 +4625,6 @@ tr.tkt-row-link:hover {
     opacity: 0.5;
     cursor: default;
 }
-
 
 /* ---------------- Tabs ---------------- */
 
@@ -4875,7 +4675,6 @@ tr.tkt-row-link:hover {
     color: var(--crm-primary);
 }
 
-
 /* ---------------- Status chips ---------------- */
 
 .crm-chip {
@@ -4909,7 +4708,6 @@ tr.tkt-row-link:hover {
 .crm-c-done { color: #047857; background: #d1fae5; }
 .crm-c-cancelled { color: #475569; background: #e2e8f0; }
 .crm-c-default { color: #475569; background: #e2e8f0; }
-
 
 /* ---------------- Analytics bars ---------------- */
 
@@ -4956,7 +4754,6 @@ tr.tkt-row-link:hover {
 .crm-bar-fill.alt {
     background: linear-gradient(90deg, #a78bfa, #7c3aed);
 }
-
 
 /* ---------------- Detail / timeline ---------------- */
 
@@ -5089,7 +4886,6 @@ tr.tkt-row-link:hover {
     color: #047857;
     font-weight: 700;
 }
-
 
 /* ---------------- Modal ---------------- */
 
@@ -5296,7 +5092,6 @@ body.crm-modal-open {
     font-weight: 600;
 }
 
-
 /* ---------------- Responsive ---------------- */
 
 @media (max-width: 860px) {
@@ -5315,7 +5110,6 @@ body.crm-modal-open {
         width: 100%;
     }
 }
-
 
 /* =========================================
    CRM - DUE FOLLOW-UP DISCIPLINE
@@ -5351,24 +5145,20 @@ body.crm-modal-open {
     font-variant-numeric: tabular-nums;
 }
 
-
 /* [hidden] must win over the inline-flex above. */
 .menu-badge[hidden] {
     display: none !important;
 }
-
 
 /* At least one follow-up is already past due. */
 .menu-badge.is-overdue {
     background: #ef4444;
 }
 
-
 /* Collapsed sidebar: hang the count off the icon. */
 .sidebar-collapsed .menu-item {
     position: relative;
 }
-
 
 .sidebar-collapsed .menu-badge {
     position: absolute;
@@ -5385,7 +5175,6 @@ body.crm-modal-open {
     font-size: 10px;
 }
 
-
 /* ---------------- Mine / Team toggle ---------------- */
 
 .crm-scope {
@@ -5400,7 +5189,6 @@ body.crm-modal-open {
 
     border-radius: 10px;
 }
-
 
 .crm-scope a {
     display: inline-flex;
@@ -5420,12 +5208,10 @@ body.crm-modal-open {
     transition: background 0.16s, color 0.16s;
 }
 
-
 .crm-scope a:hover {
     background: #fff;
     color: var(--crm-ink);
 }
-
 
 .crm-scope a.active {
     background: var(--crm-ink);
@@ -5434,13 +5220,11 @@ body.crm-modal-open {
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
 }
 
-
 .crm-scope-count {
     font-size: 11px;
     font-weight: 700;
     opacity: 0.75;
 }
-
 
 /* ---------------- Overdue rows ---------------- */
 
@@ -5448,16 +5232,13 @@ body.crm-modal-open {
     background: #fef2f2;
 }
 
-
 .crm-table tr.is-overdue td:first-child {
     box-shadow: inset 3px 0 0 #ef4444;
 }
 
-
 .crm-table tr.is-overdue:hover td {
     background: #fee2e2;
 }
-
 
 /* ---------------- Attention cards (dashboard) ---------------- */
 
@@ -5465,16 +5246,13 @@ body.crm-modal-open {
     border-color: #fecaca;
 }
 
-
 .crm-card.is-attention .crm-card-head h2 {
     color: #b91c1c;
 }
 
-
 .crm-card.is-attention .crm-card-head .link {
     color: #b91c1c;
 }
-
 
 .crm-list-link {
     display: flex;
@@ -5489,23 +5267,19 @@ body.crm-modal-open {
     font-size: 13px;
 }
 
-
 .crm-list-link:last-child {
     border-bottom: none;
 }
-
 
 .crm-list-link .crm-list-sub {
     color: var(--crm-muted);
     font-size: 12px;
 }
 
-
 .crm-list-link strong {
     color: var(--crm-ink);
     font-weight: 600;
 }
-
 
 @media (max-width: 860px) {
     .crm-scope {
@@ -5513,7 +5287,6 @@ body.crm-modal-open {
         justify-content: space-between;
     }
 }
-
 
 /* ---------------- Log Outcome modal ---------------- */
 
@@ -5547,7 +5320,6 @@ body.crm-modal-open {
     margin-top: 2px;
     flex: 0 0 auto;
 }
-
 
 /* =========================================
    NEW CRM - LEAD FORM / ACTIONS / STEPS
@@ -5897,7 +5669,6 @@ body.crm-modal-open {
     color: #fff;
 }
 
-
 /* =========================================
    FOLLOW-UP PAGE (KPI cards)
 ========================================= */
@@ -5925,7 +5696,6 @@ body.crm-modal-open {
     line-height: 1;
 }
 
-
 /* =========================================================
    DAILY SUPPORT - MOBILE RESPONSIVE
    Phones (<=700px) get a stacked "card" table so the wide
@@ -5938,7 +5708,6 @@ body.crm-modal-open {
 .mobile-sort {
     display: none;
 }
-
 
 /* Tablet: KPI cards 2-up, toolbars wrap cleanly. */
 @media (max-width: 1000px) {
@@ -5957,7 +5726,6 @@ body.crm-modal-open {
     }
 
 }
-
 
 /* Phone: turn each row into a stacked card. */
 @media (max-width: 700px) {
@@ -6252,7 +6020,6 @@ body.crm-modal-open {
     }
 }
 
-
 /* Very small phones: KPI numbers + labels tighten further. */
 @media (max-width: 420px) {
 
@@ -6273,7 +6040,6 @@ body.crm-modal-open {
         font-size: 12px;
     }
 }
-
 
 /* ============================================================
    TICKETING SYSTEM — badges, timeline, review
@@ -6777,99 +6543,9 @@ body.crm-modal-open {
     .tkt-btn { flex: 1 1 100%; }
 }
 
-/* ============================================================
-   TICKET DETAIL — summary header, info cards,
-   grouped timeline, client tickets table
-   ============================================================ */
-
-/* ---- Summary header (compact, split) ---- */
-
-.tkt-summary {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 12px;
-    align-items: start;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-left: 4px solid #2563eb;
-    border-radius: 12px;
-    padding: 10px 12px;
-    margin-top: 6px;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, .05);
-}
-
-.tkt-summary-main {
-    min-width: 0;
-}
-
-.tkt-summary-top {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-}
-
-.tkt-summary-top h1 {
-    margin: 0;
-    font-size: 17px;
-    letter-spacing: .3px;
-    color: #0f172a;
-}
-
-.tkt-summary-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    margin-top: 6px;
-    font-size: 12px;
-    color: #475569;
-}
-
-/* ---- Quick actions side panel (compact) ---- */
-
-.tkt-summary-aside {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    padding: 8px;
-    border-radius: 10px;
-    background: #f8fafc;
-    border: 1px solid #eef2f7;
-}
-
-.tkt-aside-title {
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: .6px;
-    text-transform: uppercase;
-    color: #94a3b8;
-    margin-right: 2px;
-}
-
-.tkt-summary-aside .tkt-btn {
-    width: auto;
-    justify-content: center;
-}
-
 .tkt-readonly {
     font-size: 11px;
     color: #dc2626;
-    font-weight: 600;
-}
-
-/* ---- Stale warning ---- */
-
-.tkt-stale {
-    margin-top: 8px;
-    padding: 5px 9px;
-    border-radius: 8px;
-    background: #fffbeb;
-    border: 1px solid #fcd34d;
-    color: #92400e;
-    font-size: 12px;
     font-weight: 600;
 }
 
@@ -6881,87 +6557,6 @@ body.crm-modal-open {
     z-index: 30;
     padding: 12px 16px;
     background: #ffffff;
-}
-
-/* ---- Info cards (3 grouped sections) ---- */
-
-.tkt-info-wrap {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 16px;
-    align-items: start;
-}
-
-/* Cards sit inside a grid: kill the "stacked section" top margin so
-   all three tops line up on the same line. */
-.tkt-info-wrap > .state-section,
-.tkt-info-wrap > .state-section + .state-section {
-    margin-top: 0;
-}
-
-.tkt-info-card {
-    padding: 16px;
-}
-
-.tkt-info-list {
-    display: flex;
-    flex-direction: column;
-}
-
-.tkt-info-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 9px 0;
-    border-bottom: 1px dashed #eef2f7;
-}
-
-.tkt-info-row:last-child {
-    border-bottom: none;
-    padding-bottom: 0;
-}
-
-.tkt-info-key {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .3px;
-    color: #64748b;
-}
-
-.tkt-info-val {
-    font-size: 14px;
-    font-weight: 600;
-    color: #0f172a;
-    text-align: right;
-}
-
-/* ---- Issue block (compact) ---- */
-
-.tkt-issue-block {
-    padding: 14px 16px;
-}
-
-.tkt-issue-subject {
-    font-size: 14.5px;
-    font-weight: 700;
-    color: #0f172a;
-    margin-bottom: 6px;
-}
-
-.tkt-issue-body {
-    font-size: 13px;
-    color: #334155;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    background: #f8fafc;
-    border: 1px solid #eef2f7;
-    border-radius: 8px;
-    padding: 10px 12px;
-    max-height: 220px;
-    overflow-y: auto;
 }
 
 /* ---- Grouped timeline ---- */
@@ -7043,15 +6638,6 @@ body.crm-modal-open {
     font-size: 12px;
 }
 
-/* ---- Client tickets header count ---- */
-
-.tkt-client-count {
-    margin-left: 8px;
-    font-size: 12px;
-    font-weight: 500;
-    color: #64748b;
-}
-
 .tkt-link {
     color: #2563eb;
     font-weight: 700;
@@ -7105,17 +6691,6 @@ body.crm-modal-open {
 }
 
 @media (max-width: 700px) {
-
-    .tkt-summary {
-        grid-template-columns: 1fr;
-        padding: 10px 12px;
-    }
-    .tkt-summary-top h1 { font-size: 16px; }
-
-    /* On small screens the two buttons stack full-width */
-    .tkt-summary-aside .tkt-btn { flex: 1 1 100%; }
-
-    .tkt-info-wrap { grid-template-columns: 1fr; }
     .tkt-action-bar { position: static; }
 }
 
@@ -7301,7 +6876,6 @@ body.crm-modal-open {
     }
 }
 
-
 /* ---- Section collapse (+/-) ---- */
 
 .tkt-collapsible.collapsed {
@@ -7399,7 +6973,6 @@ body.crm-modal-open {
     align-items: center;
     gap: 6px;
 }
-
 
 /* ---- Simple flat timeline (polished) ---- */
 
@@ -7624,118 +7197,6 @@ body.crm-modal-open {
     color: #94a3b8;
 }
 
-
-/* ============================================================
-   DETAIL — Layout 5: stage bar + Work Log / System Activity
-   ============================================================ */
-
-/* ---- Stage bar (pipeline: kahan hai) ---- */
-
-.tkt-stage-card .form-section-title {
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #eef2f7;
-}
-
-.tkt-stage-bar {
-    display: flex;
-    align-items: flex-start;
-    gap: 0;
-    padding: 4px 0 2px;
-    overflow-x: auto;
-}
-
-.tkt-stage {
-    flex: 1;
-    min-width: 92px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    position: relative;
-    padding: 0 4px;
-}
-
-/* Connector line between stages */
-.tkt-stage::before {
-    content: "";
-    position: absolute;
-    top: 13px;
-    left: 50%;
-    right: -50%;
-    height: 2px;
-    background: #e2e8f0;
-    z-index: 0;
-}
-
-.tkt-stage:last-child::before { display: none; }
-
-.tkt-stage.done::before { background: #22c55e; }
-
-.tkt-stage-dot {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    border: 2px solid #cbd5e1;
-    background: #fff;
-    color: #fff;
-    font-size: 13px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    z-index: 1;
-}
-
-.tkt-stage.done .tkt-stage-dot {
-    border-color: #22c55e;
-    background: #22c55e;
-}
-
-.tkt-stage.current .tkt-stage-dot {
-    border-color: #3b82f6;
-    background: #3b82f6;
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, .18);
-}
-
-.tkt-stage-label {
-    margin-top: 7px;
-    font-size: 12px;
-    color: #64748b;
-    text-align: center;
-    white-space: nowrap;
-}
-
-.tkt-stage.current .tkt-stage-label {
-    color: #1d4ed8;
-    font-weight: 600;
-}
-
-.tkt-stage.done .tkt-stage-label {
-    color: #15803d;
-}
-
-.tkt-stage-caption {
-    font-size: 12px;
-    color: #94a3b8;
-    margin: 12px 0 0 2px;
-}
-
-.tkt-stage-caption strong { color: #334155; }
-
-/* On Hold is a side-branch, not a pipeline step — shown as a chip. */
-.tkt-stage-onhold {
-    display: inline-block;
-    margin: 12px 0 0 2px;
-    padding: 4px 12px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #92400e;
-    background: #fef3c7;
-    border: 1px solid #fde68a;
-}
-
 /* =========================================
    REVIEW CARD (admin decision + history)
    ========================================= */
@@ -7943,7 +7404,6 @@ body.crm-modal-open {
     background: #fee2e2;
 }
 
-
 /* ---- Work Log rail (dot + line, content always visible) ---- */
 
 .tkt-sec-count {
@@ -8043,12 +7503,6 @@ body.crm-modal-open {
     color: #0f172a;
 }
 
-.tkt-rail-time {
-    font-size: 12px;
-    color: #64748b;
-    white-space: nowrap;
-}
-
 .tkt-rail-date {
     margin-left: auto;
     font-size: 12px;
@@ -8089,48 +7543,105 @@ body.crm-modal-open {
     }
 
     .tkt-rail-date { margin-left: 0; }
-
-    .tkt-stage-bar { padding-left: 2px; }
-
-    .tkt-stage { min-width: 76px; }
-
-    .tkt-stage-label { font-size: 11px; }
 }
 
 /* ============================================================
-   NEW TICKET — clean sectioned form
+   NEW TICKET — premium card design
    ============================================================ */
 
+/* Gray canvas + floating white cards */
+body.nt-page-body .main-content {
+    background: #f1f5f9;
+}
+
+body.nt-page-body .nt-wrap {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
 .nt-wrap {
-    padding: 6px 0 0;
+    padding: 0;
 }
 
 /* Compact form rhythm (scoped to the New Ticket page only) */
 .nt-wrap .form-group {
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
 .nt-wrap .form-group label {
     margin-bottom: 5px;
-    font-size: 13px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #475569;
 }
 
+/* ---- Cards ---- */
+
 .nt-section {
+    position: relative;
     background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 12px;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, .04);
+    border: 1px solid #e6ebf1;
+    /* Coloured accent strip on top of every card.
+       A real border (not a ::before strip) so the card's
+       rounded corners stay perfect — and so nothing inside
+       the card (e.g. the client search dropdown) is clipped. */
+    border-top: 3px solid var(--nt-accent, #3b82f6);
+    border-radius: 18px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    box-shadow:
+        0 1px 2px rgba(15, 23, 42, .04),
+        0 8px 24px rgba(15, 23, 42, .05);
+}
+
+.nt-section.accent-blue {
+    --nt-accent: #3b82f6;
+    --nt-accent-soft: #eff6ff;
+}
+
+.nt-section.accent-purple {
+    --nt-accent: #8b5cf6;
+    --nt-accent-soft: #f5f3ff;
+}
+
+.nt-section.accent-teal {
+    --nt-accent: #0d9488;
+    --nt-accent-soft: #f0fdfa;
 }
 
 .nt-section .form-section-title {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-bottom: 10px;
-    padding-bottom: 8px;
+    gap: 11px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
     border-bottom: 1px solid #eef2f7;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: #334155;
+}
+
+/* ---- Icon badges (inline SVG) ---- */
+
+.nt-sec-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    border-radius: 10px;
+    background: var(--nt-accent-soft, #eff6ff);
+    color: var(--nt-accent, #2563eb);
+}
+
+.nt-sec-icon svg {
+    width: 17px;
+    height: 17px;
 }
 
 /* TICKET INFO: 3 fields in a single row */
@@ -8172,15 +7683,33 @@ body.crm-modal-open {
     color: #b91c1c;
 }
 
-/* Keep the client input clear of the x button */
+/* Keep the client input clear of the search + x buttons */
 .nt-clear-wrap #clientSearchInput {
     padding-right: 38px;
+    padding-left: 36px;
+}
+
+/* Search (magnifier) icon inside the client search box */
+.nt-search-icon {
+    position: absolute;
+    top: 50%;
+    left: 11px;
+    transform: translateY(-50%);
+    z-index: 2;
+    display: inline-flex;
+    color: #9aa6b5;
+    pointer-events: none;
+}
+
+.nt-search-icon svg {
+    width: 15px;
+    height: 15px;
 }
 
 .nt-hint {
     display: block;
-    margin-top: 4px;
-    font-size: 12px;
+    margin-top: 3px;
+    font-size: 11.5px;
     color: #64748b;
 }
 
@@ -8228,26 +7757,360 @@ body.crm-modal-open {
     font-weight: 600;
 }
 
+/* ---- Client ID badge (New Ticket page only) ----
+   Dropdown row + selection chip + Caller Name field. */
+
+body.nt-page-body .nt-client-chip .chip-id {
+    color: #15803d;
+    font-weight: 700;
+    opacity: .85;
+}
+
+/* Dropdown row: name/mobile left, [ID: x] badge right */
+body.nt-page-body .select-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+body.nt-page-body .select-option-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.nt-page-body .select-option-id {
+    flex: 0 0 auto;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .2px;
+    white-space: nowrap;
+}
+
+body.nt-page-body .select-option:hover .select-option-id {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+/* Caller Name field ke andar right side badge */
+body.nt-page-body .nt-input-with-badge {
+    position: relative;
+}
+
+body.nt-page-body .nt-input-with-badge input {
+    padding-right: 78px;
+}
+
+body.nt-page-body .nt-field-id {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #eef2f7;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .2px;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+body.nt-page-body .nt-field-id[hidden] {
+    display: none;
+}
+
 /* Sticky footer action bar */
 .nt-footer {
     position: sticky;
     bottom: 0;
+    /* Footer hamesha upar rahe — mic / clear buttons ko
+       Create Ticket button ke upar overlap karne se rokta hai. */
+    z-index: 30;
     display: flex;
     justify-content: flex-end;
     gap: 10px;
-    padding: 14px 18px;
+    padding: 12px 16px;
     background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    box-shadow: 0 -2px 10px rgba(15, 23, 42, .05);
+    border: 1px solid #e6ebf1;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .10);
 }
 
 @media (max-width: 700px) {
 
     .nt-section { padding: 14px; }
-    .nt-footer { position: static; }
+    .nt-footer { position: static; flex-direction: column; gap: 10px; }
+    .nt-footer .save-btn,
+    .nt-footer .cancel-btn,
+    .nt-footer .primary-btn {
+        width: 100%;
+        text-align: center;
+        justify-content: center;
+    }
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+    .nt-section .form-grid-3 {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    .nt-search-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .nt-search-row input {
+        width: 100%;
+    }
+    .nt-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .nt-head h1 { font-size: 20px; }
 }
 
+/* ============================================================
+   NEW TICKET — header + info chips
+   ============================================================ */
+
+/* Header: back icon button + title block (side by side) */
+.nt-head {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.nt-back-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    flex: 0 0 auto;
+    border: 1px solid #e6ebf1;
+    border-radius: 14px;
+    background: #ffffff;
+    color: #2563eb;
+    font-size: 21px;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .06);
+    transition: all .15s ease;
+}
+
+.nt-back-btn:hover {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+    box-shadow: 0 8px 18px rgba(37, 99, 235, .28);
+    transform: translateY(-1px);
+}
+
+.nt-head h1 {
+    margin: 0 0 3px;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -.4px;
+    color: #0f172a;
+}
+
+.nt-head p {
+    margin: 0;
+    font-size: 13px;
+    color: #64748b;
+}
+
+/* ---- Info chips (Auto Ticket No | Today | Status) ---- */
+
+.nt-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.nt-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px 8px 10px;
+    background: #ffffff;
+    border: 1px solid #e6ebf1;
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+}
+
+.nt-chip-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 auto;
+    border-radius: 9px;
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.nt-chip-icon svg {
+    width: 15px;
+    height: 15px;
+}
+
+.nt-chip-icon.amber { background: #fef3c7; color: #b45309; }
+.nt-chip-icon.green { background: #dcfce7; color: #16a34a; }
+
+.nt-chip-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+
+.nt-chip-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: #94a3b8;
+}
+
+.nt-chip-value {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.nt-chip-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 6px;
+    vertical-align: 1px;
+    border-radius: 50%;
+    background: #22c55e;
+}
+
+/* ============================================================
+   NEW TICKET — premium inputs
+   ============================================================ */
+
+.nt-wrap .form-group input,
+.nt-wrap .form-group select,
+.nt-wrap .form-group textarea {
+    padding: 10px 13px;
+    border-radius: 10px;
+    border: 1px solid #dde3ea;
+    background: #ffffff;
+    color: #1e293b;
+    font-size: 13.5px;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, .03);
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.nt-wrap .form-group input::placeholder,
+.nt-wrap .form-group textarea::placeholder {
+    color: #a3aebd;
+}
+
+.nt-wrap .form-group input:hover,
+.nt-wrap .form-group select:hover,
+.nt-wrap .form-group textarea:hover {
+    border-color: #c7d0da;
+}
+
+.nt-wrap .form-group input:focus,
+.nt-wrap .form-group select:focus,
+.nt-wrap .form-group textarea:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .13);
+}
+
+.nt-wrap .form-group select {
+    cursor: pointer;
+}
+
+/* Description box: mic + clear buttons live INSIDE the textarea */
+.nt-wrap .form-group .tkt-input-wrap textarea {
+    padding: 10px 13px 36px;
+    border-radius: 10px;
+}
+
+/* ============================================================
+   NEW TICKET — Assigned To
+   ============================================================ */
+
+.nt-assign-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.nt-assign-row select {
+    flex: 1 1 190px;
+    min-width: 0;
+}
+
+/* The "Assign to me" chip is a <label> inside a .form-group,
+   so it needs a slightly stronger selector than the generic
+   ".form-group label" rule. */
+.nt-wrap .form-group label.nt-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 9px 12px;
+    border: 1px solid #dbeafe;
+    border-radius: 12px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Checkbox itself must not inherit the big text-input styling */
+.nt-wrap .form-group .nt-check input[type="checkbox"] {
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: inherit;
+    cursor: pointer;
+    accent-color: #2563eb;
+}
+
+.nt-wrap .form-group .nt-check.off {
+    border-color: #e2e8f0;
+    background: #f8fafc;
+    color: #64748b;
+}
+
+.nt-wrap .form-group .nt-check.off input[type="checkbox"] {
+    accent-color: #94a3b8;
+}
+
+@media (max-width: 700px) {
+
+    .nt-assign-row select { flex: 1 1 100%; }
+    .nt-head h1 { font-size: 20px; }
+}
 
 /* ============================================================
    DAILY SUPPORT — Filters + clickable KPI cards
@@ -8333,7 +8196,6 @@ a.tkt-kpi-active {
     }
 }
 
-
 /* =========================================
    NOTIFICATIONS (review workflow)
    Index  -> compact rows
@@ -8384,6 +8246,13 @@ a.tkt-kpi-active {
     border: 1px solid #e8edf3;
     border-radius: 10px;
     overflow: hidden;
+}
+
+/* display:flex upar [hidden] ko override kar deta hai —
+   isliye hidden grid ko explicitly band karna padta hai. */
+
+.tkt-notif-rows[hidden] {
+    display: none;
 }
 
 .tkt-notif-row {
@@ -8579,6 +8448,213 @@ a.tkt-kpi-active {
     font-size: 13px;
 }
 
+/* ---- Notifications card (Index page, below the KPI cards) ----
+   Collapsed by default: sirf ek header row dikhta hai.
+   Body scrollable hai, isliye page kabhi cover nahi hota. */
+
+.tkt-notif-card {
+    padding: 14px 16px;
+}
+
+.tkt-notif-card.collapsed {
+    padding: 14px 16px;
+}
+
+.tkt-notif-head {
+    margin: 0;
+    padding-bottom: 0;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.tkt-notif-card:not(.collapsed) .tkt-notif-head {
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.tkt-notif-head-icon {
+    font-size: 14px;
+    line-height: 1;
+}
+
+/* Sirf "Mark all read" ko right push kare, toggle uske
+   bilkul paas rahe (dono auto margin na lein). */
+
+.tkt-notif-head .tkt-notif-mark {
+    margin-left: auto;
+}
+
+.tkt-notif-head .tkt-sec-toggle {
+    margin-left: 0;
+}
+
+.tkt-notif-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #dc2626;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0;
+}
+
+.tkt-notif-count[hidden] {
+    display: none;
+}
+
+/* Body: max height + scroll, taaki zyada notifications
+   page ko cover na kar sakein. */
+
+.tkt-notif-body {
+    max-height: 240px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.tkt-notif-card.collapsed .tkt-notif-body {
+    display: none;
+}
+
+/* Row ka "open ticket" button (Detail page). */
+
+.tkt-notif-row-open {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #2563eb;
+    font-size: 13px;
+    line-height: 1;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .12s ease;
+}
+
+.tkt-notif-row-open:hover {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+}
+
+/* Row clickable hai (ticket ka review page kholne ke liye). */
+
+.tkt-notif-row {
+    cursor: pointer;
+}
+
+/* ---- Unread / History tabs ---- */
+
+.tkt-notif-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 8px;
+}
+
+.tkt-notif-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #64748b;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all .12s ease;
+}
+
+.tkt-notif-tab:hover {
+    border-color: #cbd5e1;
+    color: #334155;
+    background: #f8fafc;
+}
+
+.tkt-notif-tab.active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+}
+
+.tkt-notif-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 10.5px;
+    line-height: 1;
+    letter-spacing: 0;
+}
+
+.tkt-notif-tab.active .tkt-notif-tab-count {
+    background: rgba(255, 255, 255, .25);
+    color: #fff;
+}
+
+/* ---- REVIEW section focus (notification se aane par) ---- */
+
+.tkt-review-focus {
+    border-color: #f59e0b !important;
+    box-shadow:
+        0 0 0 3px rgba(245, 158, 11, .18),
+        0 8px 24px rgba(245, 158, 11, .12) !important;
+    animation: tktReviewFocus 6s ease;
+}
+
+@keyframes tktReviewFocus {
+
+    0% {
+        box-shadow:
+            0 0 0 8px rgba(245, 158, 11, .30),
+            0 8px 24px rgba(245, 158, 11, .18);
+    }
+
+    40% {
+        box-shadow:
+            0 0 0 3px rgba(245, 158, 11, .18),
+            0 8px 24px rgba(245, 158, 11, .12);
+    }
+
+    100% {
+        box-shadow:
+            0 0 0 3px rgba(245, 158, 11, .18),
+            0 8px 24px rgba(245, 158, 11, .12);
+    }
+}
+
+@media (max-width: 640px) {
+
+    .tkt-notif-body {
+        max-height: 200px;
+    }
+
+    .tkt-notif-row-msg {
+        display: none;
+    }
+}
+
 /* ---- Close ticket button ---- */
 
 .tkt-btn-close {
@@ -8657,6 +8733,77 @@ a.tkt-kpi-active {
 
 .tkt-confirm-yes:hover {
     background: #15803d;
+}
+
+/* Close ticket confirm — destructive (red) */
+.tkt-confirm-danger {
+    background: #dc2626;
+}
+
+.tkt-confirm-danger:hover {
+    background: #b91c1c;
+}
+
+/* Reason / remarks field inside a confirm box */
+.tkt-confirm-field {
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+.tkt-confirm-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 6px;
+}
+
+.tkt-confirm-field textarea {
+    width: 100%;
+    resize: vertical;
+    min-height: 74px;
+    padding: 10px 12px;
+    border: 1px solid #dbe2ea;
+    border-radius: 10px;
+    font-size: 13.5px;
+    font-family: inherit;
+    color: #0f172a;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+}
+
+.tkt-confirm-field textarea:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
+
+.tkt-confirm-field .tkt-count {
+    display: block;
+    text-align: right;
+    margin-top: 4px;
+}
+
+/* Reason / remarks counters that are NOT inside .tkt-input-wrap */
+.form-group > .tkt-count,
+.tkt-confirm-field > .tkt-count {
+    position: static;
+    display: block;
+    text-align: right;
+    margin-top: 4px;
+    pointer-events: auto;
+}
+
+/* Reassign / Close ke baad newest activity entry highlight */
+.tkt-rail-flash .tkt-rail-body {
+    background: #fffbeb;
+    box-shadow: inset 0 0 0 1px #fde68a;
+    border-radius: 8px;
+    animation: tktRailFlash 1.6s ease-out 3;
+}
+
+@keyframes tktRailFlash {
+    0%   { background: #fef3c7; }
+    100% { background: #fffbeb; }
 }
 
 /* ---- Review decision (professional, no "Round") ---- */

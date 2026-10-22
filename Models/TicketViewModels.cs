@@ -88,6 +88,13 @@ public class TicketDetailViewModel
     public string Mobile { get; set; } = string.Empty;
     public string CallerName { get; set; } = string.Empty;
 
+    // Client ka email (ClientMaster.Email se).
+    public string ClientEmail { get; set; } = string.Empty;
+
+    // Is ticket ke liye current user ka koi UNREAD notification
+    // hai? (Ticket number ke bagal me red dot ke liye)
+    public bool HasUnreadNotification { get; set; }
+
     // ---- Issue ----
     public string Subject { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
