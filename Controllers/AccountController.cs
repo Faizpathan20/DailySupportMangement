@@ -35,7 +35,7 @@ public class AccountController : Controller
         {
             return RedirectToAction(
                 "Index",
-                "Dashboard");
+                "DailySupport");
         }
 
         return View();
@@ -267,7 +267,7 @@ public class AccountController : Controller
 
         return RedirectToAction(
             "Index",
-            "Dashboard");
+            "DailySupport");
     }
 
 
