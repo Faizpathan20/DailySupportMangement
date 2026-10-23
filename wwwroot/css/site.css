@@ -2871,6 +2871,47 @@ tr.tkt-row-link:hover {
     margin-bottom: 0;
 }
 
+/* Time Spent: HH:MM input + 15 min stepper buttons */
+#updateModal .tkt-time-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#updateModal .tkt-time-row .tkt-time-hm {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    text-align: center;
+    letter-spacing: 0.06em;
+    font-variant-numeric: tabular-nums;
+}
+
+#updateModal .tkt-time-step {
+    flex: 0 0 auto;
+    padding: 9px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    white-space: nowrap;
+}
+
+#updateModal .tkt-time-step:hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #3730a3;
+}
+
+#updateModal .tkt-time-step:active {
+    background: #e0e7ff;
+}
+
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -6325,10 +6366,10 @@ body.crm-modal-open {
 
 .tkt-mic-btn,
 .tkt-clear-btn {
-    width: 26px;
-    height: 26px;
-    border-radius: 7px;
-    border: 1px solid #cbd5e1;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid #dbe3ec;
     background: #fff;
     color: #475569;
     font-size: 13px;
@@ -6339,16 +6380,35 @@ body.crm-modal-open {
     justify-content: center;
     transition: all .15s ease;
     padding: 0;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
 }
+
+.tkt-mic-btn svg,
+.tkt-clear-btn svg {
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+}
+
+/* Recording me mic icon ki jagah stop-square dikhta hai. */
+.tkt-mic-btn .ico-stop { display: none; }
+.tkt-mic-btn.recording .ico-mic { display: none; }
+.tkt-mic-btn.recording .ico-stop { display: block; }
 
 /* Clear button only appears once the field has text. */
 .tkt-clear-btn { display: none; }
 .tkt-input-wrap.has-text .tkt-clear-btn { display: inline-flex; }
 
-.tkt-mic-btn:hover,
+.tkt-mic-btn:hover {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1d4ed8;
+}
+
 .tkt-clear-btn:hover {
-    background: #f1f5f9;
-    border-color: #94a3b8;
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #b91c1c;
 }
 
 .tkt-mic-btn.recording {
@@ -8316,6 +8376,16 @@ a.tkt-kpi-active {
     background: #fee2e2;
 }
 
+.tkt-notif-row-label.assigned {
+    color: #1d4ed8;
+    background: #dbeafe;
+}
+
+.tkt-notif-row-label.unassigned {
+    color: #b45309;
+    background: #fef3c7;
+}
+
 .tkt-notif-row-msg {
     font-size: 12.5px;
     color: #64748b;
@@ -8373,6 +8443,18 @@ a.tkt-kpi-active {
 
 .tkt-strip.kind-review {
     border-left-color: #f59e0b;
+    background: #fffbeb;
+    border-color: #fde68a;
+}
+
+.tkt-strip.kind-assigned {
+    border-left-color: #2563eb;
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+
+.tkt-strip.kind-unassigned {
+    border-left-color: #d97706;
     background: #fffbeb;
     border-color: #fde68a;
 }
@@ -9050,20 +9132,27 @@ a.tkt-kpi-active {
 }
 
 .tkt-review-msg .tkt-input-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+    display: block;
+}
+
+.tkt-review-msg .tkt-voice-wrap textarea {
+    padding-bottom: 40px;
 }
 
 .tkt-review-msg .tkt-btn-row {
+    position: absolute;
+    right: 7px;
+    bottom: 6px;
     display: flex;
     gap: 6px;
     justify-content: flex-end;
-    margin-top: 6px;
+    margin-top: 0;
 }
 
 .tkt-review-msg .tkt-count {
-    align-self: flex-end;
+    position: absolute;
+    left: 10px;
+    bottom: 11px;
     font-size: 11px;
     color: #94a3b8;
 }

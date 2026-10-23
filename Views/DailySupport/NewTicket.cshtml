@@ -308,14 +308,44 @@
                             <button type="button"
                                     class="tkt-mic-btn"
                                     id="descMicBtn"
-                                    title="Voice input"
-                                    onclick="toggleVoice(this, 'edit_Description')">&#127908;</button>
+                                    title="Start voice input"
+                                    aria-label="Start voice input"
+                                    onclick="toggleVoice(this, 'edit_Description')">
+
+                                <svg class="ico-mic" viewBox="0 0 24 24"
+                                     fill="none" stroke="currentColor"
+                                     stroke-width="2" stroke-linecap="round"
+                                     stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                    <line x1="12" y1="19" x2="12" y2="23" />
+                                </svg>
+
+                                <svg class="ico-stop" viewBox="0 0 24 24"
+                                     fill="none" stroke="currentColor"
+                                     stroke-width="2" stroke-linecap="round"
+                                     stroke-linejoin="round" aria-hidden="true">
+                                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                                </svg>
+
+                            </button>
 
                             <button type="button"
                                     class="tkt-clear-btn"
                                     id="descClearBtn"
                                     title="Clear description"
-                                    onclick="clearDescription()">&#128465;</button>
+                                    aria-label="Clear description"
+                                    onclick="clearDescription()">
+
+                                <svg class="ico-trash" viewBox="0 0 24 24"
+                                     fill="none" stroke="currentColor"
+                                     stroke-width="2" stroke-linecap="round"
+                                     stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                </svg>
+
+                            </button>
 
                         </span>
 
@@ -1345,7 +1375,6 @@
             }
 
             btn.classList.add('recording');
-            btn.innerHTML = '&#9899;'; // stop square
             setVoiceStatus(fieldId, true);
         }
 
@@ -1356,7 +1385,6 @@
 
             if (btn) {
                 btn.classList.remove('recording');
-                btn.innerHTML = '&#127908;';
             }
 
             if (voiceTarget) {

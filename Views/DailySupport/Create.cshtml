@@ -179,30 +179,59 @@
                     <label>Description</label>
                     <textarea name="Description" id="edit_Description" rows="3" placeholder="@placeholders["Description"]" required>@GetVal("Description")</textarea>
 
-                    <div class="voice-controls">
+                    <div class="voice-controls ds-voice-controls">
 
                         <button type="button"
                                 class="voice-btn mic-btn"
                                 id="voiceMicBtn_Description"
+                                title="Start voice input"
+                                aria-label="Start voice input"
                                 onclick="startVoice('Description')">
 
-                            Mic
+                            <svg viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round"
+                                 stroke-linejoin="round"
+                                 aria-hidden="true">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                <line x1="12" y1="19" x2="12" y2="23" />
+                            </svg>
 
                         </button>
 
                         <button type="button"
                                 class="voice-btn voice-stop"
+                                id="voiceStopBtn_Description"
+                                title="Stop recording"
+                                aria-label="Stop recording"
+                                disabled
                                 onclick="stopVoice()">
 
-                            Stop
+                            <svg viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round"
+                                 stroke-linejoin="round"
+                                 aria-hidden="true">
+                                <rect x="6" y="6" width="12" height="12" rx="2" />
+                            </svg>
 
                         </button>
 
                         <button type="button"
                                 class="voice-btn voice-reset"
+                                title="Clear field"
+                                aria-label="Clear field"
                                 onclick="resetVoice('Description')">
 
-                            Reset
+                            <svg viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round"
+                                 stroke-linejoin="round"
+                                 aria-hidden="true">
+                                <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+                                <polyline points="3 3 3 8 8 8" />
+                            </svg>
 
                         </button>
 
@@ -224,6 +253,102 @@
         </div>
     </form>
 </div>
+
+@section Styles
+{
+    <style>
+        /* Icon-only voice controls (Daily Support create page only). */
+        .ds-voice-controls {
+            gap: 6px;
+        }
+
+        .ds-voice-controls .voice-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            border: 1px solid #dbe3ec;
+            border-radius: 8px;
+            background: #fff;
+            color: #475569;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+            transition: all .15s ease;
+        }
+
+        .ds-voice-controls .voice-btn svg {
+            width: 14px;
+            height: 14px;
+            pointer-events: none;
+        }
+
+        .ds-voice-controls .mic-btn {
+            background: #eff6ff;
+            border-color: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .ds-voice-controls .mic-btn:hover {
+            background: #dbeafe;
+            border-color: #bfdbfe;
+        }
+
+        .ds-voice-controls .mic-btn.is-recording {
+            background: #dc2626;
+            border-color: #dc2626;
+            color: #fff;
+            animation: voicePulse 1.2s infinite;
+        }
+
+        .ds-voice-controls .voice-stop {
+            background: #fff1f2;
+            border-color: #fecdd3;
+            color: #be123c;
+        }
+
+        .ds-voice-controls .voice-stop:hover:not(:disabled) {
+            background: #ffe4e6;
+            border-color: #fda4af;
+        }
+
+        .ds-voice-controls .voice-stop:disabled {
+            opacity: .45;
+            cursor: not-allowed;
+        }
+
+        .ds-voice-controls .voice-reset {
+            background: #f8fafc;
+            border-color: #e2e8f0;
+            color: #475569;
+        }
+
+        .ds-voice-controls .voice-reset:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .ds-voice-controls .voice-btn:focus-visible {
+            outline: 2px solid #2563eb;
+            outline-offset: 2px;
+        }
+
+        .ds-voice-controls ~ .voice-status.visible::before {
+            content: "";
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: #dc2626;
+            animation: dsVoiceDot 1.1s ease-in-out infinite;
+        }
+
+        @@keyframes dsVoiceDot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .25; }
+        }
+    </style>
+}
 
 @section Scripts
 {
@@ -419,14 +544,16 @@
 
         function setListening(on) {
             var micBtn = document.getElementById("voiceMicBtn_" + voiceField);
+            var stopBtn = document.getElementById("voiceStopBtn_" + voiceField);
             var status = document.getElementById("voiceStatus_" + voiceField);
             if (micBtn) {
                 if (on) micBtn.classList.add("is-recording");
                 else micBtn.classList.remove("is-recording");
             }
+            if (stopBtn) stopBtn.disabled = !on;
             if (status) {
                 if (on) {
-                    status.innerText = "● Listening... the mic stays open until you click Stop";
+                    status.innerText = "Listening... the mic stays open until you click Stop";
                     status.classList.add("visible");
                 } else {
                     status.classList.remove("visible");

@@ -44,6 +44,7 @@ public class DailySupportController : Controller
         "Pending|In Progress",
         "Pending|On Hold",
         "Pending|Closed",
+        "Closed|Open",
         "Closed|In Progress"
     };
 
@@ -320,6 +321,18 @@ public class DailySupportController : Controller
 
         int ticketId = await _ticketService.CreateTicketAsync(
             connection, model, createdBy);
+
+        // Naye assignee ko notification (self-assign par nahi).
+        if (ticketId > 0)
+        {
+            await NotifyAssignmentChangeAsync(
+                connection,
+                ticketId,
+                null,
+                model.AssignedTo,
+                createdBy,
+                model.Subject);
+        }
 
         TempData["Success"] =
             "Ticket created successfully.";
@@ -726,6 +739,9 @@ public class DailySupportController : Controller
 
         // Review panel sirf admin ko (accept/reject).
         model.CanReview = model.IsAdmin;
+
+        // Closed ticket ko sirf admin reopen kar sakta hai.
+        model.CanReopen = model.IsReadOnly && model.IsAdmin;
 
         // ---- Red dot: is ticket ka current user ke liye koi
         // UNREAD notification hai? ----
@@ -1139,6 +1155,75 @@ public class DailySupportController : Controller
             : result.ToString()!;
     }
 
+    // Ticket ka current assignee (null = unassigned).
+    private static async Task<int?> AssignedToAsync(
+        SqlConnection connection, int ticketId)
+    {
+        using SqlCommand command = new SqlCommand(
+            "SELECT [AssignedTo] FROM [DailySupport] WHERE [Id] = @Id",
+            connection);
+
+        command.CommandTimeout = 0;
+        command.Parameters.AddWithValue("@Id", ticketId);
+
+        object? result = await command.ExecuteScalarAsync();
+
+        return result == null || result == DBNull.Value
+            ? null
+            : (int?)Convert.ToInt32(result);
+    }
+
+    // Assign / reassign hone par naye assignee ko "assigned" aur
+    // purane assignee ko "unassigned" notification.
+    // Actor (jisne change kiya) ko notification nahi jati.
+    private async Task NotifyAssignmentChangeAsync(
+        SqlConnection connection,
+        int ticketId,
+        int? oldUserId,
+        int? newUserId,
+        int? actorId,
+        string? reason)
+    {
+        if (oldUserId == newUserId)
+        {
+            return;
+        }
+
+        string ticketNo = await TicketNoAsync(connection, ticketId);
+
+        string body = string.IsNullOrWhiteSpace(reason)
+            ? "Ticket assignment update hua hai."
+            : reason.Trim();
+
+        if (oldUserId.HasValue
+            && oldUserId.Value > 0
+            && oldUserId.Value != actorId)
+        {
+            await _ticketService.AddNotificationAsync(
+                connection,
+                oldUserId.Value,
+                ticketId,
+                $"Unassigned: {ticketNo}",
+                body,
+                "unassigned",
+                null);
+        }
+
+        if (newUserId.HasValue
+            && newUserId.Value > 0
+            && newUserId.Value != actorId)
+        {
+            await _ticketService.AddNotificationAsync(
+                connection,
+                newUserId.Value,
+                ticketId,
+                $"Assigned: {ticketNo}",
+                body,
+                "assigned",
+                null);
+        }
+    }
+
     // ---------- CHANGE STATUS (button se) ----------
 
     [HttpPost]
@@ -1166,6 +1251,7 @@ public class DailySupportController : Controller
             "resume" => "In Progress",
             "resolve" => "Resolved",
             "close" => "Closed",
+            "reopen" => "Open",
             _ => null
         };
 
@@ -1176,6 +1262,61 @@ public class DailySupportController : Controller
                 success = false,
                 message = "Unknown action."
             });
+        }
+
+        // Reopen: sirf admin, sirf closed ticket, reason lazmi.
+        if (string.Equals(action, "reopen",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(remarks)
+                || remarks.Trim().Length < 3)
+            {
+                return Json(new
+                {
+                    success = false,
+                    message = "Reopen ki wajah (reason) likhna zaruri hai."
+                });
+            }
+
+            if (!await IsAdminUserAsync(connection, userId))
+            {
+                return Json(new
+                {
+                    success = false,
+                    message = "Only admin can reopen a closed ticket."
+                });
+            }
+
+            string currentStatusName = "";
+
+            using (SqlCommand statusCommand = new SqlCommand(@"
+                SELECT ISNULL(st.[StatusName], '')
+                FROM [DailySupport] d
+                LEFT JOIN [Mst_Status] st
+                    ON st.[StatusId] = d.[StatusId]
+                WHERE d.[Id] = @Id", connection))
+            {
+                statusCommand.CommandTimeout = 0;
+                statusCommand.Parameters.AddWithValue("@Id", ticketId);
+
+                object? statusResult =
+                    await statusCommand.ExecuteScalarAsync();
+
+                currentStatusName =
+                    statusResult == null || statusResult == DBNull.Value
+                        ? ""
+                        : statusResult.ToString() ?? "";
+            }
+
+            if (!string.Equals(currentStatusName, "Closed",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return Json(new
+                {
+                    success = false,
+                    message = "Sirf closed ticket reopen ho sakta hai."
+                });
+            }
         }
 
         var status = await _ticketService.GetStatusByNameAsync(
@@ -1196,7 +1337,7 @@ public class DailySupportController : Controller
             status.Value.Id,
             status.Value.Name,
             userId,
-            remarks);
+            string.IsNullOrWhiteSpace(remarks) ? null : remarks.Trim());
 
         return Json(new
         {
@@ -1242,8 +1383,20 @@ public class DailySupportController : Controller
         int? changedBy =
             int.TryParse(currentId, out int uid) ? uid : null;
 
+        // Purana assignee notification ke liye (update se pehle).
+        int? oldAssignee = await AssignedToAsync(connection, ticketId);
+
         await _ticketService.AssignAsync(
             connection, ticketId, userId, changedBy, reason.Trim());
+
+        // Naye assignee ko "assigned", purane ko "unassigned".
+        await NotifyAssignmentChangeAsync(
+            connection,
+            ticketId,
+            oldAssignee,
+            userId,
+            changedBy,
+            reason.Trim());
 
         return Json(new
         {
@@ -2440,6 +2593,20 @@ public class DailySupportController : Controller
                 "DailySupport");
         }
 
+        // Assignment notification ke liye purana assignee yaad rakho.
+        bool tracksAssignment = fields.Any(f => f.Name.Equals(
+            "AssignedTo", StringComparison.OrdinalIgnoreCase));
+
+        int? oldAssignedTo = tracksAssignment
+            ? await AssignedToAsync(connection, id)
+            : null;
+
+        int? editActorId = int.TryParse(
+            DynamicTableService.GetLoggedInUserId(User),
+            out int editActorUid)
+            ? editActorUid
+            : (int?)null;
+
         // ========================================
         // GENERIC VALIDATION
         // ========================================
@@ -2581,6 +2748,26 @@ public class DailySupportController : Controller
         }
         else
         {
+            // Assignee badla ho to usko / purane ko notify karo.
+            if (tracksAssignment && form.ContainsKey("AssignedTo"))
+            {
+                string rawAssignee =
+                    form["AssignedTo"].ToString().Trim();
+
+                int? newAssignedTo =
+                    int.TryParse(rawAssignee, out int assignedUid)
+                        ? assignedUid
+                        : (int?)null;
+
+                await NotifyAssignmentChangeAsync(
+                    connection,
+                    id,
+                    oldAssignedTo,
+                    newAssignedTo,
+                    editActorId,
+                    null);
+            }
+
             if (IsAjax)
             {
                 return Json(new

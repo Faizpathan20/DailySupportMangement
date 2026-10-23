@@ -1,4 +1,4 @@
-﻿@model Master.Models.TicketDetailViewModel
+@model Master.Models.TicketDetailViewModel
 
 @{
     ViewData["Title"] = "Ticket " + Model.TicketNo;
@@ -30,16 +30,10 @@
     // Option A: when the ticket is "Open", hide "Open" from the work
     // status dropdown (adding work auto-moves it to In Progress).
     // All other statuses stay visible so the current one can be kept.
-    bool isOpenTicket =
-        string.Equals(Model.StatusName, "Open",
-            StringComparison.OrdinalIgnoreCase);
-
-    var workStatusOptions = isOpenTicket
-        ? Model.StatusOptions
-            .Where(s => !string.Equals(
-                s.Name, "Open", StringComparison.OrdinalIgnoreCase))
-            .ToList()
-        : Model.StatusOptions;
+    var workStatusOptions = Model.StatusOptions
+        .Where(s => !string.Equals(s.Name, "Open", StringComparison.OrdinalIgnoreCase)
+                 && !string.Equals(s.Name, "Closed", StringComparison.OrdinalIgnoreCase))
+        .ToList();
 
     // ---- Timeline ko do layers me split ----
     // Work Log = aapka kaam (KindKey "work" / "note").
@@ -301,7 +295,7 @@
                             <path d="M12 5v14M5 12h14" />
                         </svg>
 
-                        Add Work Log
+                        Add Today's Work
 
                     </button>
                 }
@@ -342,7 +336,25 @@
                     </button>
                 }
 
-                @if (Model.IsReadOnly)
+                @if (Model.CanReopen)
+                {
+                    <button type="button"
+                            class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition"
+                            onclick="openReopenConfirm()">
+
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round"
+                             stroke-linejoin="round" class="w-4 h-4">
+                            <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+                            <polyline points="3 3 3 8 8 8" />
+                        </svg>
+
+                        Reopen Ticket
+
+                    </button>
+                }
+
+                @if (Model.IsReadOnly && !Model.CanReopen)
                 {
                     <span class="tkt-readonly">Ticket Closed &ndash; View Only</span>
                 }
@@ -434,16 +446,16 @@
 <div class="p-6">
 
     <!-- ---------- TOP 3 CARDS ---------- -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
 
         <!-- Client Info -->
-        <div class="h-[160px] bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col overflow-hidden">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col overflow-hidden">
 
-            <div class="flex items-center gap-2 mb-3">
-                <span class="w-7 h-7 rounded-lg bg-green-50 text-green-600 inline-flex items-center justify-center shrink-0">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="w-6 h-6 rounded-md bg-green-50 text-green-600 inline-flex items-center justify-center shrink-0">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                          stroke-width="2" stroke-linecap="round"
-                         stroke-linejoin="round" class="w-3.5 h-3.5">
+                         stroke-linejoin="round" class="w-3 h-3">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                         <circle cx="12" cy="7" r="4" />
                     </svg>
@@ -453,7 +465,7 @@
                 </h2>
             </div>
 
-            <div class="space-y-2 text-sm">
+            <div class="space-y-1.5 text-[13px]">
 
                 <div class="flex items-start justify-between gap-3">
                     <span class="text-gray-500 shrink-0">Name</span>
@@ -503,13 +515,13 @@
 
 
         <!-- Classification -->
-        <div class="h-[160px] bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col">
 
-            <div class="flex items-center gap-2 mb-3">
-                <span class="w-7 h-7 rounded-lg bg-violet-50 text-violet-600 inline-flex items-center justify-center shrink-0">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="w-6 h-6 rounded-md bg-violet-50 text-violet-600 inline-flex items-center justify-center shrink-0">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                          stroke-width="2" stroke-linecap="round"
-                         stroke-linejoin="round" class="w-3.5 h-3.5">
+                         stroke-linejoin="round" class="w-3 h-3">
                         <path d="m12 2 9 5-9 5-9-5 9-5Z" />
                         <path d="m3 12 9 5 9-5" />
                         <path d="m3 17 9 5 9-5" />
@@ -520,7 +532,7 @@
                 </h2>
             </div>
 
-            <div class="space-y-2 text-sm">
+            <div class="space-y-1.5 text-[13px]">
 
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-gray-500">Channel</span>
@@ -558,13 +570,13 @@
 
 
         <!-- Time Card -->
-        <div class="h-[160px] bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col">
 
-            <div class="flex items-center gap-2 mb-3">
-                <span class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 inline-flex items-center justify-center shrink-0">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="w-6 h-6 rounded-md bg-amber-50 text-amber-600 inline-flex items-center justify-center shrink-0">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                          stroke-width="2" stroke-linecap="round"
-                         stroke-linejoin="round" class="w-3.5 h-3.5">
+                         stroke-linejoin="round" class="w-3 h-3">
                         <circle cx="12" cy="12" r="9" />
                         <path d="M12 7v5l3 2" />
                     </svg>
@@ -574,7 +586,7 @@
                 </h2>
             </div>
 
-            <div class="space-y-2 text-sm">
+            <div class="space-y-1.5 text-[13px]">
 
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-gray-500">Today</span>
@@ -598,14 +610,14 @@
 
 
     <!-- ---------- ISSUE CARD (FULL WIDTH) ---------- -->
-    <div class="mt-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sm:p-6">
+    <div class="mt-3 sm:mt-4 bg-white rounded-xl border border-gray-200 shadow-sm p-3.5 sm:p-4">
 
-        <div class="flex items-center gap-3 flex-wrap">
+        <div class="flex items-center gap-2.5 flex-wrap">
 
-            <span class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 inline-flex items-center justify-center shrink-0">
+            <span class="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 inline-flex items-center justify-center shrink-0">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="2" stroke-linecap="round"
-                     stroke-linejoin="round" class="w-5 h-5">
+                     stroke-linejoin="round" class="w-4 h-4">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
             </span>
@@ -630,13 +642,13 @@
 
         </div>
 
-        <div class="text-lg font-bold text-gray-900 leading-snug mt-4">
+        <div class="text-base font-bold text-gray-900 leading-snug mt-2.5">
             @Model.Subject
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Model.Description))
         {
-            <div class="mt-4 rounded-xl bg-gray-50 border border-gray-100 p-4 text-gray-600 leading-relaxed whitespace-pre-line">
+            <div class="mt-2.5 rounded-lg bg-gray-50 border border-gray-100 p-3 text-[13px] text-gray-600 leading-relaxed whitespace-pre-line max-h-24 overflow-y-auto">
                 @Model.Description
             </div>
         }
@@ -689,7 +701,7 @@
                         <path d="M12 5v14M5 12h14" />
                     </svg>
 
-                    Add Work Log
+                    Add Today's Work
 
                 </button>
             }
@@ -929,18 +941,51 @@
                                               maxlength="500"
                                               placeholder="Kya theek hai / kya dobara chahiye..."></textarea>
 
-                                    <button type="button"
-                                            class="tkt-mic-btn tkt-voice-btn"
-                                            id="reviewVoiceBtn"
-                                            title="Voice input"
-                                            onclick="toggleVoice(this, 'reviewMessage')">&#127908;</button>
                                 </div>
 
                                 <span class="tkt-btn-row">
+
                                     <button type="button"
                                             class="tkt-clear-btn"
-                                            title="Clear"
-                                            onclick="clearField('reviewMessage')">&#128465;</button>
+                                            title="Clear field"
+                                            aria-label="Clear field"
+                                            onclick="clearField('reviewMessage')">
+
+                                            <svg class="ico-trash" viewBox="0 0 24 24"
+                                                 fill="none" stroke="currentColor"
+                                                 stroke-width="2" stroke-linecap="round"
+                                                 stroke-linejoin="round" aria-hidden="true">
+                                                <polyline points="3 6 5 6 21 6" />
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                            </svg>
+
+                                        </button>
+
+                                    <button type="button"
+                                            class="tkt-mic-btn tkt-voice-btn"
+                                            id="reviewVoiceBtn"
+                                            title="Start voice input"
+                                            aria-label="Start voice input"
+                                            onclick="toggleVoice(this, 'reviewMessage')">
+
+                                            <svg class="ico-mic" viewBox="0 0 24 24"
+                                                 fill="none" stroke="currentColor"
+                                                 stroke-width="2" stroke-linecap="round"
+                                                 stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                                <line x1="12" y1="19" x2="12" y2="23" />
+                                            </svg>
+
+                                            <svg class="ico-stop" viewBox="0 0 24 24"
+                                                 fill="none" stroke="currentColor"
+                                                 stroke-width="2" stroke-linecap="round"
+                                                 stroke-linejoin="round" aria-hidden="true">
+                                                <rect x="6" y="6" width="12" height="12" rx="2" />
+                                            </svg>
+
+                                        </button>
+
                                 </span>
 
                                 <span class="tkt-count" id="cnt_reviewMessage">0/500</span>
@@ -1426,7 +1471,7 @@
 
             <div class="form-group"></div>
 
-            <!-- Only shown when the status is "On Hold" -->
+            @* Shown only when status = On Hold *@
             <div class="form-group form-group-full" id="upd_WaitingOnGroup" style="display:none;">
                 <label>
                     Waiting on <span style="color:#dc2626;">*</span>
@@ -1435,13 +1480,43 @@
                     <input type="text"
                            id="upd_WaitingOn"
                            maxlength="200"
-                           placeholder="Kis cheez pe hold hai? (client reply, vendor...)" />
+                           placeholder="Kya / kaun roka hai? (client reply, vendor, parts, approval...)" />
                     <span class="tkt-count" id="cnt_WaitingOn">0/200</span>
                     <span class="tkt-btn-row">
-                        <button type="button" class="tkt-clear-btn" title="Clear"
-                                onclick="clearField('upd_WaitingOn')">&#128465;</button>
-                        <button type="button" class="tkt-mic-btn" title="Voice input"
-                                onclick="toggleVoice(this, 'upd_WaitingOn')">&#127908;</button>
+                        <button type="button" class="tkt-clear-btn" title="Clear field"
+                                            aria-label="Clear field"
+                                onclick="clearField('upd_WaitingOn')">
+
+                                            <svg class="ico-trash" viewBox="0 0 24 24"
+                                                 fill="none" stroke="currentColor"
+                                                 stroke-width="2" stroke-linecap="round"
+                                                 stroke-linejoin="round" aria-hidden="true">
+                                                <polyline points="3 6 5 6 21 6" />
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                            </svg>
+
+                                        </button>
+                        <button type="button" class="tkt-mic-btn" title="Start voice input"
+                                            aria-label="Start voice input"
+                                onclick="toggleVoice(this, 'upd_WaitingOn')">
+
+                                            <svg class="ico-mic" viewBox="0 0 24 24"
+                                                 fill="none" stroke="currentColor"
+                                                 stroke-width="2" stroke-linecap="round"
+                                                 stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                                <line x1="12" y1="19" x2="12" y2="23" />
+                                            </svg>
+
+                                            <svg class="ico-stop" viewBox="0 0 24 24"
+                                                 fill="none" stroke="currentColor"
+                                                 stroke-width="2" stroke-linecap="round"
+                                                 stroke-linejoin="round" aria-hidden="true">
+                                                <rect x="6" y="6" width="12" height="12" rx="2" />
+                                            </svg>
+
+                                        </button>
                     </span>
                 </div>
                 <span class="tkt-voice-status" id="voiceStatus_upd_WaitingOn">
@@ -1450,7 +1525,7 @@
                 </span>
             </div>
 
-            <!-- Only shown when the status is "Resolved" -->
+            @* Shown only when status = Resolved *@
             <div class="form-group form-group-full" id="upd_ResolutionNoteGroup" style="display:none;">
                 <label>
                     Resolution Note <span style="color:#dc2626;">*</span>
@@ -1459,13 +1534,43 @@
                     <textarea id="upd_ResolutionNote"
                               rows="2"
                               maxlength="500"
-                              placeholder="Kaise solve hua?"></textarea>
+                              placeholder="Root cause kya tha aur kaise fix kiya? Brief description."></textarea>
                     <span class="tkt-count" id="cnt_ResolutionNote">0/500</span>
                     <span class="tkt-btn-row">
-                        <button type="button" class="tkt-clear-btn" title="Clear"
-                                onclick="clearField('upd_ResolutionNote')">&#128465;</button>
-                        <button type="button" class="tkt-mic-btn" title="Voice input"
-                                onclick="toggleVoice(this, 'upd_ResolutionNote')">&#127908;</button>
+                        <button type="button" class="tkt-clear-btn" title="Clear field"
+                                            aria-label="Clear field"
+                                onclick="clearField('upd_ResolutionNote')">
+
+                                            <svg class="ico-trash" viewBox="0 0 24 24"
+                                                 fill="none" stroke="currentColor"
+                                                 stroke-width="2" stroke-linecap="round"
+                                                 stroke-linejoin="round" aria-hidden="true">
+                                                <polyline points="3 6 5 6 21 6" />
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                            </svg>
+
+                                        </button>
+                        <button type="button" class="tkt-mic-btn" title="Start voice input"
+                                            aria-label="Start voice input"
+                                onclick="toggleVoice(this, 'upd_ResolutionNote')">
+
+                                            <svg class="ico-mic" viewBox="0 0 24 24"
+                                                 fill="none" stroke="currentColor"
+                                                 stroke-width="2" stroke-linecap="round"
+                                                 stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                                <line x1="12" y1="19" x2="12" y2="23" />
+                                            </svg>
+
+                                            <svg class="ico-stop" viewBox="0 0 24 24"
+                                                 fill="none" stroke="currentColor"
+                                                 stroke-width="2" stroke-linecap="round"
+                                                 stroke-linejoin="round" aria-hidden="true">
+                                                <rect x="6" y="6" width="12" height="12" rx="2" />
+                                            </svg>
+
+                                        </button>
                     </span>
                 </div>
                 <span class="tkt-voice-status" id="voiceStatus_upd_ResolutionNote">
@@ -1475,7 +1580,7 @@
             </div>
 
             <div class="form-group form-group-full">
-                <label>
+                <label id="upd_WorkDoneLabel">
                     Work Done <span style="color:#dc2626;">*</span>
                 </label>
                 <div class="tkt-input-wrap">
@@ -1486,10 +1591,40 @@
                               required></textarea>
                     <span class="tkt-count" id="cnt_WorkDone">0/1000</span>
                     <span class="tkt-btn-row">
-                        <button type="button" class="tkt-clear-btn" title="Clear"
-                                onclick="clearField('upd_WorkDone')">&#128465;</button>
-                        <button type="button" class="tkt-mic-btn" title="Voice input"
-                                onclick="toggleVoice(this, 'upd_WorkDone')">&#127908;</button>
+                        <button type="button" class="tkt-clear-btn" title="Clear field"
+                                            aria-label="Clear field"
+                                onclick="clearField('upd_WorkDone')">
+
+                                            <svg class="ico-trash" viewBox="0 0 24 24"
+                                                 fill="none" stroke="currentColor"
+                                                 stroke-width="2" stroke-linecap="round"
+                                                 stroke-linejoin="round" aria-hidden="true">
+                                                <polyline points="3 6 5 6 21 6" />
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                            </svg>
+
+                                        </button>
+                        <button type="button" class="tkt-mic-btn" title="Start voice input"
+                                            aria-label="Start voice input"
+                                onclick="toggleVoice(this, 'upd_WorkDone')">
+
+                                            <svg class="ico-mic" viewBox="0 0 24 24"
+                                                 fill="none" stroke="currentColor"
+                                                 stroke-width="2" stroke-linecap="round"
+                                                 stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                                <line x1="12" y1="19" x2="12" y2="23" />
+                                            </svg>
+
+                                            <svg class="ico-stop" viewBox="0 0 24 24"
+                                                 fill="none" stroke="currentColor"
+                                                 stroke-width="2" stroke-linecap="round"
+                                                 stroke-linejoin="round" aria-hidden="true">
+                                                <rect x="6" y="6" width="12" height="12" rx="2" />
+                                            </svg>
+
+                                        </button>
                     </span>
                 </div>
                 <span class="tkt-voice-status" id="voiceStatus_upd_WorkDone">
@@ -1498,40 +1633,43 @@
                 </span>
             </div>
 
-            <div class="form-group form-group-full">
-                <label>
+            @* Time Spent — HH:MM input + 15 min stepper (required when In Progress / Resolved) *@
+            <div class="form-group">
+                <label id="upd_TimeSpentLabel">
                     Time Spent
                 </label>
-
-                <div class="tkt-time-split">
-                    <div class="tkt-time-box">
-                        <input type="number"
-                               id="upd_TimeHours"
-                               min="0"
-                               max="24"
-                               placeholder="0" />
-                        <span>hours</span>
-                    </div>
-
-                    <div class="tkt-time-box">
-                        <input type="number"
-                               id="upd_TimeMinutes"
-                               min="0"
-                               max="59"
-                               placeholder="0" />
-                        <span>minutes</span>
-                    </div>
+                <div class="tkt-time-row">
+                    <input type="text"
+                           id="upd_TimeSpentHM"
+                           class="tkt-time-hm"
+                           inputmode="numeric"
+                           maxlength="5"
+                           placeholder="HH:MM"
+                           autocomplete="off"
+                           oninput="syncTimeHidden()"
+                           onblur="normalizeTimeInput()" />
+                    <button type="button"
+                            class="tkt-time-step"
+                            title="15 minutes kam"
+                            onclick="adjustTimeSpent(-15)">&minus;15m</button>
+                    <button type="button"
+                            class="tkt-time-step"
+                            title="15 minutes zyada"
+                            onclick="adjustTimeSpent(15)">+15m</button>
                 </div>
+                <input type="hidden" id="upd_TimeSpent" value="" />
             </div>
 
-            <div class="form-group">
+            @* Follow-up Date — hidden when Resolved / Closed *@
+            <div class="form-group" id="upd_FollowUpGroup">
                 <label>
                     Follow-up Date
                 </label>
                 <input type="date" id="upd_FollowUpDate" />
             </div>
 
-            <div class="form-group form-group-full">
+            @* Next Action — hidden when Pending Review / Resolved *@
+            <div class="form-group form-group-full" id="upd_NextActionGroup">
                 <label>
                     Next Action
                 </label>
@@ -1539,13 +1677,43 @@
                     <input type="text"
                            id="upd_NextAction"
                            maxlength="500"
-                           placeholder="What is next?" />
+                           placeholder="What is the next step?" />
                     <span class="tkt-count" id="cnt_NextAction">0/500</span>
                     <span class="tkt-btn-row">
-                        <button type="button" class="tkt-clear-btn" title="Clear"
-                                onclick="clearField('upd_NextAction')">&#128465;</button>
-                        <button type="button" class="tkt-mic-btn" title="Voice input"
-                                onclick="toggleVoice(this, 'upd_NextAction')">&#127908;</button>
+                        <button type="button" class="tkt-clear-btn" title="Clear field"
+                                            aria-label="Clear field"
+                                onclick="clearField('upd_NextAction')">
+
+                                            <svg class="ico-trash" viewBox="0 0 24 24"
+                                                 fill="none" stroke="currentColor"
+                                                 stroke-width="2" stroke-linecap="round"
+                                                 stroke-linejoin="round" aria-hidden="true">
+                                                <polyline points="3 6 5 6 21 6" />
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                            </svg>
+
+                                        </button>
+                        <button type="button" class="tkt-mic-btn" title="Start voice input"
+                                            aria-label="Start voice input"
+                                onclick="toggleVoice(this, 'upd_NextAction')">
+
+                                            <svg class="ico-mic" viewBox="0 0 24 24"
+                                                 fill="none" stroke="currentColor"
+                                                 stroke-width="2" stroke-linecap="round"
+                                                 stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                                <line x1="12" y1="19" x2="12" y2="23" />
+                                            </svg>
+
+                                            <svg class="ico-stop" viewBox="0 0 24 24"
+                                                 fill="none" stroke="currentColor"
+                                                 stroke-width="2" stroke-linecap="round"
+                                                 stroke-linejoin="round" aria-hidden="true">
+                                                <rect x="6" y="6" width="12" height="12" rx="2" />
+                                            </svg>
+
+                                        </button>
                     </span>
                 </div>
                 <span class="tkt-voice-status" id="voiceStatus_upd_NextAction">
@@ -1758,6 +1926,58 @@
 </div>
 
 
+<!-- ================= REOPEN CONFIRM (admin only) ================= -->
+
+<div id="reopenConfirm" class="tkt-confirm-backdrop">
+
+    <div class="tkt-confirm-box">
+
+        <div class="tkt-confirm-icon">&#8635;</div>
+
+        <h3>Reopen this ticket?</h3>
+
+        <p>
+            Ticket ka status <strong>Open</strong> ho jayega aur
+            ticket dobara editable ho jayega.
+        </p>
+
+        <div class="tkt-confirm-field">
+
+            <label for="reopen_Remarks">
+                Reason / Remarks <span style="color:#dc2626;">*</span>
+            </label>
+
+            <textarea id="reopen_Remarks"
+                      rows="3"
+                      maxlength="300"
+                      placeholder="Kyu reopen kar rahe hain... (timeline me dikhega)"></textarea>
+
+            <span class="tkt-count" id="cnt_reopen_Remarks">0/300</span>
+
+        </div>
+
+        <div class="tkt-confirm-actions">
+
+            <button type="button"
+                    class="tkt-btn"
+                    onclick="closeReopenConfirm()">
+                Cancel
+            </button>
+
+            <button type="button"
+                    class="tkt-btn tkt-confirm-yes"
+                    id="reopenConfirmYes"
+                    onclick="confirmReopenTicket()">
+                Yes, Reopen
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
 @section Styles
 {
     @* Tailwind build (npm run css). Sirf is page pe load hota hai
@@ -1844,12 +2064,8 @@
                 document.getElementById('upd_WorkDone').value = body;
             }
 
-            // minutes -> hours + minutes
-            document.getElementById('upd_TimeHours').value =
-                timeSpent > 0 ? Math.floor(timeSpent / 60) : '';
-
-            document.getElementById('upd_TimeMinutes').value =
-                timeSpent > 0 ? (timeSpent % 60) : '';
+            // minutes -> HH:MM input
+            setTimeSpentMinutes(timeSpent);
 
             document.getElementById('upd_NextAction').value = nextAction;
 
@@ -1872,6 +2088,98 @@
         // ==========================================
         // WORK UPDATE
         // ==========================================
+
+        // ==========================================
+        // TIME SPENT — HH:MM helpers
+        // ==========================================
+        // Max allowed = 8 hours (480 min), same as the old dropdown.
+        var TIME_SPENT_MAX = 480;
+
+        function pad2(n) {
+            return (n < 10 ? '0' : '') + n;
+        }
+
+        // Accepts "01:30", "1:30", "130" (=> 01:30) or "90" (=> 90 min).
+        function hmToMinutes(raw) {
+
+            var v = (raw || '').trim().replace(/[^\d:]/g, '');
+            if (!v) return 0;
+
+            var parts = v.split(':');
+            var h = 0;
+            var m = 0;
+
+            if (parts.length >= 2) {
+                h = parseInt(parts[0], 10) || 0;
+                m = parseInt(parts[1], 10) || 0;
+            } else if (v.length >= 3) {
+                // Digits only, 3+ chars -> HHMM (130 = 1h 30m)
+                var n = parseInt(v, 10) || 0;
+                h = Math.floor(n / 100);
+                m = n % 100;
+            } else {
+                // 1-2 digits -> minutes
+                m = parseInt(v, 10) || 0;
+            }
+
+            if (m > 59) m = 59;
+
+            var total = h * 60 + m;
+
+            return Math.max(0, Math.min(total, TIME_SPENT_MAX));
+        }
+
+        function minutesToHM(total) {
+            total = Math.max(0, Math.min(total || 0, TIME_SPENT_MAX));
+            return pad2(Math.floor(total / 60)) + ':' + pad2(total % 60);
+        }
+
+        // Sets both the visible HH:MM box and the hidden minutes field.
+        function setTimeSpentMinutes(total) {
+
+            var hm = document.getElementById('upd_TimeSpentHM');
+            var hidden = document.getElementById('upd_TimeSpent');
+            var mins = Math.max(0, Math.min(total || 0, TIME_SPENT_MAX));
+
+            if (hm) hm.value = mins > 0 ? minutesToHM(mins) : '';
+            if (hidden) hidden.value = mins > 0 ? String(mins) : '';
+        }
+
+        // Keeps the hidden minutes field in sync while typing.
+        function syncTimeHidden() {
+
+            var hm = document.getElementById('upd_TimeSpentHM');
+            var hidden = document.getElementById('upd_TimeSpent');
+            if (!hm || !hidden) return;
+            hidden.value = String(hmToMinutes(hm.value));
+        }
+
+        // On blur: format "130" -> "01:30", "90" -> "01:30".
+        function normalizeTimeInput() {
+
+            var hm = document.getElementById('upd_TimeSpentHM');
+            if (!hm) return;
+
+            if (!hm.value.trim()) {
+                setTimeSpentMinutes(0);
+                return;
+            }
+
+            setTimeSpentMinutes(hmToMinutes(hm.value));
+        }
+
+        // -15m / +15m buttons.
+        function adjustTimeSpent(delta) {
+
+            var hm = document.getElementById('upd_TimeSpentHM');
+            if (!hm) return;
+
+            var next = hmToMinutes(hm.value) + delta;
+            setTimeSpentMinutes(next);
+
+            hm.focus();
+            hm.setSelectionRange(hm.value.length, hm.value.length);
+        }
 
         // isEdit = true -> edit mode (title + hidden UpdateId).
         // isEdit = false/undefined -> naya work add.
@@ -1907,8 +2215,7 @@
             // isliye yahan sirf add mode me clear karo.
             if (!editMode) {
                 document.getElementById('upd_WorkDone').value = '';
-                document.getElementById('upd_TimeHours').value = '';
-                document.getElementById('upd_TimeMinutes').value = '';
+                setTimeSpentMinutes(0);
                 document.getElementById('upd_NextAction').value = '';
                 document.getElementById('upd_WaitingOn').value = '';
                 document.getElementById('upd_ResolutionNote').value = '';
@@ -1953,7 +2260,7 @@
 
             ['upd_WaitingOn', 'upd_ResolutionNote',
                 'upd_WorkDone', 'upd_NextAction', 'reviewMessage',
-                'assign_Reason', 'close_Remarks']
+                'assign_Reason', 'close_Remarks', 'reopen_Remarks']
                 .forEach(function (id) {
                     var field = document.getElementById(id);
                     if (field) {
@@ -1963,30 +2270,77 @@
                 });
         });
 
-        // Shows "Waiting on" only for On Hold and "Resolution Note"
-        // only for Resolved. Both become required while visible.
+        // =====================================================
+        // STATUS-DRIVEN FORM — field visibility
+        // =====================================================
         function toggleStatusFields() {
 
-            var sel = document.getElementById('upd_StatusId');
-
+            var sel  = document.getElementById('upd_StatusId');
             var text = sel.options[sel.selectedIndex]
                 ? sel.options[sel.selectedIndex].text.trim().toLowerCase()
                 : '';
 
-            var isHold = text === 'on hold';
-            var isResolved = text === 'resolved';
+            var key = text.replace(/\s+/g, '');   // "on hold" -> "onhold"
 
-            var holdGroup =
-                document.getElementById('upd_WaitingOnGroup');
-            var resGroup =
-                document.getElementById('upd_ResolutionNoteGroup');
+            var isInProgress    = key === 'inprogress';
+            var isOnHold        = key === 'onhold';
+            var isPendingReview = key === 'pendingreview';
+            var isResolved      = key === 'resolved';
+            var isClosed        = key === 'closed';
 
-            holdGroup.style.display = isHold ? '' : 'none';
-            resGroup.style.display = isResolved ? '' : 'none';
+            // ── Waiting On (On Hold only) ────────────────────────
+            var holdGroup = document.getElementById('upd_WaitingOnGroup');
+            if (holdGroup) holdGroup.style.display = isOnHold ? '' : 'none';
+            document.getElementById('upd_WaitingOn').required = isOnHold;
 
-            document.getElementById('upd_WaitingOn').required = isHold;
-            document.getElementById('upd_ResolutionNote').required =
-                isResolved;
+            // ── Resolution Note (Resolved only) ─────────────────
+            var resGroup = document.getElementById('upd_ResolutionNoteGroup');
+            if (resGroup) resGroup.style.display = isResolved ? '' : 'none';
+            document.getElementById('upd_ResolutionNote').required = isResolved;
+
+            // ── Next Action (hidden when Pending Review / Resolved) ──
+            var naGroup = document.getElementById('upd_NextActionGroup');
+            if (naGroup) naGroup.style.display = (isPendingReview || isResolved) ? 'none' : '';
+
+            // Pending Review: auto-fill Next Action if blank
+            if (isPendingReview) {
+                var naField = document.getElementById('upd_NextAction');
+                if (naField && !naField.value.trim()) {
+                    naField.value = 'Awaiting manager review.';
+                    refreshFieldUi('upd_NextAction');
+                }
+            }
+
+            // ── Follow-up Date (hidden when Resolved / Closed / Pending Review) ──
+            var fuGroup = document.getElementById('upd_FollowUpGroup');
+            if (fuGroup) fuGroup.style.display = (isResolved || isClosed || isPendingReview) ? 'none' : '';
+
+            // ── Time Spent label (required hint) ─────────────────
+            var tsLabel = document.getElementById('upd_TimeSpentLabel');
+            if (tsLabel) {
+                if (isInProgress || isResolved) {
+                    tsLabel.innerHTML =
+                        'Time Spent <span style="color:#dc2626;">*</span>' +
+                        '<small style="font-weight:400;color:#6b7280;margin-left:4px;">(zaroori)</small>';
+                } else {
+                    tsLabel.innerHTML =
+                        'Time Spent <small style="font-weight:400;color:#9ca3af;margin-left:4px;">(optional)</small>';
+                }
+            }
+
+            // ── Work Done placeholder (context-sensitive) ─────────
+            var wdField = document.getElementById('upd_WorkDone');
+            if (wdField) {
+                var ph = {
+                    'open':          'Ticket receive hua \u2014 initial details ya first contact note karo.',
+                    'inprogress':    'Aaj kya kiya? Steps, findings, changes briefly describe karo.',
+                    'onhold':        'Hold pe jaane se pehle kya kiya? Kya status tha?',
+                    'pendingreview': 'Summary: kya kiya, kaise solve kiya \u2014 review ke liye.',
+                    'resolved':      'Final work: kya steps liye resolve karne ke liye?',
+                    'closed':        'Closing note ya final remarks.'
+                };
+                wdField.placeholder = ph[key] || 'What did you do today?';
+            }
         }
 
         // ---- Voice input (Web Speech API) ----
@@ -2111,7 +2465,6 @@
             voiceRec.start();
 
             btn.classList.add('recording');
-            btn.innerHTML = '&#9899;'; // stop square
             setVoiceStatus(fieldId, true);
         }
 
@@ -2121,7 +2474,6 @@
 
             if (btn) {
                 btn.classList.remove('recording');
-                btn.innerHTML = '&#127908;';
             }
 
             if (voiceTarget) {
@@ -2360,6 +2712,92 @@
             document.getElementById('closeConfirm').classList.remove('open');
         }
 
+        // ==========================================
+        // REOPEN TICKET (admin only, Closed -> Open)
+        // ==========================================
+
+        function openReopenConfirm() {
+
+            var box = document.getElementById('reopen_Remarks');
+
+            if (box) {
+                box.value = '';
+                refreshFieldUi('reopen_Remarks');
+            }
+
+            document.getElementById('reopenConfirm').classList.add('open');
+
+            if (box) { box.focus(); }
+        }
+
+        function closeReopenConfirm() {
+            document.getElementById('reopenConfirm').classList.remove('open');
+        }
+
+        function confirmReopenTicket() {
+
+            var remarksField = document.getElementById('reopen_Remarks');
+
+            var remarks = remarksField
+                ? remarksField.value.trim()
+                : '';
+
+            if (remarks.length < 3) {
+                masterShowToast(
+                    'Reopen ki wajah (reason) likhna zaruri hai.',
+                    'error');
+
+                if (remarksField) { remarksField.focus(); }
+                return;
+            }
+
+            var btn = document.getElementById('reopenConfirmYes');
+
+            if (btn) { btn.disabled = true; }
+
+            var body = new URLSearchParams();
+            body.append('ticketId', '@Model.Id');
+            body.append('action', 'reopen');
+            body.append('remarks', remarks);
+            body.append(
+                '__RequestVerificationToken', getAntiForgeryToken());
+
+            fetch('@Url.Action("ChangeStatus", "DailySupport")', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: body.toString()
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+
+                    if (!res.success) {
+                        masterShowToast(
+                            res.message || 'Reopen failed.', 'error');
+                        if (btn) { btn.disabled = false; }
+                        return;
+                    }
+
+                    masterShowToast(
+                        'Ticket reopened. Status: Open.', 'success');
+
+                    if (typeof refreshSupportBadge === 'function') {
+                        refreshSupportBadge();
+                    }
+
+                    markActivityFocus();
+
+                    setTimeout(function () { location.reload(); }, 700);
+                })
+                .catch(function () {
+                    masterShowToast('Could not reopen ticket.', 'error');
+                    if (btn) { btn.disabled = false; }
+                });
+        }
+
         function confirmCloseTicket() {
 
             var remarksField = document.getElementById('close_Remarks');
@@ -2509,12 +2947,10 @@
             var workDone = document.getElementById('upd_WorkDone')
                 .value.trim();
 
-            // Hours + minutes -> total minutes.
-            var hours = parseInt(
-                document.getElementById('upd_TimeHours').value || '0', 10) || 0;
-            var mins = parseInt(
-                document.getElementById('upd_TimeMinutes').value || '0', 10) || 0;
-            var timeSpent = (hours * 60) + mins;
+            // HH:MM input -> minutes
+            normalizeTimeInput();
+            var timeSpent = parseInt(
+                document.getElementById('upd_TimeSpent').value || '0', 10) || 0;
 
             var nextAction = document.getElementById('upd_NextAction')
                 .value.trim();
@@ -2526,7 +2962,8 @@
                 .value;
 
             if (!workDone) {
-                masterShowToast('Please write the work done.', 'error');
+                masterShowToast('Work Done likhna zaroori hai — kya kiya woh zaroor likho.', 'error');
+                document.getElementById('upd_WorkDone').focus();
                 return;
             }
 
@@ -2534,15 +2971,36 @@
             var statusText = sel.options[sel.selectedIndex]
                 ? sel.options[sel.selectedIndex].text.trim().toLowerCase()
                 : '';
+            var statusKey = statusText.replace(/\s+/g, '');
 
-            if (statusText === 'on hold' && !waitingOn) {
-                masterShowToast('Please say what you are waiting on.',
+            // On Hold: Waiting On zaroori hai
+            if (statusKey === 'onhold' && !waitingOn) {
+                masterShowToast(
+                    'On Hold ke liye "Waiting On" fill karo \u2014 batao kya ya kiski wajah se ruka hai.',
                     'error');
+                var woF = document.getElementById('upd_WaitingOn');
+                if (woF) woF.focus();
                 return;
             }
 
-            if (statusText === 'resolved' && !resolutionNote) {
-                masterShowToast('Please add a resolution note.', 'error');
+            // Resolved: Resolution Note zaroori hai
+            if (statusKey === 'resolved' && !resolutionNote) {
+                masterShowToast(
+                    'Resolve karne ke liye "Resolution Note" zaroori hai \u2014 root cause aur fix briefly likho.',
+                    'error');
+                var rnF = document.getElementById('upd_ResolutionNote');
+                if (rnF) rnF.focus();
+                return;
+            }
+
+            // In Progress / Resolved: Time Spent zaroori hai
+            if ((statusKey === 'inprogress' || statusKey === 'resolved') && timeSpent <= 0) {
+                masterShowToast(
+                    'In Progress / Resolved me Time Spent select karna zaroori hai \u2014 proper tracking ke liye.',
+                    'error');
+                document.getElementById('upd_TimeSpent').focus();
+                var hmFocus = document.getElementById('upd_TimeSpentHM');
+                if (hmFocus) { hmFocus.focus(); }
                 return;
             }
 

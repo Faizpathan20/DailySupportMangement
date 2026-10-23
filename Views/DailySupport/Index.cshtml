@@ -103,6 +103,40 @@
                 f.Name,
                 StringComparer.OrdinalIgnoreCase))
             .ToList();
+
+    // ---- Active filters (FILTERS header ke chips) ----
+
+    var activeStatusName = Model.FilterStatusId.HasValue
+        ? Model.StatusOptions
+            .FirstOrDefault(s => s.Id == Model.FilterStatusId.Value)?.Name
+        : null;
+
+    var activePriorityName = Model.FilterPriorityId.HasValue
+        ? Model.PriorityOptions
+            .FirstOrDefault(p => p.Id == Model.FilterPriorityId.Value)?.Name
+        : null;
+
+    // Assigned-To sirf admin ke liye chip banta hai: baaki users
+    // ke liye ye hamesha apna hi Id hota hai (implicit filter).
+    var activeUserName = Model.IsAdmin && Model.FilterAssignedTo.HasValue
+        ? Model.UserOptions
+            .FirstOrDefault(u => u.Id == Model.FilterAssignedTo.Value)?.Name
+        : null;
+
+    string? activeViewName = Model.FilterView switch
+    {
+        "open" => "Open",
+        "inprogress" => "In Progress",
+        "onhold" => "On Hold",
+        "resolvedToday" => "Resolved Today",
+        _ => null
+    };
+
+    int activeFilterCount =
+        (activeStatusName != null ? 1 : 0)
+        + (activePriorityName != null ? 1 : 0)
+        + (activeUserName != null ? 1 : 0)
+        + (activeViewName != null ? 1 : 0);
 }
 
 
@@ -470,6 +504,8 @@
                         <button type="button"
                                 class="voice-btn mic-btn"
                                 id="voiceMicBtn_@field.Name"
+                                title="Start voice input"
+                                aria-label="Start voice input"
                                 onclick="startVoice('@field.Name')">
 
                             <svg viewBox="0 0 24 24" fill="none"
@@ -482,12 +518,14 @@
                                 <line x1="12" y1="19" x2="12" y2="23" />
                             </svg>
 
-                            Mic
-
                         </button>
 
                         <button type="button"
                                 class="voice-btn voice-stop"
+                                id="voiceStopBtn_@field.Name"
+                                title="Stop recording"
+                                aria-label="Stop recording"
+                                disabled
                                 onclick="stopVoice()">
 
                             <svg viewBox="0 0 24 24" fill="none"
@@ -498,12 +536,12 @@
                                 <rect x="6" y="6" width="12" height="12" rx="2" />
                             </svg>
 
-                            Stop
-
                         </button>
 
                         <button type="button"
                                 class="voice-btn voice-reset"
+                                title="Clear field"
+                                aria-label="Clear field"
                                 onclick="resetVoice('@field.Name')">
 
                             <svg viewBox="0 0 24 24" fill="none"
@@ -514,8 +552,6 @@
                                 <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
                                 <polyline points="3 3 3 8 8 8" />
                             </svg>
-
-                            Reset
 
                         </button>
 
@@ -839,7 +875,78 @@
 
             <div class="form-section-title">
                 FILTERS
+
+                @if (activeFilterCount > 0)
+                {
+                    <span class="tkt-filter-count"
+                          title="@activeFilterCount active filter(s)">
+                        @activeFilterCount
+                    </span>
+                }
             </div>
+
+            <!-- Active filter chips (collapsed bar me bhi visible) -->
+            @if (activeFilterCount > 0)
+            {
+                <div class="tkt-filter-chips">
+
+                    @if (activeViewName != null)
+                    {
+                        <a class="tkt-chip"
+                           href="@Url.Action("Index", "DailySupport", new { statusId = Model.FilterStatusId, assignedTo = Model.FilterAssignedTo, priorityId = Model.FilterPriorityId, search = Model.Search })"
+                           title="Remove this filter">
+
+                            View: <b>@activeViewName</b>
+                            <span class="x" aria-hidden="true">&times;</span>
+
+                        </a>
+                    }
+
+                    @if (activeStatusName != null)
+                    {
+                        <a class="tkt-chip"
+                           href="@Url.Action("Index", "DailySupport", new { view = Model.FilterView, assignedTo = Model.FilterAssignedTo, priorityId = Model.FilterPriorityId, search = Model.Search })"
+                           title="Remove this filter">
+
+                            Status: <b>@activeStatusName</b>
+                            <span class="x" aria-hidden="true">&times;</span>
+
+                        </a>
+                    }
+
+                    @if (activePriorityName != null)
+                    {
+                        <a class="tkt-chip"
+                           href="@Url.Action("Index", "DailySupport", new { view = Model.FilterView, statusId = Model.FilterStatusId, assignedTo = Model.FilterAssignedTo, search = Model.Search })"
+                           title="Remove this filter">
+
+                            Priority: <b>@activePriorityName</b>
+                            <span class="x" aria-hidden="true">&times;</span>
+
+                        </a>
+                    }
+
+                    @if (activeUserName != null)
+                    {
+                        <a class="tkt-chip"
+                           href="@Url.Action("Index", "DailySupport", new { view = Model.FilterView, statusId = Model.FilterStatusId, priorityId = Model.FilterPriorityId, search = Model.Search })"
+                           title="Remove this filter">
+
+                            Assigned: <b>@activeUserName</b>
+                            <span class="x" aria-hidden="true">&times;</span>
+
+                        </a>
+                    }
+
+                    <a class="tkt-chip tkt-chip-clear"
+                       href="@Url.Action("Index", "DailySupport")">
+
+                        Clear all
+
+                    </a>
+
+                </div>
+            }
 
             <!-- Quick selection pills (one-click status filter) -->
             <div class="tkt-quick-pills">
@@ -1006,9 +1113,35 @@
 
 @if (TempData["Success"] != null)
 {
-    <div class="success-message">
+    <div class="success-message" role="status">
 
-        @TempData["Success"]
+        <span class="toast-icon" aria-hidden="true">
+
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.4" stroke-linecap="round"
+                 stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+            </svg>
+
+        </span>
+
+        <div class="toast-body">
+            @TempData["Success"]
+        </div>
+
+        <button type="button"
+                class="toast-close"
+                aria-label="Dismiss"
+                onclick="this.closest('.success-message, .error-message').remove()">
+
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.6" stroke-linecap="round"
+                 stroke-linejoin="round" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+
+        </button>
 
     </div>
 }
@@ -1016,9 +1149,37 @@
 
 @if (TempData["Error"] != null)
 {
-    <div class="error-message">
+    <div class="error-message" role="alert">
 
-        @Html.Raw(TempData["Error"])
+        <span class="toast-icon" aria-hidden="true">
+
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.2" stroke-linecap="round"
+                 stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <line x1="12" y1="8" x2="12" y2="13" />
+                <line x1="12" y1="16.5" x2="12" y2="16.5" />
+            </svg>
+
+        </span>
+
+        <div class="toast-body">
+            @Html.Raw(TempData["Error"])
+        </div>
+
+        <button type="button"
+                class="toast-close"
+                aria-label="Dismiss"
+                onclick="this.closest('.success-message, .error-message').remove()">
+
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.6" stroke-linecap="round"
+                 stroke-linejoin="round" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+
+        </button>
 
     </div>
 }
@@ -1162,6 +1323,11 @@
 
                 </button>
 
+                <span class="tkt-search-key"
+                      aria-hidden="true">
+                    /
+                </span>
+
             </div>
 
             <span class="tkt-search-count"
@@ -1170,29 +1336,33 @@
                 0 / 0
             </span>
 
-            <a href="@Url.Action("NewTicket", "DailySupport")"
-               class="primary-btn tkt-btn tkt-btn-primary">
+            <div class="tkt-head-actions">
 
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2.5" stroke-linecap="round"
-                     stroke-linejoin="round" aria-hidden="true">
-                    <path d="M12 5v14M5 12h14" />
-                </svg>
+                <a href="@Url.Action("NewTicket", "DailySupport")"
+                   class="primary-btn tkt-btn tkt-btn-primary">
 
-                Add Ticket
-            </a>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2.5" stroke-linecap="round"
+                         stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 5v14M5 12h14" />
+                    </svg>
 
-            <a href="@Url.Action("Create", "Clients", new { returnUrl = Url.Action("Index", "DailySupport") })"
-               class="primary-btn tkt-btn tkt-btn-ghost">
+                    Add Ticket
+                </a>
 
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2.5" stroke-linecap="round"
-                     stroke-linejoin="round" aria-hidden="true">
-                    <path d="M12 5v14M5 12h14" />
-                </svg>
+                <a href="@Url.Action("Create", "Clients", new { returnUrl = Url.Action("Index", "DailySupport") })"
+                   class="primary-btn tkt-btn tkt-btn-ghost">
 
-                Add Customer
-            </a>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2.5" stroke-linecap="round"
+                         stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 5v14M5 12h14" />
+                    </svg>
+
+                    Add Customer
+                </a>
+
+            </div>
 
         </div>
 
@@ -1254,7 +1424,31 @@
                         <td colspan="@(gridColumns.Length + 1)"
                             class="empty-state">
 
-                            No Records Found on this filter.
+                            <span class="empty-icon" aria-hidden="true">
+
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                     stroke-width="1.8" stroke-linecap="round"
+                                     stroke-linejoin="round">
+                                    <circle cx="11" cy="11" r="7" />
+                                    <path d="m20 20-3.5-3.5" />
+                                </svg>
+
+                            </span>
+
+                            <span class="empty-title">
+                                No tickets found
+                            </span>
+
+                            <span class="empty-sub">
+                                Is filter ke liye koi record nahi hai. Filter change karke dobara try karein.
+                            </span>
+
+                            <a class="primary-btn empty-action"
+                               href="@Url.Action("Index", "DailySupport")">
+
+                                Clear filters
+
+                            </a>
 
                         </td>
 
@@ -1286,6 +1480,8 @@
                                         : "col-wrap";
 
                                 <td class="@tdClass" data-label="@col.Display">
+
+                                    <span class="cell-value">
 
                                     @if (col.Name == "Status")
                                     {
@@ -1327,7 +1523,7 @@
                                     {
                                         var cellText = support.Get(col.Name);
 
-                                        <span class="tkt-no-wrap">
+                                        <span class="tkt-no-wrap tkt-ticket-no">
 
                                             <span class="cell-clamp"
                                                   title="@cellText">@cellText</span>
@@ -1366,6 +1562,27 @@
 
                                         </span>
                                     }
+                                    else if (col.Name == "UserId")
+                                    {
+                                        var assignee = support.Get(col.Name);
+
+                                        if (!string.IsNullOrWhiteSpace(assignee))
+                                        {
+                                            var parts = assignee.Split(
+                                                ' ',
+                                                StringSplitOptions.RemoveEmptyEntries);
+
+                                            var initials = parts.Length >= 2
+                                                ? parts[0].Substring(0, 1)
+                                                  + parts[1].Substring(0, 1)
+                                                : parts[0].Substring(0, 1);
+
+                                            <span class="tkt-assignee"
+                                                  data-initials="@initials.ToUpperInvariant()">
+                                                @assignee
+                                            </span>
+                                        }
+                                    }
                                     else
                                     {
                                         var cellText = support.Get(col.Name);
@@ -1378,6 +1595,8 @@
                                             </span>
                                         }
                                     }
+
+                                    </span>
 
                                 </td>
                             }
@@ -1473,7 +1692,33 @@
                     <td colspan="@(gridColumns.Length + 1)"
                         class="empty-state">
 
-                        No Records Found on this filter.
+                        <span class="empty-icon" aria-hidden="true">
+
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                 stroke-width="1.8" stroke-linecap="round"
+                                 stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="7" />
+                                <path d="m20 20-3.5-3.5" />
+                            </svg>
+
+                        </span>
+
+                        <span class="empty-title" id="noRecordsTitle">
+                            No tickets found
+                        </span>
+
+                        <span class="empty-sub" id="noRecordsSub">
+                            Is filter ke liye koi record nahi hai.
+                        </span>
+
+                        <button type="button"
+                                class="primary-btn empty-action"
+                                id="noRecordsAction"
+                                onclick="resetEmptyState()">
+
+                            Clear filters
+
+                        </button>
 
                     </td>
 
@@ -1799,7 +2044,7 @@
     @* Premium look (gray canvas + white cards + SVG icons).
        Sirf is page par; baaki pages safe rahen. *@
     <link rel="stylesheet"
-          href="~/css/dailysupport.css?v=2" />
+          href="~/css/dailysupport.css?v=3" />
 }
 
 @section Scripts
@@ -1816,6 +2061,9 @@
 
         var editUrl =
             "@Url.Action("Edit", "DailySupport")";
+
+        var supportBaseUrl =
+            "@Url.Action("Index", "DailySupport")";
 
 
         // ==========================================
@@ -2157,6 +2405,65 @@
             }
 
 
+            // ---- Empty-state message: search vs filter ----
+
+            var noRecordsTitle =
+                document.getElementById(
+                    "noRecordsTitle"
+                );
+
+            var noRecordsSub =
+                document.getElementById(
+                    "noRecordsSub"
+                );
+
+            var noRecordsAction =
+                document.getElementById(
+                    "noRecordsAction"
+                );
+
+            if (noRecordsTitle) {
+
+                if (searchValue) {
+
+                    noRecordsTitle.textContent =
+                        "No matching tickets";
+
+                    if (noRecordsSub) {
+                        noRecordsSub.textContent =
+                            "Search se koi ticket match nahi hua. Spelling check karein ya search clear karein.";
+                    }
+
+                    if (noRecordsAction) {
+                        noRecordsAction.textContent =
+                            "Clear search";
+                    }
+
+                } else {
+
+                    noRecordsTitle.textContent =
+                        "No tickets found";
+
+                    if (noRecordsSub) {
+                        noRecordsSub.textContent =
+                            "Is filter ke liye koi record nahi hai.";
+                    }
+
+                    if (noRecordsAction) {
+                        noRecordsAction.textContent =
+                            "Clear filters";
+                    }
+
+                }
+
+            }
+
+
+            // ---- Highlight search matches in visible rows ----
+
+            highlightSearch(searchValue);
+
+
             updateTableInfo(
                 startIndex + 1,
                 endIndex,
@@ -2215,43 +2522,83 @@
                     "pagination"
                 );
 
+            if (!paginationElement) {
+                return;
+            }
+
+
+            var isPhone =
+                window.matchMedia(
+                    "(max-width: 700px)"
+                ).matches;
+
 
             var html = "";
 
 
             // PREVIOUS BUTTON
 
-            if (currentPage === 1) {
+            if (currentPage <= 1) {
                 html +=
-                    '<button class="page-btn" disabled>← Previous</button>';
+                    '<button class="page-btn" disabled>← Prev</button>';
             } else {
                 html +=
                     '<button class="page-btn" onclick="goToPage('
                     + (currentPage - 1)
-                    + ')">← Previous</button>';
+                    + ')">← Prev</button>';
             }
 
 
-            // PAGE NUMBERS
+            // PAGE NUMBERS (windowed: 1 … 4 5 6 … 20)
 
-            for (
-                var i = 1;
-                i <= totalPages;
-                i++
-            ) {
+            if (isPhone) {
 
-                if (i === currentPage) {
-                    html +=
-                        '<button class="page-btn active">'
-                        + i
-                        + '</button>';
-                } else {
-                    html +=
-                        '<button class="page-btn" onclick="goToPage('
-                        + i
-                        + ')">'
-                        + i
-                        + '</button>';
+                html +=
+                    '<span class="page-info">'
+                    + (totalPages === 0 ? 0 : currentPage)
+                    + ' / '
+                    + totalPages
+                    + '</span>';
+
+            } else {
+
+                var pages =
+                    windowedPages(
+                        currentPage,
+                        totalPages
+                    );
+
+                for (
+                    var i = 0;
+                    i < pages.length;
+                    i++
+                ) {
+
+                    var page = pages[i];
+
+                    if (page === "...") {
+
+                        html +=
+                            '<span class="page-gap">…</span>';
+
+                    } else if (page === currentPage) {
+
+                        html +=
+                            '<button class="page-btn active">'
+                            + page
+                            + '</button>';
+
+                    } else {
+
+                        html +=
+                            '<button class="page-btn" onclick="goToPage('
+                            + page
+                            + ')">'
+                            + page
+                            + '</button>';
+
+                    }
+
                 }
 
             }
@@ -2260,8 +2607,8 @@
             // NEXT BUTTON
 
             if (
-                currentPage === totalPages
-                || totalPages === 0
+                totalPages === 0
+                || currentPage >= totalPages
             ) {
                 html +=
                     '<button class="page-btn" disabled>Next →</button>';
@@ -2274,6 +2621,286 @@
 
 
             paginationElement.innerHTML = html;
+
+        }
+
+
+        // Page numbers ke beech ellipsis (bade page counts ke liye).
+        function windowedPages(current, total) {
+
+            var out = [];
+
+            if (total <= 7) {
+
+                for (var i = 1; i <= total; i++) {
+                    out.push(i);
+                }
+
+                return out;
+
+            }
+
+            out.push(1);
+
+            var start = Math.max(2, current - 1);
+
+            var end = Math.min(total - 1, current + 1);
+
+            if (start > 2) {
+                out.push("...");
+            }
+
+            for (var j = start; j <= end; j++) {
+                out.push(j);
+            }
+
+            if (end < total - 1) {
+                out.push("...");
+            }
+
+            out.push(total);
+
+            return out;
+
+        }
+
+
+        // ==========================================
+        // EMPTY STATE ACTION
+        // ==========================================
+
+        function resetEmptyState() {
+
+            var input =
+                document.getElementById(
+                    "tableSearch"
+                );
+
+            if (input && input.value) {
+
+                clearTableSearch();
+
+                return;
+
+            }
+
+            window.location.href = supportBaseUrl;
+
+        }
+
+
+        // ==========================================
+        // SEARCH MATCH HIGHLIGHT
+        // ==========================================
+
+        function clearSearchHighlights() {
+
+            var marks =
+                document.querySelectorAll(
+                    "#dataTable mark.search-hit"
+                );
+
+            for (var i = 0; i < marks.length; i++) {
+
+                var mark = marks[i];
+
+                var parent = mark.parentNode;
+
+                if (!parent) {
+                    continue;
+                }
+
+                parent.replaceChild(
+                    document.createTextNode(
+                        mark.textContent),
+                    mark);
+
+                parent.normalize();
+
+            }
+
+        }
+
+
+        function highlightSearch(term) {
+
+            clearSearchHighlights();
+
+            if (!term) {
+                return;
+            }
+
+            var needle = term.toLowerCase();
+
+            var rows =
+                document.querySelectorAll(
+                    "#dataTable tbody tr:not(.no-data-row)"
+                );
+
+            for (var r = 0; r < rows.length; r++) {
+
+                if (rows[r].style.display === "none") {
+                    continue;
+                }
+
+                var cells =
+                    rows[r].querySelectorAll("td");
+
+                for (var c = 0; c < cells.length; c++) {
+
+                    highlightNode(cells[c], needle);
+
+                }
+
+            }
+
+        }
+
+
+        function highlightNode(root, needle) {
+
+            if (!root || needle.length === 0) {
+                return;
+            }
+
+            var walker =
+                document.createTreeWalker(
+                    root,
+                    NodeFilter.SHOW_TEXT,
+                    {
+                        acceptNode: function (node) {
+
+                            if (!node.nodeValue
+                                || !node.nodeValue.trim()) {
+
+                                return NodeFilter.FILTER_REJECT;
+
+                            }
+
+                            var tag = node.parentNode
+                                ? node.parentNode.nodeName
+                                : "";
+
+                            if (tag === "MARK"
+                                || tag === "SCRIPT"
+                                || tag === "STYLE") {
+
+                                return NodeFilter.FILTER_REJECT;
+
+                            }
+
+                            return NodeFilter.FILTER_ACCEPT;
+
+                        }
+                    },
+                    false
+                );
+
+            var nodes = [];
+
+            while (walker.nextNode()) {
+                nodes.push(walker.currentNode);
+            }
+
+            for (var i = 0; i < nodes.length; i++) {
+
+                var node = nodes[i];
+
+                var text = node.nodeValue;
+
+                var index =
+                    text.toLowerCase().indexOf(needle);
+
+                if (index === -1) {
+                    continue;
+                }
+
+                var range = document.createRange();
+
+                range.setStart(node, index);
+                range.setEnd(node, index + needle.length);
+
+                var mark = document.createElement("mark");
+
+                mark.className = "search-hit";
+
+                try {
+                    range.surroundContents(mark);
+                } catch (e) {
+                    // Kuch nodes (split text) safe taur par skip.
+                }
+
+            }
+
+        }
+
+
+        // ==========================================
+        // KPI COUNT-UP
+        // ==========================================
+
+        function animateKpiCounters() {
+
+            if (window.matchMedia(
+                    "(prefers-reduced-motion: reduce)"
+                ).matches) {
+
+                return;
+
+            }
+
+            var nodes =
+                document.querySelectorAll("[data-kpi]");
+
+            for (var i = 0; i < nodes.length; i++) {
+
+                (function (node) {
+
+                    var target = parseInt(
+                        (node.textContent || "")
+                            .replace(/[^\d-]/g, ""),
+                        10
+                    );
+
+                    if (isNaN(target) || target <= 0) {
+                        return;
+                    }
+
+                    var start = null;
+
+                    var duration = 850;
+
+                    node.textContent = "0";
+
+                    function step(now) {
+
+                        if (start === null) {
+                            start = now;
+                        }
+
+                        var progress =
+                            Math.min(
+                                1,
+                                (now - start) / duration
+                            );
+
+                        var eased =
+                            1 - Math.pow(1 - progress, 3);
+
+                        node.textContent =
+                            Math.round(target * eased);
+
+                        if (progress < 1) {
+                            requestAnimationFrame(step);
+                        }
+
+                    }
+
+                    requestAnimationFrame(step);
+
+                })(nodes[i]);
+
+            }
 
         }
 
@@ -2334,8 +2961,28 @@
             "DOMContentLoaded",
             function () {
                 renderTable();
+                animateKpiCounters();
             }
         );
+
+        // Phone <-> desktop breakpoint par pagination ka format badalta
+        // hai (numbers vs "Page x / y"), isliye resize par re-render.
+        var resizeTimer = null;
+
+        window.addEventListener("resize", function () {
+
+            if (resizeTimer) {
+                clearTimeout(resizeTimer);
+            }
+
+            resizeTimer = setTimeout(
+                function () {
+                    renderTable();
+                },
+                150
+            );
+
+        });
 
 
         // ==========================================
@@ -2749,6 +3396,11 @@
                     "voiceStatus_" + voiceField
                 );
 
+            var stopBtn =
+                document.getElementById(
+                    "voiceStopBtn_" + voiceField
+                );
+
 
             if (micBtn) {
 
@@ -2764,12 +3416,16 @@
 
             }
 
+            if (stopBtn) {
+                stopBtn.disabled = !on;
+            }
+
 
             if (status) {
 
                 if (on) {
                     status.innerText =
-                        "● Listening... the mic stays open until you click Stop";
+                        "Listening... the mic stays open until you click Stop";
                     status.classList.add("visible");
                 } else {
                     status.classList.remove("visible");
@@ -3592,13 +4248,21 @@
             if (head) {
                 head.addEventListener('click', function (e) {
 
-                    // Let the quick-filter pills do their job.
-                    if (e.target.closest('.tkt-quick-pills')) {
+                    // Pills, chips aur links apna kaam karein.
+                    if (e.target.closest('.tkt-quick-pills')
+                        || e.target.closest('.tkt-filter-chips')
+                        || e.target.closest('a, button, select, input')) {
                         return;
                     }
 
                     flip();
                 });
+            }
+
+            // Phone / chhote tablet: filters collapsed start hote hain,
+            // active filter chips header me phir bhi dikhte hain.
+            if (window.matchMedia('(max-width: 900px)').matches) {
+                card.classList.add('collapsed');
             }
 
             sync();

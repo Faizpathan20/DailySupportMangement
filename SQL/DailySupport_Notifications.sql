@@ -5,6 +5,8 @@
 --   * review    -> user ne review pe bheja  (admin ko)
 --   * approved  -> admin ne accept kiya     (user ko)
 --   * rejected  -> admin ne reject kiya     (user ko)
+--   * assigned  -> ticket kisi ko assign hua (naye assignee ko)
+--   * unassigned-> ticket reassign hua      (purane assignee ko)
 -- ============================================================
 
 IF OBJECT_ID('dbo.[Trn_Notification]', 'U') IS NULL

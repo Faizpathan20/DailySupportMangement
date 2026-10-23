@@ -131,6 +131,9 @@ public class TicketDetailViewModel
     // Resolved ticket ko owner (ya admin) close kar sakta hai.
     public bool CanClose { get; set; }
 
+    // Closed ticket ko sirf admin reopen kar sakta hai.
+    public bool CanReopen { get; set; }
+
     // ---- Review ----
     public string ReviewStatus { get; set; } = string.Empty;
     public int? ReviewedBy { get; set; }
@@ -310,7 +313,7 @@ public class TicketNotification
     public string Title { get; set; } = string.Empty;
     public string Body { get; set; } = string.Empty;
 
-    // review | approved | rejected
+    // review | approved | rejected | assigned | unassigned
     public string Kind { get; set; } = string.Empty;
 
     public int? Rating { get; set; }

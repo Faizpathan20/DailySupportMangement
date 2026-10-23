@@ -2584,10 +2584,14 @@ function notifRowHtml(n) {
 
     var icon = kind === "approved" ? "\u2705"
         : kind === "rejected" ? "\u274C"
+        : kind === "assigned" ? "\uD83D\uDCCC"
+        : kind === "unassigned" ? "\u21A9\uFE0F"
         : "\uD83D\uDD0D";
 
     var label = kind === "approved" ? "approved"
         : kind === "rejected" ? "rejected"
+        : kind === "assigned" ? "assigned"
+        : kind === "unassigned" ? "unassigned"
         : "pending";
 
     var stars = "";
@@ -2646,10 +2650,14 @@ function notifStripHtml(n) {
 
     var icon = kind === "approved" ? "\u2705"
         : kind === "rejected" ? "\u274C"
+        : kind === "assigned" ? "\uD83D\uDCCC"
+        : kind === "unassigned" ? "\u21A9\uFE0F"
         : "\uD83D\uDD0D";
 
     var label = kind === "approved" ? "Review accepted"
         : kind === "rejected" ? "Review rejected"
+        : kind === "assigned" ? "Assigned to you"
+        : kind === "unassigned" ? "Unassigned from you"
         : "Review pending with admin";
 
     var stars = "";

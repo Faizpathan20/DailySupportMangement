@@ -1532,3 +1532,960 @@ body.tkt-page-body #supportModal .tkt-modal-actions .cancel-btn:hover {
         font-size: 10px;
     }
 }
+
+
+/* ============================================================
+   DAILY SUPPORT — responsive toolbar, mobile cards & polish
+   ------------------------------------------------------------
+   Har rule body.tkt-page-body ke andar scoped hai, isliye sirf
+   Daily Support Index page affected hota hai (baaki pages safe).
+   ============================================================ */
+
+/* ---------- 1. Toolbar: kabhi card se bahar na jaye ---------- */
+
+body.tkt-page-body .table-toolbar {
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 16px;
+    row-gap: 12px;
+}
+
+body.tkt-page-body .table-toolbar > * {
+    min-width: 0;
+}
+
+body.tkt-page-body .toolbar-left,
+body.tkt-page-body .toolbar-center,
+body.tkt-page-body .toolbar-right {
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
+}
+
+body.tkt-page-body .toolbar-right {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+}
+
+body.tkt-page-body .tkt-search {
+    width: min(320px, 100%);
+    flex: 1 1 220px;
+    min-width: 0;
+}
+
+body.tkt-page-body .tkt-head-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+}
+
+body.tkt-page-body .tkt-head-actions .tkt-btn {
+    flex: 0 0 auto;
+}
+
+/* Search ka "/" keyboard hint */
+body.tkt-page-body .tkt-search-key {
+    position: absolute;
+    right: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #f8fafc;
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 700;
+    pointer-events: none;
+}
+
+body.tkt-page-body .tkt-search input:focus ~ .tkt-search-key,
+body.tkt-page-body .tkt-search input:not(:placeholder-shown) ~ .tkt-search-key {
+    display: none;
+}
+
+/* Keyboard focus rings */
+body.tkt-page-body .tkt-btn:focus-visible,
+body.tkt-page-body .export-btn:focus-visible,
+body.tkt-page-body .page-btn:focus-visible,
+body.tkt-page-body .action-btn:focus-visible,
+body.tkt-page-body .tkt-pill:focus-visible,
+body.tkt-page-body .tkt-chip:focus-visible,
+body.tkt-page-body .tkt-sec-toggle:focus-visible,
+body.tkt-page-body .toast-close:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+/* ---------- 2. Active filter chips ---------- */
+
+body.tkt-page-body .tkt-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    flex: 1 1 100%;
+    gap: 6px;
+}
+
+body.tkt-page-body .tkt-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px 4px 10px;
+    border: 1px solid #dbeafe;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1.5;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background .15s ease, border-color .15s ease;
+}
+
+body.tkt-page-body .tkt-chip:hover {
+    background: #dbeafe;
+    border-color: #bfdbfe;
+    color: #1e40af;
+}
+
+body.tkt-page-body .tkt-chip b {
+    font-weight: 800;
+}
+
+body.tkt-page-body .tkt-chip .x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #3b82f6;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+body.tkt-page-body .tkt-chip-clear {
+    padding: 4px 10px;
+    border-color: #e2e8f0;
+    background: #ffffff;
+    color: #64748b;
+}
+
+body.tkt-page-body .tkt-chip-clear:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #0f172a;
+}
+
+body.tkt-page-body .tkt-filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #2563eb;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+/* ---------- 3. Desktop table polish ---------- */
+
+@media (min-width: 901px) {
+
+    body.tkt-page-body .support-table {
+        max-height: min(70vh, 760px);
+        overflow: auto;
+        border-radius: 14px;
+    }
+
+    body.tkt-page-body .support-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        background: #f8fafc;
+        box-shadow: inset 0 -1px 0 #e6ebf1;
+    }
+
+    body.tkt-page-body .support-table tbody tr:nth-child(even) {
+        background: #fcfdff;
+    }
+
+    body.tkt-page-body .support-table tbody tr:hover {
+        background: #f5f9ff;
+    }
+}
+
+body.tkt-page-body .support-table .status-pill,
+body.tkt-page-body .support-table .priority-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+body.tkt-page-body .support-table .status-pill::before,
+body.tkt-page-body .support-table .priority-pill::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    flex: 0 0 6px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: .7;
+}
+
+/* Ticket number: monospace badge */
+body.tkt-page-body .tkt-ticket-no .cell-clamp {
+    padding: 3px 8px;
+    border-radius: 7px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: .2px;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+    overflow: visible;
+}
+
+/* Assigned user: initials avatar (CSS-only, sorting/export safe) */
+body.tkt-page-body .tkt-assignee {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+body.tkt-page-body .tkt-assignee::before {
+    content: attr(data-initials);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
+    border-radius: 999px;
+    background: #e0e7ff;
+    color: #3730a3;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .2px;
+}
+
+/* ---------- 4. Search matches ---------- */
+
+body.tkt-page-body #dataTable mark.search-hit {
+    padding: 0 1px;
+    border-radius: 3px;
+    background: #fde68a;
+    color: #92400e;
+}
+
+/* ---------- 5. Pagination ---------- */
+
+body.tkt-page-body .page-info {
+    padding: 0 6px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #475569;
+    white-space: nowrap;
+}
+
+body.tkt-page-body .page-gap {
+    padding: 0 2px;
+    color: #94a3b8;
+    font-weight: 700;
+}
+
+/* ---------- 6. Toast messages ---------- */
+
+body.tkt-page-body .success-message,
+body.tkt-page-body .error-message {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    z-index: 3000;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    max-width: min(380px, calc(100vw - 32px));
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, .18);
+    font-size: 13.5px;
+    line-height: 1.45;
+    animation: tktToastIn .25s ease;
+}
+
+body.tkt-page-body .success-message {
+    border: 1px solid #bbf7d0;
+    background: #ecfdf5;
+    color: #166534;
+}
+
+body.tkt-page-body .error-message {
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+body.tkt-page-body .toast-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    flex: 0 0 26px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .7);
+}
+
+body.tkt-page-body .toast-icon svg {
+    width: 15px;
+    height: 15px;
+}
+
+body.tkt-page-body .toast-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-top: 2px;
+}
+
+body.tkt-page-body .toast-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    margin-left: 2px;
+    padding: 0;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: currentColor;
+    opacity: .65;
+    cursor: pointer;
+}
+
+body.tkt-page-body .toast-close:hover {
+    background: rgba(255, 255, 255, .8);
+    opacity: 1;
+}
+
+body.tkt-page-body .toast-close svg {
+    width: 13px;
+    height: 13px;
+}
+
+@keyframes tktToastIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- 7. Empty state ---------- */
+
+body.tkt-page-body .support-table td.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 36px 16px;
+    border-bottom: none;
+    text-align: center;
+}
+
+body.tkt-page-body .support-table td.empty-state::before {
+    content: none;
+}
+
+body.tkt-page-body .empty-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    margin-bottom: 4px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+body.tkt-page-body .empty-icon svg {
+    width: 22px;
+    height: 22px;
+}
+
+body.tkt-page-body .empty-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+body.tkt-page-body .empty-sub {
+    max-width: 340px;
+    font-size: 12.5px;
+    color: #64748b;
+}
+
+body.tkt-page-body .empty-action {
+    margin-top: 8px;
+    text-decoration: none;
+}
+
+/* ---------- 8. Table -> cards (phone + small tablet) ---------- */
+
+@media (max-width: 900px) {
+
+    body.tkt-page-body .support-table {
+        overflow: visible;
+        max-height: none;
+        border-radius: 0;
+    }
+
+    body.tkt-page-body .support-table table {
+        display: block;
+        width: 100%;
+        min-width: 0;
+        table-layout: auto;
+    }
+
+    body.tkt-page-body .support-table thead {
+        display: none;
+    }
+
+    body.tkt-page-body .support-table tbody {
+        display: grid;
+        gap: 12px;
+    }
+
+    body.tkt-page-body .support-table tbody tr {
+        display: block;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid #e6ebf1;
+        border-radius: 14px;
+        background: #ffffff;
+        box-shadow:
+            0 1px 2px rgba(15, 23, 42, .04),
+            0 10px 24px -18px rgba(15, 23, 42, .35);
+    }
+
+    body.tkt-page-body .support-table tbody tr:hover {
+        background: #ffffff;
+        box-shadow:
+            0 1px 2px rgba(15, 23, 42, .04),
+            0 14px 30px -18px rgba(15, 23, 42, .40);
+    }
+
+    body.tkt-page-body .support-table tbody tr.tkt-row-link {
+        cursor: pointer;
+    }
+
+    body.tkt-page-body .support-table tbody tr.no-data-row,
+    body.tkt-page-body .support-table tbody tr.no-data-row:hover {
+        border: none;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    body.tkt-page-body .support-table td {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        width: auto;
+        min-width: 0;
+        max-width: none;
+        padding: 10px 14px;
+        border-bottom: 1px dashed #eef2f7;
+        font-size: 13.5px;
+        text-align: right;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    body.tkt-page-body .support-table td::before {
+        content: attr(data-label);
+        flex: 0 0 auto;
+        max-width: 46%;
+        margin: 0;
+        font-size: 10.5px;
+        font-weight: 800;
+        letter-spacing: .45px;
+        line-height: 1.9;
+        text-align: left;
+        text-transform: uppercase;
+        color: #94a3b8;
+    }
+
+    body.tkt-page-body .support-table td .cell-value {
+        flex: 1 1 auto;
+        min-width: 0;
+        text-align: right;
+        overflow-wrap: anywhere;
+    }
+
+    /* Filter header: title + toggle ek row, chips/pills neeche */
+    body.tkt-page-body .tkt-filter-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        column-gap: 10px;
+        row-gap: 10px;
+    }
+
+    body.tkt-page-body .tkt-filter-head > .form-section-title {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    body.tkt-page-body .tkt-filter-head > .tkt-sec-toggle {
+        grid-column: 2;
+        grid-row: 1;
+        justify-self: end;
+    }
+
+    body.tkt-page-body .tkt-filter-head > .tkt-filter-chips {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        min-width: 0;
+    }
+
+    body.tkt-page-body .tkt-filter-head > .tkt-quick-pills {
+        grid-column: 1 / -1;
+        grid-row: 3;
+        min-width: 0;
+    }
+
+    /* Ticket number = card header */
+    body.tkt-page-body .support-table td:first-child {
+        align-items: center;
+        padding: 12px 14px;
+        border-bottom: 1px solid #eef2f7;
+        background: #f8fafc;
+        font-size: 15px;
+    }
+
+    body.tkt-page-body .support-table td:first-child::before {
+        content: none;
+    }
+
+    body.tkt-page-body .support-table td:first-child .cell-value {
+        text-align: left;
+    }
+
+    /* Long text fields: label upar, value neeche */
+    body.tkt-page-body .support-table td.col-wrap {
+        display: block;
+        text-align: left;
+    }
+
+    body.tkt-page-body .support-table td.col-wrap::before {
+        display: block;
+        max-width: none;
+        margin-bottom: 4px;
+        line-height: 1.4;
+    }
+
+    body.tkt-page-body .support-table td.col-wrap .cell-value {
+        text-align: left;
+    }
+
+    body.tkt-page-body .support-table .col-wrap .cell-clamp {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* Actions = card footer */
+    body.tkt-page-body .support-table td.actions-col-cell {
+        align-items: center;
+        padding: 10px 14px;
+        border-bottom: none;
+        background: #ffffff;
+    }
+
+    body.tkt-page-body .support-table td.actions-col-cell::before {
+        margin: 0;
+        line-height: 1;
+    }
+
+    body.tkt-page-body .support-table .action-cell {
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    body.tkt-page-body .support-table .action-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+    }
+
+    body.tkt-page-body .support-table .action-btn svg {
+        width: 17px;
+        height: 17px;
+    }
+
+    body.tkt-page-body .support-table td.empty-state {
+        display: flex;
+        padding: 32px 16px;
+    }
+
+    /* Filter fields: phone par full width + left aligned (site.css
+       ka 50% / flex-end combo labels ko right me dhakel deta hai). */
+    body.tkt-page-body .tkt-filter-row {
+        align-items: stretch;
+    }
+
+    body.tkt-page-body .tkt-filter-row > .tkt-filter-field {
+        flex: 1 1 100%;
+        min-width: 0;
+        width: 100%;
+    }
+
+    body.tkt-page-body .tkt-filter-field label {
+        text-align: left;
+    }
+
+    /* Tablet bhi card view hai — header chhupa hai, isliye
+       sort dropdown yahan bhi dikhna chahiye. */
+    body.tkt-page-body .mobile-sort {
+        display: block;
+        width: auto;
+        min-width: 150px;
+        flex: 1 1 160px;
+        height: 40px;
+        padding: 8px 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #ffffff;
+        font-size: 13.5px;
+    }
+}
+
+/* ---------- 9. Toolbar layout per breakpoint ---------- */
+
+/* 4 KPI cards thode squeeze ho jate hain 900-1150px par — 2x2 better. */
+@media (min-width: 901px) and (max-width: 1150px) {
+
+    body.tkt-page-body .dashboard-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1100px) {
+
+    body.tkt-page-body .toolbar-center {
+        width: auto;
+    }
+
+    body.tkt-page-body .toolbar-right {
+        width: 100%;
+        flex: 1 1 100%;
+        justify-content: flex-start;
+    }
+
+    body.tkt-page-body .toolbar-center .export-btn {
+        flex: 1 1 0;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 700px) {
+
+    /* Canvas: fixed mobile menu button se neeche */
+    body.tkt-page-body .main-content {
+        padding: 72px 10px 30px;
+    }
+
+    body.tkt-page-body .state-section {
+        padding: 14px;
+        border-radius: 14px;
+    }
+
+    /* KPI cards: 2 x 2 */
+    body.tkt-page-body .dashboard-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    body.tkt-page-body .dashboard-card {
+        min-height: 0;
+        padding: 13px 14px;
+    }
+
+    body.tkt-page-body .dashboard-card .card-content h2 {
+        font-size: 21px;
+    }
+
+    body.tkt-page-body .dashboard-card p {
+        font-size: 11.5px;
+    }
+
+    body.tkt-page-body .dashboard-card .kpi-sub,
+    body.tkt-page-body .dashboard-card .card-icon {
+        display: none;
+    }
+
+    /* Toolbar rows */
+    body.tkt-page-body .table-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    body.tkt-page-body .toolbar-left {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+    }
+
+    body.tkt-page-body .toolbar-left .toolbar-label {
+        display: none;
+    }
+
+    body.tkt-page-body .toolbar-left select {
+        width: 100%;
+        height: 40px;
+    }
+
+    body.tkt-page-body .toolbar-center {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        width: 100%;
+    }
+
+    body.tkt-page-body .toolbar-center .export-btn {
+        width: 100%;
+        height: 38px;
+        padding: 0 8px;
+        justify-content: center;
+        white-space: nowrap;
+    }
+
+    body.tkt-page-body .toolbar-right {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+        width: 100%;
+    }
+
+    body.tkt-page-body .tkt-search {
+        width: 100%;
+        flex: 1 1 100%;
+        justify-self: stretch;
+    }
+
+    body.tkt-page-body .tkt-search-key {
+        display: none;
+    }
+
+    body.tkt-page-body .tkt-head-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+    }
+
+    body.tkt-page-body .tkt-head-actions .tkt-btn {
+        width: 100%;
+        height: 40px;
+        justify-content: center;
+        padding: 0 10px;
+    }
+
+    /* Filter pills: single scrollable row */
+    body.tkt-page-body .tkt-quick-pills {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        -webkit-mask-image: linear-gradient(90deg, #000 90%, transparent);
+        mask-image: linear-gradient(90deg, #000 90%, transparent);
+    }
+
+    body.tkt-page-body .tkt-quick-pills::-webkit-scrollbar {
+        display: none;
+    }
+
+    body.tkt-page-body .tkt-pill {
+        padding: 7px 13px;
+        font-size: 12.5px;
+    }
+
+    body.tkt-page-body .tkt-filter-chips {
+        flex: 1 1 100%;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+    }
+
+    body.tkt-page-body .tkt-filter-chips::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Footer + pagination */
+    body.tkt-page-body .table-footer {
+        gap: 10px;
+    }
+
+    body.tkt-page-body .footer-right {
+        gap: 6px;
+    }
+
+    body.tkt-page-body .page-btn {
+        padding: 8px 11px;
+        font-size: 12.5px;
+    }
+
+    /* Toasts bottom par */
+    body.tkt-page-body .success-message,
+    body.tkt-page-body .error-message {
+        top: auto;
+        right: 12px;
+        bottom: 16px;
+        left: 12px;
+        max-width: none;
+    }
+}
+
+@media (max-width: 380px) {
+
+    body.tkt-page-body .tkt-head-actions {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    body.tkt-page-body .toolbar-center .export-btn {
+        font-size: 11.5px;
+        gap: 5px;
+    }
+
+    body.tkt-page-body .tkt-filter-head {
+        column-gap: 8px;
+    }
+}
+
+/* ---------- 10. Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+
+    body.tkt-page-body .dashboard-card,
+    body.tkt-page-body .support-table tbody tr,
+    body.tkt-page-body .action-btn,
+    body.tkt-page-body .export-btn,
+    body.tkt-page-body .tkt-btn {
+        transition: none !important;
+    }
+}
+
+/* ---------- 11. Icon-only voice controls (edit modal) ---------- */
+
+body.tkt-page-body #supportModal .voice-controls {
+    gap: 6px;
+}
+
+body.tkt-page-body #supportModal .voice-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    justify-content: center;
+    border: 1px solid #dbe3ec;
+    background: #ffffff;
+    color: #475569;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+    transition: all .15s ease;
+}
+
+body.tkt-page-body #supportModal .voice-btn svg {
+    width: 15px;
+    height: 15px;
+    pointer-events: none;
+}
+
+body.tkt-page-body #supportModal .mic-btn {
+    background: #eff6ff;
+    border-color: #dbeafe;
+    color: #1d4ed8;
+}
+
+body.tkt-page-body #supportModal .mic-btn:hover {
+    background: #dbeafe;
+    border-color: #bfdbfe;
+}
+
+body.tkt-page-body #supportModal .mic-btn.is-recording {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #ffffff;
+    animation: voicePulse 1.2s infinite;
+}
+
+body.tkt-page-body #supportModal .voice-stop {
+    background: #fff1f2;
+    border-color: #fecdd3;
+    color: #be123c;
+}
+
+body.tkt-page-body #supportModal .voice-stop:hover:not(:disabled) {
+    background: #ffe4e6;
+    border-color: #fda4af;
+}
+
+body.tkt-page-body #supportModal .voice-stop:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+body.tkt-page-body #supportModal .voice-reset {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #475569;
+}
+
+body.tkt-page-body #supportModal .voice-reset:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+body.tkt-page-body #supportModal .voice-btn:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+/* Pulsing dot instead of the old "●" text glyph. */
+body.tkt-page-body #supportModal .voice-status.visible::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #dc2626;
+    animation: voiceDotPulse 1.1s ease-in-out infinite;
+}
+
+@keyframes voiceDotPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .25; }
+}

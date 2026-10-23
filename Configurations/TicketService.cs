@@ -696,15 +696,24 @@ public class TicketService
         bool isClosed = string.Equals(
             newStatusName, "Closed", StringComparison.OrdinalIgnoreCase);
 
+        // Closed se bahar nikalne par purane close/resolve
+        // timestamps clear ho jate hain.
+        bool reopening = !isClosed && string.Equals(
+            oldStatusName, "Closed", StringComparison.OrdinalIgnoreCase);
+
         string sql = @"
             UPDATE [DailySupport] SET
                 [StatusId] = @StatusId,
                 [Status] = @StatusName,
                 [UpdatedAt] = @Now,
                 [ResolvedOn] = CASE WHEN @IsResolved = 1
-                    THEN @Now ELSE [ResolvedOn] END,
+                    THEN @Now
+                    WHEN @IsReopen = 1 THEN NULL
+                    ELSE [ResolvedOn] END,
                 [ClosedOn] = CASE WHEN @IsClosed = 1
-                    THEN @Now ELSE [ClosedOn] END
+                    THEN @Now
+                    WHEN @IsReopen = 1 THEN NULL
+                    ELSE [ClosedOn] END
             WHERE [Id] = @Id";
 
         using (SqlCommand command =
@@ -717,6 +726,7 @@ public class TicketService
             command.Parameters.AddWithValue("@Now", NowIst);
             command.Parameters.AddWithValue("@IsResolved", isResolved ? 1 : 0);
             command.Parameters.AddWithValue("@IsClosed", isClosed ? 1 : 0);
+            command.Parameters.AddWithValue("@IsReopen", reopening ? 1 : 0);
             command.Parameters.AddWithValue("@Id", ticketId);
 
             await command.ExecuteNonQueryAsync();
