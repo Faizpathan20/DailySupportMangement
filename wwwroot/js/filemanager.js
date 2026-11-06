@@ -22,6 +22,11 @@
     var chips = Array.prototype.slice.call(
         document.querySelectorAll('.fm-chip'));
 
+    var chipsScroller = document.getElementById('fmChips');
+    var chipsShell = document.querySelector('.fm-chips-shell');
+    var chipsPrev = document.getElementById('fmChipsPrev');
+    var chipsNext = document.getElementById('fmChipsNext');
+
     var folderSection = document.getElementById('fmFolderSection');
     var fileSection = document.getElementById('fmFileSection');
     var foldersGrid = document.getElementById('fmFolders');
@@ -330,6 +335,8 @@
         filterClearButtons.forEach(function (button) {
             button.hidden = !filtering;
         });
+
+        updateChipsScrollUI();
     }
 
     function clearDeepResults() {
@@ -1245,6 +1252,96 @@
     // STICKY BAR / BREADCRUMB / SHORTCUTS
     // -----------------------------------------------------
 
+    function updateChipsScrollUI() {
+        if (!chipsScroller) {
+            return;
+        }
+
+        var maxScroll = Math.max(
+            0,
+            chipsScroller.scrollWidth - chipsScroller.clientWidth);
+
+        var scrollLeft = chipsScroller.scrollLeft;
+        var canScroll = maxScroll > 2;
+        var atStart = scrollLeft <= 1;
+        var atEnd = scrollLeft >= maxScroll - 1;
+
+        if (chipsPrev) {
+            chipsPrev.hidden = !canScroll || atStart;
+        }
+
+        if (chipsNext) {
+            chipsNext.hidden = !canScroll || atEnd;
+        }
+
+        if (chipsShell) {
+            chipsShell.classList.toggle(
+                'has-prev', canScroll && !atStart);
+            chipsShell.classList.toggle(
+                'has-next', canScroll && !atEnd);
+        }
+    }
+
+    if (chipsScroller) {
+        chipsScroller.addEventListener('scroll', updateChipsScrollUI, {
+            passive: true
+        });
+    }
+
+    if (chipsPrev) {
+        chipsPrev.addEventListener('click', function () {
+            if (chipsScroller.scrollBy) {
+                chipsScroller.scrollBy({ left: -220, behavior: 'smooth' });
+            } else {
+                chipsScroller.scrollLeft -= 220;
+            }
+        });
+    }
+
+    if (chipsNext) {
+        chipsNext.addEventListener('click', function () {
+            if (chipsScroller.scrollBy) {
+                chipsScroller.scrollBy({ left: 220, behavior: 'smooth' });
+            } else {
+                chipsScroller.scrollLeft += 220;
+            }
+
+            window.setTimeout(refreshChipsScrollUI, 350);
+        });
+    }
+
+    function refreshChipsScrollUI() {
+        window.requestAnimationFrame(function () {
+            updateChipsScrollUI();
+
+            window.requestAnimationFrame(updateChipsScrollUI);
+        });
+    }
+
+    if (window.ResizeObserver) {
+        var chipsResizeObserver = new ResizeObserver(function () {
+            refreshChipsScrollUI();
+        });
+
+        if (chipsScroller) {
+            chipsResizeObserver.observe(chipsScroller);
+        }
+
+        if (chipsShell) {
+            chipsResizeObserver.observe(chipsShell);
+        }
+    }
+
+    window.addEventListener('load', refreshChipsScrollUI);
+    window.addEventListener('orientationchange', refreshChipsScrollUI);
+
+    if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(refreshChipsScrollUI);
+    }
+
+    window.setTimeout(refreshChipsScrollUI, 0);
+    window.setTimeout(refreshChipsScrollUI, 250);
+
     function applyCrumbMode() {
         if (!crumbs) {
             return;
@@ -1283,6 +1380,7 @@
     window.addEventListener('scroll', requestScrollUI, { passive: true });
     window.addEventListener('resize', function () {
         applyCrumbMode();
+        refreshChipsScrollUI();
         requestScrollUI();
     });
 
@@ -1330,6 +1428,7 @@
 
     applyCrumbMode();
     updateScrollUI();
+    updateChipsScrollUI();
     applyFilter();
     warmIndex();
 })();

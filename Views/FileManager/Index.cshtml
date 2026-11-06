@@ -307,17 +307,49 @@
             <span>Type</span>
         </div>
 
-        <div class="fm-chips" id="fmChips" role="toolbar" aria-label="File type filter">
+        <div class="fm-chips-shell">
 
-            <button type="button" class="fm-chip is-active" data-kind="all" data-label="All">All <span class="fm-chip-count">@(Model.FolderCount + Model.FileCount)</span></button>
-            <button type="button" class="fm-chip" data-kind="folder" data-label="Folders">Folders <span class="fm-chip-count">@Model.FolderCount</span></button>
-            <button type="button" class="fm-chip" data-kind="video" data-label="Videos">Videos <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("video"))</span></button>
-            <button type="button" class="fm-chip" data-kind="pdf" data-label="PDFs">PDFs <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("pdf"))</span></button>
-            <button type="button" class="fm-chip" data-kind="excel" data-label="Excel">Excel <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("excel"))</span></button>
-            <button type="button" class="fm-chip" data-kind="image" data-label="Images">Images <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("image"))</span></button>
-            <button type="button" class="fm-chip" data-kind="audio" data-label="Audio">Audio <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("audio"))</span></button>
-            <button type="button" class="fm-chip" data-kind="archive" data-label="Archives">Archives <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("archive"))</span></button>
-            <button type="button" class="fm-chip" data-kind="doc" data-label="Documents">Documents <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("doc"))</span></button>
+            <button type="button"
+                    class="fm-chip-scroll fm-chip-scroll-prev"
+                    id="fmChipsPrev"
+                    aria-label="Scroll filter types left"
+                    aria-controls="fmChips"
+                    hidden>
+
+                <svg class="fm-svg" aria-hidden="true">
+                    <use href="#fm-i-left"></use>
+                </svg>
+
+            </button>
+
+            <div class="fm-chips" id="fmChips" role="toolbar" aria-label="File type filter">
+
+                <button type="button" class="fm-chip is-active" data-kind="all" data-label="All">All <span class="fm-chip-count">@(Model.FolderCount + Model.FileCount)</span></button>
+                <button type="button" class="fm-chip" data-kind="folder" data-label="Folders">Folders <span class="fm-chip-count">@Model.FolderCount</span></button>
+                <button type="button" class="fm-chip" data-kind="video" data-label="Videos">Videos <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("video"))</span></button>
+                <button type="button" class="fm-chip" data-kind="pdf" data-label="PDFs">PDFs <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("pdf"))</span></button>
+                <button type="button" class="fm-chip" data-kind="excel" data-label="Excel">Excel <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("excel"))</span></button>
+                <button type="button" class="fm-chip" data-kind="image" data-label="Images">Images <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("image"))</span></button>
+                <button type="button" class="fm-chip" data-kind="audio" data-label="Audio">Audio <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("audio"))</span></button>
+                <button type="button" class="fm-chip" data-kind="archive" data-label="Archives">Archives <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("archive"))</span></button>
+                <button type="button" class="fm-chip" data-kind="doc" data-label="Documents">Documents <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("doc"))</span></button>
+
+            </div>
+
+            <button type="button"
+                    class="fm-chip-scroll fm-chip-scroll-next"
+                    id="fmChipsNext"
+                    aria-label="Scroll filter types right"
+                    aria-controls="fmChips"
+                    title="Show more filter types">
+
+                <span>More</span>
+
+                <svg class="fm-svg" aria-hidden="true">
+                    <use href="#fm-i-right"></use>
+                </svg>
+
+            </button>
 
         </div>
 
