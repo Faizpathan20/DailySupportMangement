@@ -1,5 +1,6 @@
 
 using Master.Configuration;
+using Master.Files;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +19,23 @@ builder.Services.AddSingleton<Master.Configuration.DynamicTableService>();
 // Ticketing system service (Daily Support masters,
 // tickets, work updates, status workflow, review).
 builder.Services.AddScoped<Master.Configurations.TicketService>();
+
+
+// ============================================
+// FILE MANAGER (FTP -> Drive-style browser)
+// ============================================
+
+builder.Services.Configure<FtpOptions>(
+    builder.Configuration.GetSection("FtpStorage"));
+
+builder.Services.AddMemoryCache();
+
+builder.Services.AddSingleton<FtpFileService>();
+
+// Background recursive catalogue used by the
+// "Search all folders" feature. It does not start
+// by itself; the first deep search triggers it.
+builder.Services.AddSingleton<FileIndexService>();
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();

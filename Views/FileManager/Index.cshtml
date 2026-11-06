@@ -1,0 +1,777 @@
+@model Master.Files.FileManagerPageVm
+@using Master.Files
+
+@{
+    ViewData["Title"] = "File Manager";
+    ViewData["BodyClass"] = "fm-body-page";
+
+    var sortValue = Model.Sort + ":" + Model.Dir;
+
+    var hasEntries = Model.FolderCount > 0 || Model.FileCount > 0;
+
+    var pagerStart = Math.Max(1, Model.Page - 2);
+    var pagerEnd = Math.Min(Model.TotalPages, Model.Page + 2);
+}
+
+@section Styles {
+    <link rel="stylesheet"
+          href="~/lib/bootstrap/bootstrap.min.css"
+          asp-append-version="true" />
+
+    <link rel="stylesheet"
+          href="~/css/filemanager.css"
+          asp-append-version="true" />
+}
+
+<svg class="fm-sprite" width="0" height="0" aria-hidden="true" focusable="false">
+    <symbol id="fm-i-folder" viewBox="0 0 24 24">
+        <path class="fm-folder-back" fill="#8ab4f8" d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.5h7.5A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z" />
+        <path class="fm-folder-front" fill="#1a73e8" d="M3 10h18v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z" />
+    </symbol>
+    <symbol id="fm-i-search" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-3.5-3.5" />
+    </symbol>
+    <symbol id="fm-i-filter" viewBox="0 0 24 24">
+        <path d="M4 7h8M16 7h4M4 17h4M12 17h8" />
+        <circle cx="14" cy="7" r="2" />
+        <circle cx="10" cy="17" r="2" />
+    </symbol>
+    <symbol id="fm-i-refresh" viewBox="0 0 24 24">
+        <path d="M20 11a8 8 0 1 0-2.3 6.1" />
+        <path d="M20 4v7h-7" />
+    </symbol>
+    <symbol id="fm-i-grid" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+        <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </symbol>
+    <symbol id="fm-i-list" viewBox="0 0 24 24">
+        <path d="M8 6h13M8 12h13M8 18h13" />
+        <circle cx="3.5" cy="6" r="1" />
+        <circle cx="3.5" cy="12" r="1" />
+        <circle cx="3.5" cy="18" r="1" />
+    </symbol>
+    <symbol id="fm-i-eye" viewBox="0 0 24 24">
+        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+        <circle cx="12" cy="12" r="3" />
+    </symbol>
+    <symbol id="fm-i-download" viewBox="0 0 24 24">
+        <path d="M12 3v12" />
+        <path d="m7 10 5 5 5-5" />
+        <path d="M4 21h16" />
+    </symbol>
+    <symbol id="fm-i-external" viewBox="0 0 24 24">
+        <path d="M14 4h6v6" />
+        <path d="M20 4 10 14" />
+        <path d="M20 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5" />
+    </symbol>
+    <symbol id="fm-i-x" viewBox="0 0 24 24">
+        <path d="m6 6 12 12M18 6 6 18" />
+    </symbol>
+    <symbol id="fm-i-left" viewBox="0 0 24 24">
+        <path d="m15 6-6 6 6 6" />
+    </symbol>
+    <symbol id="fm-i-right" viewBox="0 0 24 24">
+        <path d="m9 6 6 6-6 6" />
+    </symbol>
+    <symbol id="fm-i-home" viewBox="0 0 24 24">
+        <path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <path d="M9 21v-7h6v7" />
+    </symbol>
+    <symbol id="fm-i-up" viewBox="0 0 24 24">
+        <path d="M12 19V5" />
+        <path d="m5 12 7-7 7 7" />
+    </symbol>
+    <symbol id="fm-i-dots" viewBox="0 0 24 24">
+        <circle cx="12" cy="5" r="1.4" />
+        <circle cx="12" cy="12" r="1.4" />
+        <circle cx="12" cy="19" r="1.4" />
+    </symbol>
+    <symbol id="fm-i-cloud" viewBox="0 0 24 24">
+        <path d="M17.5 19a4.5 4.5 0 0 0 .4-9 6 6 0 0 0-11.6 1.6A3.7 3.7 0 0 0 7 19z" />
+    </symbol>
+</svg>
+
+<div class="fm-app"
+     id="fmApp"
+     data-path="@Model.Path"
+     data-public-base="@Model.PublicBaseUrl">
+
+    <!-- ================= HEADER ================= -->
+
+    <header class="fm-head">
+
+        <div class="fm-head-main">
+
+            <div class="fm-title-row">
+
+                <h1 class="fm-title">
+                    File Manager
+                </h1>
+
+            </div>
+
+            <p class="fm-subtitle">
+                Browse, preview and download files from bestit.in/files.
+            </p>
+
+        </div>
+
+        <nav class="fm-crumbs" aria-label="Breadcrumb">
+
+            @for (var i = 0; i < Model.Crumbs.Count; i++)
+            {
+                var crumb = Model.Crumbs[i];
+                var isLast = i == Model.Crumbs.Count - 1;
+
+                if (isLast)
+                {
+                    <span class="fm-crumb-more" aria-hidden="true">…</span>
+                    <strong>@crumb.Name</strong>
+                }
+                else
+                {
+                    <a asp-action="Index"
+                       asp-route-path="@crumb.Path">
+                        @if (i == 0)
+                        {
+                            <svg class="fm-svg fm-crumb-home" aria-hidden="true">
+                                <use href="#fm-i-home"></use>
+                            </svg>
+                        }
+                        @crumb.Name
+                    </a>
+
+                    <svg class="fm-svg fm-crumb-sep" aria-hidden="true">
+                        <use href="#fm-i-right"></use>
+                    </svg>
+                }
+            }
+
+        </nav>
+
+    </header>
+
+    <!-- ================= ERROR ================= -->
+
+    @if (!string.IsNullOrWhiteSpace(Model.Error))
+    {
+        <div class="fm-alert" role="alert">
+
+            <div class="fm-alert-text">
+                <strong>Folder open nahi hua.</strong>
+                <span>@Model.Error</span>
+            </div>
+
+            <div class="fm-alert-actions">
+                <a class="fm-btn fm-btn-ghost"
+                   asp-action="Refresh"
+                   asp-route-path="@Model.Path">Try again</a>
+
+                <a class="fm-btn fm-btn-primary"
+                   asp-action="Index"
+                   asp-route-path="/">Go to Files root</a>
+            </div>
+
+        </div>
+    }
+
+    <!-- ================= TOOLBAR ================= -->
+
+    <div class="fm-sticky">
+
+    <div class="fm-toolbar">
+
+        <div class="fm-search">
+
+            <svg class="fm-svg fm-search-icon" aria-hidden="true">
+                <use href="#fm-i-search"></use>
+            </svg>
+
+            <input type="search"
+                   id="fmSearch"
+                   class="fm-search-input"
+                   placeholder="Search files and folders…"
+                   autocomplete="off"
+                   aria-label="Search files and folders" />
+
+            <button type="button"
+                    class="fm-search-clear"
+                    id="fmSearchClear"
+                    aria-label="Clear search"
+                    hidden>
+
+                <svg class="fm-svg" aria-hidden="true">
+                    <use href="#fm-i-x"></use>
+                </svg>
+
+            </button>
+
+        </div>
+
+        <div class="fm-toolbar-right">
+
+            <label class="fm-sort-wrap">
+
+                <span class="fm-sort-label">Sort</span>
+
+                <select id="fmSort" class="fm-select">
+
+                    <option value="name:asc"
+                            selected="@(sortValue == "name:asc")">Name A–Z</option>
+
+                    <option value="name:desc"
+                            selected="@(sortValue == "name:desc")">Name Z–A</option>
+
+                    <option value="date:desc"
+                            selected="@(sortValue == "date:desc")">Newest first</option>
+
+                    <option value="date:asc"
+                            selected="@(sortValue == "date:asc")">Oldest first</option>
+
+                    <option value="size:desc"
+                            selected="@(sortValue == "size:desc")">Largest first</option>
+
+                    <option value="size:asc"
+                            selected="@(sortValue == "size:asc")">Smallest first</option>
+
+                </select>
+
+            </label>
+
+            <div class="fm-toolbar-actions">
+
+                <a class="fm-icon-btn"
+                   asp-action="Refresh"
+                   asp-route-path="@Model.Path"
+                   title="Refresh this folder">
+
+                    <svg class="fm-svg" aria-hidden="true">
+                        <use href="#fm-i-refresh"></use>
+                    </svg>
+
+                </a>
+
+                <button type="button"
+                        class="fm-icon-btn"
+                        id="fmViewToggle"
+                        title="Switch grid / list view"
+                        aria-label="Switch grid or list view">
+
+                    <svg class="fm-svg" aria-hidden="true">
+                        <use href="#fm-i-list"></use>
+                    </svg>
+
+                </button>
+
+                <button type="button"
+                        class="fm-index-pill"
+                        id="fmIndexPill"
+                        title="@(Model.Index.Complete
+                            ? $"{Model.Index.Files:N0} files indexed. Click to rebuild."
+                            : "Search index. Click to rebuild it.")">
+                    <span class="fm-dot @(Model.Index.Complete ? "is-ok" : "")"></span>
+                    <span id="fmIndexText">
+                        @(Model.Index.Complete
+                            ? "Search ready"
+                            : "Search index not built")
+                    </span>
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ================= FILTER BAR ================= -->
+
+    <div class="fm-filterbar">
+
+        <div class="fm-filterbar-label">
+            <svg class="fm-svg" aria-hidden="true">
+                <use href="#fm-i-filter"></use>
+            </svg>
+            <span>Type</span>
+        </div>
+
+        <div class="fm-chips" id="fmChips" role="toolbar" aria-label="File type filter">
+
+            <button type="button" class="fm-chip is-active" data-kind="all" data-label="All">All <span class="fm-chip-count">@(Model.FolderCount + Model.FileCount)</span></button>
+            <button type="button" class="fm-chip" data-kind="folder" data-label="Folders">Folders <span class="fm-chip-count">@Model.FolderCount</span></button>
+            <button type="button" class="fm-chip" data-kind="video" data-label="Videos">Videos <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("video"))</span></button>
+            <button type="button" class="fm-chip" data-kind="pdf" data-label="PDFs">PDFs <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("pdf"))</span></button>
+            <button type="button" class="fm-chip" data-kind="excel" data-label="Excel">Excel <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("excel"))</span></button>
+            <button type="button" class="fm-chip" data-kind="image" data-label="Images">Images <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("image"))</span></button>
+            <button type="button" class="fm-chip" data-kind="audio" data-label="Audio">Audio <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("audio"))</span></button>
+            <button type="button" class="fm-chip" data-kind="archive" data-label="Archives">Archives <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("archive"))</span></button>
+            <button type="button" class="fm-chip" data-kind="doc" data-label="Documents">Documents <span class="fm-chip-count">@(Model.KindCounts.GetValueOrDefault("doc"))</span></button>
+
+        </div>
+
+        <button type="button"
+                class="fm-filter-reset"
+                data-filter-clear
+                hidden>
+
+            <svg class="fm-svg" aria-hidden="true">
+                <use href="#fm-i-x"></use>
+            </svg>
+
+            <span>Reset</span>
+
+        </button>
+
+    </div>
+
+    </div>
+
+    <!-- ================= SCAN STATUS ================= -->
+
+    <div class="fm-scan" id="fmScanBar" hidden>
+
+        <span class="fm-spinner fm-spinner-sm"></span>
+
+        <span id="fmScanText">Building search index…</span>
+
+        <button type="button" class="fm-link" id="fmScanHide">Hide</button>
+
+    </div>
+
+    <!-- ================= FOLDERS ================= -->
+
+    <section class="fm-section" id="fmFolderSection">
+
+        <div class="fm-section-head">
+
+            <h2>
+                Folders
+                <span class="fm-count" id="fmFolderCount" data-total="@Model.FolderCount">@Model.FolderCount</span>
+            </h2>
+
+        </div>
+
+        <div class="fm-grid" id="fmFolders">
+
+            @foreach (var folder in Model.Folders)
+            {
+                <a class="fm-card fm-folder"
+                   asp-action="Index"
+                   asp-route-path="@folder.Path"
+                   data-name="@folder.Name"
+                   data-kind="folder">
+
+                    <div class="fm-card-icon">
+
+                        <svg class="fm-folder-svg" aria-hidden="true">
+                            <use href="#fm-i-folder"></use>
+                        </svg>
+
+                    </div>
+
+                    <div class="fm-card-body">
+
+                        <div class="fm-name" title="@folder.Name">@folder.Name</div>
+
+                        <div class="fm-sub">
+                            Folder
+                            @if (!string.IsNullOrWhiteSpace(folder.ModifiedText) &&
+                                 folder.ModifiedText != "—")
+                            {
+                                <span class="fm-dot-sep">·</span>
+                                @folder.ModifiedText
+                            }
+                        </div>
+
+                    </div>
+
+                </a>
+            }
+
+        </div>
+
+    </section>
+
+    <!-- ================= FILES ================= -->
+
+    <section class="fm-section" id="fmFileSection">
+
+        <div class="fm-section-head">
+
+            <h2>
+                Files
+                <span class="fm-count" id="fmFileCount" data-total="@Model.FileCount" aria-live="polite">@Model.FileCount</span>
+            </h2>
+
+            @if (Model.TotalPages > 1)
+            {
+                <span class="fm-page-info">
+                    Page @Model.Page of @Model.TotalPages
+                </span>
+            }
+
+        </div>
+
+        <div class="fm-grid" id="fmFiles">
+
+            @foreach (var file in Model.Files)
+            {
+                <article class="fm-card fm-file"
+                         data-name="@file.Name"
+                         data-path="@file.Path"
+                         data-ext="@file.Ext"
+                         data-kind="@file.Kind"
+                         data-view-url="@file.ViewUrl">
+
+                    <div class="fm-card-icon @(file.Kind == "image" ? "fm-has-thumb" : "")">
+
+                        <span class="fm-file-tile fm-kind-@file.Kind">
+                            @file.Label
+                        </span>
+
+                        @if (file.Kind == "image")
+                        {
+                            <img class="fm-thumb"
+                                 src="@file.ViewUrl"
+                                 alt=""
+                                 loading="lazy"
+                                 onerror="this.remove()" />
+                        }
+
+                    </div>
+
+                    <div class="fm-card-body">
+
+                        <div class="fm-name" title="@file.Name">@file.Name</div>
+
+                        <div class="fm-sub">
+                            @file.SizeText
+                            <span class="fm-dot-sep">·</span>
+                            @file.ModifiedText
+                        </div>
+
+                    </div>
+
+                    <div class="fm-card-tools">
+
+                        <button type="button"
+                                class="fm-icon-btn fm-small"
+                                data-menu-toggle
+                                aria-label="More actions">
+
+                            <svg class="fm-svg" aria-hidden="true">
+                                <use href="#fm-i-dots"></use>
+                            </svg>
+
+                        </button>
+
+                        <div class="fm-menu" hidden>
+
+                            <a href="@file.ViewUrl"
+                               target="_blank"
+                               rel="noopener">
+
+                                <svg class="fm-svg" aria-hidden="true">
+                                    <use href="#fm-i-external"></use>
+                                </svg>
+                                Open in new tab
+                            </a>
+
+                            <button type="button"
+                                    data-copy="@file.ViewUrl">
+
+                                <svg class="fm-svg" aria-hidden="true">
+                                    <use href="#fm-i-cloud"></use>
+                                </svg>
+                                Copy link
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                    <div class="fm-card-actions">
+
+                        <button type="button"
+                                class="fm-btn fm-btn-primary fm-view"
+                                title="View @file.Name"
+                                aria-label="View @file.Name">
+
+                            <svg class="fm-svg" aria-hidden="true">
+                                <use href="#fm-i-eye"></use>
+                            </svg>
+
+                            <span class="fm-btn-label">View</span>
+                        </button>
+
+                        <a class="fm-btn fm-btn-ghost"
+                           href="@file.DownloadUrl"
+                           title="Download @file.Name"
+                           aria-label="Download @file.Name">
+
+                            <svg class="fm-svg" aria-hidden="true">
+                                <use href="#fm-i-download"></use>
+                            </svg>
+
+                            <span class="fm-btn-label">Download</span>
+                        </a>
+
+                    </div>
+
+                </article>
+            }
+
+        </div>
+
+        @if (!hasEntries && string.IsNullOrWhiteSpace(Model.Error))
+        {
+            <div class="fm-empty">
+
+                <div class="fm-empty-icon">
+                    <svg class="fm-svg" aria-hidden="true">
+                        <use href="#fm-i-folder"></use>
+                    </svg>
+                </div>
+
+                <h3>This folder is empty</h3>
+                <p>Yahan koi file ya subfolder nahi hai.</p>
+
+                <a class="fm-btn fm-btn-ghost fm-empty-action"
+                   asp-action="Refresh"
+                   asp-route-path="@Model.Path">
+                    Refresh folder
+                </a>
+
+            </div>
+        }
+
+        @if (Model.FileCount > 0)
+        {
+            var firstOnPage = ((Model.Page - 1) * Model.PageSize) + 1;
+            var lastOnPage = Math.Min(
+                Model.Page * Model.PageSize,
+                Model.FileCount);
+
+            <div class="fm-pager-meta">
+                Showing @firstOnPage–@lastOnPage of @Model.FileCount files
+            </div>
+        }
+
+        @if (Model.TotalPages > 1)
+        {
+            <nav class="fm-pager" aria-label="File pages">
+
+                <a class="fm-page @(Model.Page <= 1 ? "is-disabled" : "")"
+                   href="@Url.Action("Index", new { path = Model.Path, page = Model.Page - 1, sort = Model.Sort, dir = Model.Dir })"
+                   aria-label="Previous page">
+
+                    <svg class="fm-svg" aria-hidden="true">
+                        <use href="#fm-i-left"></use>
+                    </svg>
+
+                </a>
+
+                @if (pagerStart > 1)
+                {
+                    <a class="fm-page"
+                       href="@Url.Action("Index", new { path = Model.Path, page = 1, sort = Model.Sort, dir = Model.Dir })">1</a>
+
+                    @if (pagerStart > 2)
+                    {
+                        <span class="fm-page-gap">…</span>
+                    }
+                }
+
+                @for (var pageNumber = pagerStart; pageNumber <= pagerEnd; pageNumber++)
+                {
+                    <a class="fm-page @(pageNumber == Model.Page ? "is-active" : "")"
+                       href="@Url.Action("Index", new { path = Model.Path, page = pageNumber, sort = Model.Sort, dir = Model.Dir })">@pageNumber</a>
+                }
+
+                @if (pagerEnd < Model.TotalPages)
+                {
+                    @if (pagerEnd < Model.TotalPages - 1)
+                    {
+                        <span class="fm-page-gap">…</span>
+                    }
+
+                    <a class="fm-page"
+                       href="@Url.Action("Index", new { path = Model.Path, page = Model.TotalPages, sort = Model.Sort, dir = Model.Dir })">@Model.TotalPages</a>
+                }
+
+                <a class="fm-page @(Model.Page >= Model.TotalPages ? "is-disabled" : "")"
+                   href="@Url.Action("Index", new { path = Model.Path, page = Model.Page + 1, sort = Model.Sort, dir = Model.Dir })"
+                   aria-label="Next page">
+
+                    <svg class="fm-svg" aria-hidden="true">
+                        <use href="#fm-i-right"></use>
+                    </svg>
+
+                </a>
+
+            </nav>
+        }
+
+    </section>
+
+    <!-- ================= DEEP SEARCH RESULTS ================= -->
+
+    <section class="fm-section" id="fmResults" hidden>
+
+        <div class="fm-section-head">
+
+            <h2>
+                Search results
+                <span class="fm-count" id="fmResultsCount">0</span>
+            </h2>
+
+            <button type="button" class="fm-btn fm-btn-ghost" id="fmResultsClose">
+                Back to folder
+            </button>
+
+        </div>
+
+        <p class="fm-results-summary"
+           id="fmResultsSummary"
+           aria-live="polite"></p>
+
+        <div class="fm-result-group" id="fmResultsLocalGroup" hidden>
+
+            <div class="fm-result-head">
+                <h3>In this folder</h3>
+            </div>
+
+            <div class="fm-grid" id="fmResultsLocalGrid"></div>
+
+        </div>
+
+        <div class="fm-result-group" id="fmResultsOtherGroup" hidden>
+
+            <div class="fm-result-head">
+                <h3>Other folders</h3>
+            </div>
+
+            <div class="fm-grid" id="fmResultsOtherGrid"></div>
+
+        </div>
+
+        <div class="fm-empty" id="fmResultsEmpty" hidden>
+
+            <h3>Kuch nahi mila</h3>
+            <p>Doosra naam ya filter try kijiye.</p>
+
+            <button type="button"
+                    class="fm-btn fm-btn-ghost fm-empty-action"
+                    id="fmResultsReset">
+                Clear search
+            </button>
+
+        </div>
+
+    </section>
+
+</div>
+
+<button type="button"
+        class="fm-to-top"
+        id="fmToTop"
+        aria-label="Back to top"
+        title="Back to top"
+        hidden>
+
+    <svg class="fm-svg" aria-hidden="true">
+        <use href="#fm-i-up"></use>
+    </svg>
+
+</button>
+
+<!-- ================= VIEWER MODAL ================= -->
+
+<div class="modal fade"
+     id="fmViewer"
+     tabindex="-1"
+     aria-labelledby="fmViewerTitle"
+     aria-hidden="true">
+
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+
+        <div class="modal-content fm-viewer">
+
+            <div class="modal-header">
+
+                <div class="fm-viewer-heading">
+
+                    <span class="fm-file-tile fm-kind-other"
+                          id="fmViewerTile">FILE</span>
+
+                    <div class="fm-viewer-title-wrap">
+
+                        <h5 class="modal-title" id="fmViewerTitle">File</h5>
+                        <div class="fm-sub" id="fmViewerSub"></div>
+
+                    </div>
+
+                </div>
+
+                <div class="fm-viewer-actions">
+
+                    <a class="fm-btn fm-btn-ghost"
+                       id="fmViewerOpen"
+                       target="_blank"
+                       rel="noopener">
+
+                        <svg class="fm-svg" aria-hidden="true">
+                            <use href="#fm-i-external"></use>
+                        </svg>
+
+                        Open
+                    </a>
+
+                    <a class="fm-btn fm-btn-primary" id="fmViewerDownload">
+
+                        <svg class="fm-svg" aria-hidden="true">
+                            <use href="#fm-i-download"></use>
+                        </svg>
+
+                        Download
+                    </a>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+
+                </div>
+
+            </div>
+
+            <div class="modal-body" id="fmViewerBody"></div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ================= OVERLAY / TOAST ================= -->
+
+<div class="fm-overlay" id="fmOverlay" hidden>
+
+    <div class="fm-overlay-card">
+        <span class="fm-spinner"></span>
+        <span>Loading folder…</span>
+    </div>
+
+</div>
+
+<div class="fm-toast" id="fmToast" role="status" hidden></div>
+
+@section Scripts {
+    <script src="~/lib/bootstrap/bootstrap.bundle.min.js"
+            asp-append-version="true"></script>
+
+    <script src="~/js/filemanager.js"
+            asp-append-version="true"></script>
+}
