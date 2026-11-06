@@ -2240,3 +2240,157 @@ body.fm-body-page .main-content {
         transition: none;
     }
 }
+
+/* =========================================================
+   HEADER + FILTER BAR REFINEMENT
+   ========================================================= */
+
+.fm-head {
+    align-items: center;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e7ecf4;
+}
+
+.fm-title-row {
+    align-items: center;
+    gap: 13px;
+    flex-wrap: nowrap;
+}
+
+.fm-brand-mark {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    flex: none;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #2563eb 0%, #1a73e8 58%, #60a5fa 100%);
+    color: #ffffff;
+    box-shadow:
+        0 12px 24px -14px rgba(26, 115, 232, 0.7),
+        inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.fm-brand-mark .fm-svg {
+    width: 25px;
+    height: 25px;
+    stroke-width: 1.9;
+}
+
+.fm-title-stack {
+    min-width: 0;
+}
+
+.fm-title-stack .fm-subtitle {
+    margin-top: 3px;
+}
+
+.fm-filterbar {
+    gap: 8px;
+    padding: 10px 2px 1px;
+    border-top: 1px solid #edf1f7;
+}
+
+.fm-filterbar-label {
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid #e3e9f2;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #64748b;
+    letter-spacing: 0.09em;
+}
+
+.fm-filterbar-label .fm-svg {
+    color: #7c8da6;
+}
+
+.fm-chips {
+    gap: 7px;
+}
+
+.fm-chip {
+    height: 32px;
+    padding: 0 11px;
+    border-color: transparent;
+    border-radius: 9px;
+    background: #f6f8fc;
+    color: #4b5563;
+}
+
+.fm-chip::before {
+    width: 6px;
+    height: 6px;
+}
+
+.fm-chip:hover {
+    border-color: #cfdef1;
+    background: #ffffff;
+    color: #1f2937;
+    box-shadow: 0 4px 12px -10px rgba(15, 23, 42, 0.45);
+}
+
+.fm-chip.is-active {
+    border-color: #1a73e8;
+    background: linear-gradient(135deg, #2563eb 0%, #1a73e8 100%);
+    color: #ffffff;
+    box-shadow: 0 7px 16px -10px rgba(26, 115, 232, 0.72);
+}
+
+.fm-chip-count {
+    height: 18px;
+    border: 1px solid #e7edf5;
+    background: #ffffff;
+    color: #64748b;
+}
+
+.fm-chip.is-active .fm-chip-count {
+    border-color: transparent;
+    background: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+}
+
+.fm-filter-reset {
+    height: 32px;
+    border-color: #e3e9f2;
+    border-radius: 9px;
+    background: #ffffff;
+}
+
+.fm-filter-reset:hover {
+    border-color: #cfdef1;
+    background: #f8fbff;
+    color: #1a73e8;
+}
+
+@media (max-width: 700px) {
+    .fm-head {
+        align-items: flex-start;
+        padding-bottom: 12px;
+    }
+
+    .fm-title-row {
+        gap: 10px;
+    }
+
+    .fm-brand-mark {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+    }
+
+    .fm-brand-mark .fm-svg {
+        width: 21px;
+        height: 21px;
+    }
+
+    .fm-filterbar {
+        gap: 6px;
+        padding: 8px 2px 0;
+    }
+
+    .fm-chip,
+    .fm-filter-reset {
+        height: 34px;
+    }
+}
