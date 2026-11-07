@@ -9,3 +9,6 @@ cookies.txt
 # npm (Tailwind build)
 node_modules/
 
+
+# Local secrets (DB / FTP credentials) - never commit
+appsettings.json
