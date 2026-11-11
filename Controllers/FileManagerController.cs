@@ -76,6 +76,9 @@ public class FileManagerController : Controller
 
             var entries = await _ftp.GetFolderAsync(normalized, cancellationToken);
 
+            // Keep the search index in step with the live listing.
+            _index.SyncFolder(normalized, entries);
+
             if (entries.Count == 0 &&
                 normalized != "/" &&
                 !await _ftp.FolderExistsAsync(normalized, cancellationToken))
@@ -164,9 +167,13 @@ public class FileManagerController : Controller
         {
             if (!deep)
             {
+                var localPath = FtpPaths.Normalize(path);
+
                 var folder = await _ftp.GetFolderAsync(
-                    FtpPaths.Normalize(path),
+                    localPath,
                     cancellationToken);
+
+                _index.SyncFolder(localPath, folder);
 
                 IEnumerable<FtpEntry> matches = folder;
 
@@ -210,6 +217,22 @@ public class FileManagerController : Controller
             }
 
             var normalizedPath = FtpPaths.Normalize(path);
+
+            // Refresh this folder from FTP first so files added
+            // after the last scan still show up in the results.
+            try
+            {
+                var live = await _ftp.GetFolderAsync(
+                    normalizedPath,
+                    cancellationToken);
+
+                _index.SyncFolder(normalizedPath, live);
+            }
+            catch (FileStorageException)
+            {
+                // Keep serving the existing index if the FTP
+                // listing fails; search should not break.
+            }
 
             var results = _index
                 .Search(q, kind, 500, normalizedPath)

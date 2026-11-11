@@ -41,6 +41,11 @@ public sealed class FileIndexService
     private readonly ConcurrentDictionary<string, byte> _seenFolders =
         new(StringComparer.Ordinal);
 
+    // Paths seen in the last live listing of each folder. Used
+    // to drop files that were deleted since the index was built.
+    private readonly ConcurrentDictionary<string, string[]> _folderPaths =
+        new(StringComparer.Ordinal);
+
     private readonly FtpFileService _ftp;
     private readonly FtpOptions _options;
     private readonly ILogger<FileIndexService> _logger;
@@ -111,6 +116,7 @@ public sealed class FileIndexService
 
             _entries.Clear();
             _seenFolders.Clear();
+            _folderPaths.Clear();
             _seenFolders["/"] = 0;
 
             _folders = 0;
@@ -166,6 +172,63 @@ public sealed class FileIndexService
             .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
             .Take(Math.Clamp(limit, 1, 2000))
             .ToList();
+    }
+
+    // ------------------------------------------------
+    // LIVE FOLDER SYNC
+    // ------------------------------------------------
+    // Folder browsing reads the FTP server directly, so a
+    // folder can already show files that the background
+    // snapshot does not know about yet. Feeding that live
+    // listing back into the index keeps search results in
+    // sync without waiting for a full rescan.
+    public void SyncFolder(string folder, IReadOnlyList<FtpEntry> items)
+    {
+        folder = FtpPaths.Normalize(folder);
+
+        var live = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var item in items)
+        {
+            live.Add(item.Path);
+        }
+
+        // Remove entries that disappeared from this folder.
+        if (_folderPaths.TryRemove(folder, out var previous))
+        {
+            foreach (var path in previous)
+            {
+                if (live.Contains(path))
+                    continue;
+
+                if (_entries.TryRemove(path, out var removed) &&
+                    !removed.IsFolder)
+                {
+                    Interlocked.Decrement(ref _files);
+                }
+
+                _seenFolders.TryRemove(path, out _);
+            }
+        }
+
+        // Add or update the current listing.
+        foreach (var item in items)
+        {
+            if (_entries.TryAdd(item.Path, item))
+            {
+                if (!item.IsFolder)
+                    Interlocked.Increment(ref _files);
+            }
+            else
+            {
+                _entries[item.Path] = item;
+            }
+
+            if (item.IsFolder)
+                _seenFolders.TryAdd(item.Path, 0);
+        }
+
+        _folderPaths[folder] = live.ToArray();
     }
 
     // ------------------------------------------------
