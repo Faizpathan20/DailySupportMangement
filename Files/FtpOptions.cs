@@ -51,6 +51,10 @@ public sealed class FtpOptions
     // Hard stop for a full recursive scan.
     public int ScanTimeoutMinutes { get; set; } = 20;
 
+    // How often the search index refreshes itself in the
+    // background. 0 disables automatic refresh.
+    public int AutoRefreshMinutes { get; set; } = 10;
+
     // Index scan safety caps.
     public int MaxFolders { get; set; } = 20000;
 

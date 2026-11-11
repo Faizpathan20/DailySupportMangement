@@ -55,6 +55,7 @@ public sealed class FileIndexService
 
     private CancellationTokenSource? _cts;
     private Task? _task;
+    private Task? _refreshTask;
     private bool _complete;
     private string? _lastError;
     private int _folders;
@@ -102,11 +103,45 @@ public sealed class FileIndexService
         return Start();
     }
 
+    // Starts a background refresh when the index has become
+    // older than AutoRefreshMinutes. The current snapshot keeps
+    // serving searches while the refresh runs.
+    public IndexStatus EnsureFresh()
+    {
+        var minutes = _options.AutoRefreshMinutes;
+
+        if (minutes <= 0)
+            return GetStatus();
+
+        lock (_state)
+        {
+            if (_task is { IsCompleted: false } ||
+                _refreshTask is { IsCompleted: false } ||
+                !_complete)
+            {
+                return BuildStatusUnsafe();
+            }
+
+            var age = _builtUtc is null
+                ? TimeSpan.MaxValue
+                : DateTime.UtcNow - _builtUtc.Value;
+
+            if (age < TimeSpan.FromMinutes(minutes))
+                return BuildStatusUnsafe();
+
+            _refreshTask = Task.Run(
+                () => SoftRefreshAsync(CancellationToken.None));
+        }
+
+        return GetStatus();
+    }
+
     public IndexStatus Start()
     {
         lock (_state)
         {
-            if (_task is { IsCompleted: false })
+            if (_task is { IsCompleted: false } ||
+                _refreshTask is { IsCompleted: false })
                 return BuildStatusUnsafe();
 
             _cts?.Dispose();
@@ -229,6 +264,110 @@ public sealed class FileIndexService
         }
 
         _folderPaths[folder] = live.ToArray();
+    }
+
+    // ------------------------------------------------
+    // BACKGROUND REFRESH
+    // ------------------------------------------------
+    // Re-lists every folder and feeds the live results into
+    // the index without clearing it, so searches keep working
+    // and newly added/removed files appear automatically.
+    private async Task SoftRefreshAsync(CancellationToken cancellationToken)
+    {
+        using var timeout = new CancellationTokenSource(
+            TimeSpan.FromMinutes(Math.Max(1, _options.ScanTimeoutMinutes)));
+
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            timeout.Token);
+
+        var token = linked.Token;
+        var queue = new ConcurrentQueue<string>();
+        var seen = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
+
+        queue.Enqueue("/");
+        seen["/"] = 0;
+
+        var activeWorkers = 0;
+
+        async Task WorkerAsync()
+        {
+            while (!token.IsCancellationRequested)
+            {
+                if (queue.TryDequeue(out var folder))
+                {
+                    Interlocked.Increment(ref activeWorkers);
+
+                    try
+                    {
+                        var items = await _ftp.GetFolderAsync(
+                            folder,
+                            token,
+                            forceRefresh: true);
+
+                        SyncFolder(folder, items);
+
+                        foreach (var item in items)
+                        {
+                            if (item.IsFolder &&
+                                seen.TryAdd(item.Path, 0))
+                            {
+                                queue.Enqueue(item.Path);
+                            }
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(
+                            ex,
+                            "Index refresh failed for {Folder}",
+                            folder);
+                    }
+                    finally
+                    {
+                        Interlocked.Decrement(ref activeWorkers);
+                    }
+
+                    continue;
+                }
+
+                if (Volatile.Read(ref activeWorkers) == 0)
+                    break;
+
+                await Task.Delay(150, token);
+            }
+        }
+
+        var workerCount = Math.Clamp(_options.ScanParallelism, 1, 8);
+
+        var workers = Enumerable
+            .Range(0, workerCount)
+            .Select(_ => Task.Run(WorkerAsync, token))
+            .ToArray();
+
+        try
+        {
+            await Task.WhenAll(workers);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Index refresh timed out.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Index refresh failed.");
+        }
+
+        lock (_state)
+        {
+            _builtUtc = DateTime.UtcNow;
+        }
+
+        await SaveSnapshotAsync(CancellationToken.None, wait: true);
     }
 
     // ------------------------------------------------

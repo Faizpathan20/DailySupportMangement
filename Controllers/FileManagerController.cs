@@ -234,6 +234,10 @@ public class FileManagerController : Controller
                 // listing fails; search should not break.
             }
 
+            // Refresh the rest of the tree in the background
+            // when the snapshot has gone stale.
+            _index.EnsureFresh();
+
             var results = _index
                 .Search(q, kind, 500, normalizedPath)
                 .Select(ToDto)
@@ -284,7 +288,11 @@ public class FileManagerController : Controller
     [HttpGet]
     public IActionResult Warm()
     {
-        return Json(ToDto(_index.EnsureStarted()));
+        var status = _index.EnsureStarted();
+
+        _index.EnsureFresh();
+
+        return Json(ToDto(status));
     }
 
     [HttpGet]

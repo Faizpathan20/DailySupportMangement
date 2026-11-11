@@ -95,13 +95,15 @@ public sealed class FtpFileService
 
     public async Task<IReadOnlyList<FtpEntry>> GetFolderAsync(
         string path,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool forceRefresh = false)
     {
         path = FtpPaths.Normalize(path);
 
         var cacheKey = "fm:dir:" + path;
 
-        if (_cache.TryGetValue(cacheKey, out IReadOnlyList<FtpEntry>? cached) &&
+        if (!forceRefresh &&
+            _cache.TryGetValue(cacheKey, out IReadOnlyList<FtpEntry>? cached) &&
             cached is not null)
         {
             return cached;
@@ -112,7 +114,9 @@ public sealed class FtpFileService
         try
         {
             // Re-check after waiting for the gate.
-            if (_cache.TryGetValue(cacheKey, out cached) && cached is not null)
+            if (!forceRefresh &&
+                _cache.TryGetValue(cacheKey, out cached) &&
+                cached is not null)
                 return cached;
 
             for (var attempt = 1; ; attempt++)
