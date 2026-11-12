@@ -105,8 +105,8 @@
         '<p>Search ya filter clear karke dobara dekhiye.</p>';
 
     if (fileSection) {
-        var pager = fileSection.querySelector('.fm-pager');
-        fileSection.insertBefore(noMatch, pager || null);
+        var pagerRow = fileSection.querySelector('.fm-pager-row');
+        fileSection.insertBefore(noMatch, pagerRow || null);
     }
 
     // -----------------------------------------------------
