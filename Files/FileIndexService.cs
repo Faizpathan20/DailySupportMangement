@@ -13,6 +13,10 @@ public sealed record IndexStatus(
     DateTime? BuiltUtc,
     string? Error);
 
+public sealed record FileSearchPage(
+    IReadOnlyList<FtpEntry> Items,
+    int Total);
+
 // ================================================
 // Background catalogue used by "Search all folders".
 //
@@ -167,10 +171,11 @@ public sealed class FileIndexService
         return GetStatus();
     }
 
-    public IReadOnlyList<FtpEntry> Search(
+    public FileSearchPage Search(
         string? query,
         string? kind,
-        int limit = 300,
+        int offset = 0,
+        int limit = 500,
         string? preferPath = null)
     {
         IEnumerable<FtpEntry> entries = _entries.Values;
@@ -201,12 +206,18 @@ public sealed class FileIndexService
             preferred = "/";
         }
 
-        return entries
+        var ordered = entries
             .OrderByDescending(entry => IsInside(entry.Path, preferred))
             .ThenBy(entry => entry.IsFolder ? 0 : 1)
             .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var items = ordered
+            .Skip(Math.Max(0, offset))
             .Take(Math.Clamp(limit, 1, 2000))
             .ToList();
+
+        return new FileSearchPage(items, ordered.Count);
     }
 
     // ------------------------------------------------

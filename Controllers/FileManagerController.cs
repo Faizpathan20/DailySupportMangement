@@ -158,6 +158,7 @@ public class FileManagerController : Controller
         string? q,
         string? path,
         string? kind = "all",
+        int offset = 0,
         bool deep = false,
         CancellationToken cancellationToken = default)
     {
@@ -189,9 +190,13 @@ public class FileManagerController : Controller
 
                 matches = FilterKind(matches, kind);
 
-                var local = matches
+                var ordered = matches
                     .OrderBy(entry => entry.IsFolder ? 0 : 1)
                     .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var local = ordered
+                    .Skip(Math.Max(0, offset))
                     .Take(500)
                     .Select(ToDto)
                     .ToList();
@@ -200,7 +205,8 @@ public class FileManagerController : Controller
                 {
                     scanning = false,
                     items = local,
-                    total = local.Count
+                    total = ordered.Count,
+                    offset = Math.Max(0, offset)
                 });
             }
 
@@ -238,8 +244,14 @@ public class FileManagerController : Controller
             // when the snapshot has gone stale.
             _index.EnsureFresh();
 
-            var results = _index
-                .Search(q, kind, 500, normalizedPath)
+            var page = _index.Search(
+                q,
+                kind,
+                offset,
+                500,
+                normalizedPath);
+
+            var results = page.Items
                 .Select(ToDto)
                 .ToList();
 
@@ -248,7 +260,8 @@ public class FileManagerController : Controller
                 scanning = false,
                 status = ToDto(status),
                 items = results,
-                total = results.Count
+                total = page.Total,
+                offset = Math.Max(0, offset)
             });
         }
         catch (ArgumentException)

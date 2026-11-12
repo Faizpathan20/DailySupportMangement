@@ -603,6 +603,8 @@
 
         @if (Model.TotalPages > 1)
         {
+        <div class="fm-pager-row">
+
             <nav class="fm-pager" aria-label="File pages">
 
                 <a class="fm-page @(Model.Page <= 1 ? "is-disabled" : "")"
@@ -654,6 +656,42 @@
                 </a>
 
             </nav>
+
+            <form class="fm-page-jump"
+                  method="get"
+                  action="@Url.Action("Index")"
+                  role="search"
+                  aria-label="Go to page">
+
+                <input type="hidden" name="path" value="@Model.Path" />
+                <input type="hidden" name="sort" value="@Model.Sort" />
+                <input type="hidden" name="dir" value="@Model.Dir" />
+
+                <label class="fm-page-jump-label" for="fmPageJump">
+                    Page
+                </label>
+
+                <input class="fm-page-input"
+                       id="fmPageJump"
+                       name="page"
+                       type="number"
+                       min="1"
+                       max="@Model.TotalPages"
+                       inputmode="numeric"
+                       pattern="[0-9]*"
+                       required
+                       placeholder="@Model.Page"
+                       aria-label="Page number" />
+
+                <span class="fm-page-jump-total">/ @Model.TotalPages</span>
+
+                <button type="submit" class="fm-page fm-page-go">
+                    Go
+                </button>
+
+            </form>
+
+        </div>
         }
 
     </section>
@@ -708,6 +746,16 @@
                     class="fm-btn fm-btn-ghost fm-empty-action"
                     id="fmResultsReset">
                 Clear search
+            </button>
+
+        </div>
+
+        <div class="fm-load-more-wrap" id="fmLoadMoreWrap" hidden>
+
+            <button type="button"
+                    class="fm-btn fm-btn-ghost fm-load-more"
+                    id="fmLoadMore">
+                Load more
             </button>
 
         </div>

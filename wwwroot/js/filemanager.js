@@ -45,6 +45,8 @@
     var resultsCount = document.getElementById('fmResultsCount');
     var resultsEmpty = document.getElementById('fmResultsEmpty');
     var resultsClose = document.getElementById('fmResultsClose');
+    var loadMoreWrap = document.getElementById('fmLoadMoreWrap');
+    var loadMore = document.getElementById('fmLoadMore');
 
     var overlay = document.getElementById('fmOverlay');
     var toastEl = document.getElementById('fmToast');
@@ -78,6 +80,8 @@
     var term = '';
     var kind = 'all';
     var lastDeepQuery = '';
+    var resultsLoaded = 0;
+    var resultsTotal = 0;
     var pollTimer = null;
     var globalTimer = null;
     var localTimer = null;
@@ -348,6 +352,12 @@
 
         app.classList.remove('fm-results-open');
         lastDeepQuery = '';
+        resultsLoaded = 0;
+        resultsTotal = 0;
+
+        if (loadMoreWrap) {
+            loadMoreWrap.hidden = true;
+        }
 
         if (folderSection) {
             folderSection.hidden = false;
@@ -661,14 +671,21 @@
             });
     }
 
-    function runDeepSearch(query) {
+    function runDeepSearch(query, offset, append) {
+        offset = offset || 0;
+        append = append === true;
+
         var sequence = ++deepSeq;
 
         lastDeepQuery = query;
 
-        showScanBar('Searching all folders…');
+        showScanBar(append
+            ? 'Loading more results…'
+            : 'Searching all folders…');
 
         var url = '/FileManager/Search?deep=true' +
+            '&limit=500' +
+            '&offset=' + encodeURIComponent(offset) +
             '&q=' + encodeURIComponent(query) +
             '&kind=' + encodeURIComponent(kind) +
             '&path=' + encodeURIComponent(currentPath);
@@ -682,6 +699,7 @@
 
                 if (data.error) {
                     hideScanBar();
+                    updateLoadMore();
                     toast(data.error);
                     return;
                 }
@@ -695,7 +713,7 @@
 
                 hideScanBar();
                 updateIndexPill(data.status);
-                renderResults(data.items || []);
+                renderResults(data.items || [], append, data.total || 0);
             })
             .catch(function () {
                 if (sequence !== deepSeq) {
@@ -703,8 +721,23 @@
                 }
 
                 hideScanBar();
+                updateLoadMore();
                 toast('Search request failed.');
             });
+    }
+
+    function updateLoadMore() {
+        if (!loadMoreWrap || !loadMore) {
+            return;
+        }
+
+        var remaining = Math.max(0, resultsTotal - resultsLoaded);
+
+        loadMoreWrap.hidden = remaining <= 0;
+        loadMore.disabled = false;
+        loadMore.textContent = remaining > 0
+            ? 'Load more (' + Math.min(500, remaining) + ')'
+            : 'Load more';
     }
 
     // -----------------------------------------------------
@@ -815,13 +848,16 @@
         return card;
     }
 
-    function renderResults(items) {
+    function renderResults(items, append, total) {
         if (!resultsSection || !resultsLocalGrid || !resultsOtherGrid) {
             return;
         }
 
-        resultsLocalGrid.replaceChildren();
-        resultsOtherGrid.replaceChildren();
+        if (!append) {
+            resultsLocalGrid.replaceChildren();
+            resultsOtherGrid.replaceChildren();
+            resultsLoaded = 0;
+        }
 
         var local = [];
         var elsewhere = [];
@@ -844,23 +880,30 @@
                 item.folder ? buildFolderCard(item) : buildFileCard(item));
         });
 
+        resultsLoaded += items.length;
+        resultsTotal = total > 0 ? total : resultsLoaded;
+
         if (resultsLocalGroup) {
-            resultsLocalGroup.hidden = local.length === 0;
+            resultsLocalGroup.hidden =
+                resultsLocalGrid.children.length === 0;
         }
 
         if (resultsOtherGroup) {
-            resultsOtherGroup.hidden = elsewhere.length === 0;
+            resultsOtherGroup.hidden =
+                resultsOtherGrid.children.length === 0;
         }
 
         if (resultsSummary) {
             var parts = [];
+            var localCount = resultsLocalGrid.children.length;
+            var otherCount = resultsOtherGrid.children.length;
 
-            if (local.length) {
-                parts.push(local.length + ' in this folder');
+            if (localCount) {
+                parts.push(localCount + ' in this folder');
             }
 
-            if (elsewhere.length) {
-                parts.push(elsewhere.length + ' elsewhere');
+            if (otherCount) {
+                parts.push(otherCount + ' elsewhere');
             }
 
             resultsSummary.textContent = parts.length
@@ -869,11 +912,13 @@
         }
 
         if (resultsCount) {
-            resultsCount.textContent = items.length;
+            resultsCount.textContent = resultsTotal > 0
+                ? resultsLoaded + ' of ' + resultsTotal
+                : resultsLoaded;
         }
 
         if (resultsEmpty) {
-            resultsEmpty.hidden = items.length > 0;
+            resultsEmpty.hidden = resultsLoaded > 0;
         }
 
         if (folderSection) {
@@ -887,11 +932,29 @@
         resultsSection.hidden = false;
         app.classList.add('fm-results-open');
 
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        updateLoadMore();
+
+        if (!append) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     }
 
     if (resultsClose) {
         resultsClose.addEventListener('click', clearDeepResults);
+    }
+
+    if (loadMore) {
+        loadMore.addEventListener('click', function () {
+            var query = lastDeepQuery ||
+                (searchInput ? searchInput.value.trim() : '');
+
+            if (!query || resultsLoaded >= resultsTotal) {
+                return;
+            }
+
+            loadMore.disabled = true;
+            runDeepSearch(query, resultsLoaded, true);
+        });
     }
 
     // -----------------------------------------------------
